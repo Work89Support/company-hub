@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company Hub — ระบบศูนย์รวมงานองค์กร</title>
+<meta http-equiv="refresh" content="0; url=prototype/index.html">
+<link rel="canonical" href="prototype/index.html">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600&display=swap');
+  html,body{height:100%;margin:0}
+  body{font-family:'Kanit','Noto Sans Thai','Sarabun',sans-serif;
+       display:flex;align-items:center;justify-content:center;flex-direction:column;
+       background:linear-gradient(135deg,#eaf2ff 0%,#ffffff 100%);color:#1e3a8a;text-align:center;padding:24px}
+  .card{background:#fff;border:1px solid #dbe7ff;border-radius:16px;
+        box-shadow:0 8px 30px rgba(30,58,138,.10);padding:32px 40px;max-width:420px}
+  h1{font-size:22px;margin:0 0 6px}
+  p{color:#475569;margin:6px 0 18px;font-size:15px}
+  a.btn{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;
+        padding:12px 24px;border-radius:10px;font-weight:600;font-size:15px}
+  a.btn:hover{background:#1d4ed8}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;
+       margin:0 3px;animation:b 1s infinite alternate}
+  .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+  @keyframes b{to{opacity:.2;transform:translateY(-4px)}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Company Hub</h1>
+    <p>ระบบศูนย์รวมงานองค์กร<br><span class="dot"></span><span class="dot"></span><span class="dot"></span> กำลังเปิดระบบ…</p>
+    <a class="btn" href="prototype/index.html">เข้าใช้งานระบบ →</a>
+  </div>
+  <script>location.replace('prototype/index.html');</script>
+</body>
+</html>

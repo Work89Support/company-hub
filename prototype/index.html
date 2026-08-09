@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Company Hub — ระบบศูนย์รวมงานองค์กร (Prototype v2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue-900:#0b2a6b; --blue-800:#123a86; --blue-700:#1a49a6; --blue-600:#2158c8;
+  --blue-500:#2f6fe0; --blue-400:#5b8ff0; --blue-100:#e7effc; --blue-50:#f2f6fd;
+  --primary:#2158c8; --primary-d:#123a86;
+  --ink:#182338; --muted:#67769a; --line:#e4eaf3; --line-2:#eef2f9; --bg:#f4f7fc; --white:#ffffff; --surface:#ffffff;
+  --gray:#b7c0d0; --green:#00a878; --amber:#e8971b; --red:#e2445c; --sky:#2f8fe6; --purple:#7a53e0;
+  --radius:12px; --shadow:0 2px 10px rgba(20,58,134,.06); --shadow-lg:0 12px 40px rgba(20,58,134,.18);
+}
+body.dark{
+  --bg:#0e1626; --white:#16213a; --surface:#16213a; --ink:#e8eef8; --muted:#93a1bf;
+  --line:#28344f; --line-2:#1f2b44; --blue-50:#1b2942; --blue-100:#26385c;
+  --blue-700:#9cc0ff; --blue-400:#3f74d8; --shadow:0 2px 10px rgba(0,0,0,.35); --shadow-lg:0 14px 40px rgba(0,0,0,.5);
+}
+body.dark .ai-note,body.dark .exec-summary{background:linear-gradient(120deg,#1b2942,#173430);border-color:#28344f}
+body.dark .pin{background:linear-gradient(90deg,#1b2942,var(--surface))}
+body.dark .stbtn.active{color:#fff}
+body.dark .brandbar{filter:brightness(.9)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Kanit','Noto Sans Thai','Leelawadee UI','Sarabun',sans-serif;background:var(--bg);color:var(--ink);font-weight:300;font-size:13.5px;word-break:break-word;overflow-wrap:break-word;line-break:auto;-webkit-font-smoothing:antialiased}
+button,select,input,textarea{font-family:inherit;font-size:inherit}
+.nowrap{white-space:nowrap}
+td,.tile h4,.ann h4,.msg{word-break:break-word;overflow-wrap:break-word;line-break:auto}
+button{cursor:pointer}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#cdd8ea;border-radius:8px}
+
+/* Layout */
+.app{display:grid;grid-template-columns:248px 1fr;grid-template-rows:58px 1fr;height:100vh;grid-template-areas:"logo top" "side main"}
+.topbar{grid-area:top;background:var(--white);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 22px;z-index:20}
+.brandbar{grid-area:logo;background:linear-gradient(160deg,var(--blue-800),var(--blue-600));display:flex;align-items:center;gap:10px;padding:0 18px;color:#fff}
+.brandbar .logo{width:32px;height:32px;border-radius:9px;background:#fff;color:#123a86;display:grid;place-items:center;font-weight:700;font-size:17px}
+.brandbar b{font-weight:600;font-size:15.5px;letter-spacing:.2px}
+.brandbar span{font-size:10.5px;opacity:.8;display:block;font-weight:300;margin-top:-3px}
+.sidebar{grid-area:side;background:linear-gradient(180deg,var(--blue-800),var(--blue-900));color:#dfe8fb;padding:12px 12px;overflow-y:auto}
+.main{grid-area:main;overflow-y:auto;padding:18px 24px 60px}
+
+/* Topbar */
+.search{flex:1;max-width:380px;position:relative}
+.search input{width:100%;padding:8px 14px 8px 36px;border:1px solid var(--line);border-radius:9px;background:var(--blue-50);font-size:13px}
+.search::before{content:"🔍";position:absolute;left:11px;top:7px;opacity:.5;font-size:12px}
+.roleswitch{display:flex;background:var(--blue-50);border:1px solid var(--line);border-radius:9px;padding:3px}
+.roleswitch button{border:0;background:transparent;padding:6px 12px;border-radius:7px;font-size:12px;color:var(--muted);font-weight:400}
+.roleswitch button.active{background:var(--primary);color:#fff}
+.tbtn{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 12px;font-size:12.5px;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.tbtn:hover{border-color:var(--blue-400)}
+.tbtn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tbtn.sm{padding:5px 9px;font-size:11.5px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--blue-600);color:#fff;display:grid;place-items:center;font-weight:500;font-size:13px}
+
+/* Sidebar */
+.side-user{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;background:rgba(255,255,255,.08);margin-bottom:12px}
+.side-user .avatar{background:#fff;color:#123a86}
+.side-user small{display:block;opacity:.7;font-size:10.5px}
+.navgroup{font-size:10px;text-transform:uppercase;letter-spacing:.8px;opacity:.5;margin:12px 10px 5px}
+.navitem{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;color:#dfe8fb;font-size:13px;font-weight:300;margin-bottom:2px;border:0;background:transparent;width:100%;text-align:left}
+.navitem:hover{background:rgba(255,255,255,.09)}
+.navitem.active{background:var(--primary);color:#fff;font-weight:400}
+.navitem .ic{width:19px;text-align:center;font-size:14px}
+.navitem .badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:1px 7px;border-radius:20px}
+
+/* Header + breadcrumb */
+.crumb{font-size:11.5px;color:var(--muted);margin-bottom:6px}
+.crumb b{color:var(--blue-700);font-weight:500}
+.page-h{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.page-h h1{font-size:22px;font-weight:600}
+.page-h p{color:var(--muted);font-size:12.5px;font-weight:300;margin-top:2px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line-2)}
+.card-h h3{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card-h .act{font-size:11.5px;color:var(--muted)}
+.pad{padding:16px}
+.grid{display:grid;gap:14px}
+.hide{display:none!important}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11.5px;color:#fff;font-weight:400;white-space:nowrap}
+.tag{display:inline-block;padding:2px 9px;border-radius:6px;background:var(--blue-100);color:var(--blue-700);font-size:10.5px;margin:2px 3px 2px 0;font-weight:400}
+.muted{color:var(--muted)}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* Stat tiles */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);position:relative}
+.stat .lbl{color:var(--muted);font-size:11.5px}
+.stat .val{font-size:26px;font-weight:600;margin-top:3px;letter-spacing:-.5px}
+.stat .sub{font-size:11px;margin-top:2px}
+.stat .icn{position:absolute;right:13px;top:13px;font-size:19px;opacity:.22}
+.up{color:var(--green)} .down{color:var(--red)}
+.stat.accent{background:linear-gradient(150deg,var(--blue-700),var(--blue-500));color:#fff;border:0}
+.stat.accent .lbl,.stat.accent .sub{color:rgba(255,255,255,.85)}
+.stat.click{cursor:pointer;transition:.12s}
+.stat.click:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--blue-400)}
+.stat.accent.click:hover{filter:brightness(1.06)}
+.stat .go{position:absolute;right:12px;bottom:9px;font-size:10.5px;color:var(--blue-600);opacity:0;transition:.12s;font-weight:400}
+.stat.accent .go{color:#fff}
+.stat.click:hover .go{opacity:.95}
+.hlink{cursor:pointer}
+.hlink:hover{background:var(--blue-50);border-radius:6px}
+.legrow{cursor:pointer;border-radius:7px;padding:3px 6px!important}
+.legrow:hover{background:var(--blue-50)}
+
+/* Bars & KPI rows */
+.bar{height:8px;background:var(--blue-50);border-radius:6px;overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:6px}
+.kpirow{display:grid;grid-template-columns:170px 1fr 78px;gap:12px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line-2)}
+.kpirow:last-child{border-bottom:0}
+.kpirow .nm{font-size:12.5px} .kpirow .nm small{display:block;color:var(--muted);font-size:10.5px}
+.score{font-weight:600;text-align:right;font-size:13px}
+/* KPI item อ่านง่าย */
+.kpi-item{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-bottom:1px dashed var(--line-2)}
+.kpi-item:last-child{border-bottom:0}
+.kpi-icn{width:28px;height:28px;border-radius:9px;color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px;flex-shrink:0}
+.kpi-name{font-size:13px;font-weight:500;line-height:1.35}
+.kpi-val{font-size:12px}
+.kpi-val b{font-size:14px}
+
+/* Horizontal magnitude bars (charts) */
+.hbar{display:grid;grid-template-columns:130px 1fr 46px;gap:10px;align-items:center;padding:5px 0;font-size:12px}
+.hbar .track{height:20px;background:var(--blue-50);border-radius:5px;overflow:hidden}
+.hbar .track>i{display:block;height:100%;background:var(--primary);border-radius:5px;min-width:3px}
+.hbar .num{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:11.5px;margin-top:6px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+
+/* Filter toolbar */
+.filterbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px 12px;box-shadow:var(--shadow);margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.filterbar .fsearch{position:relative;flex:1;min-width:180px}
+.filterbar .fsearch input{width:100%;padding:7px 12px 7px 30px;border:1px solid var(--line);border-radius:8px;font-size:12.5px;background:var(--blue-50)}
+.filterbar .fsearch::before{content:"🔍";position:absolute;left:10px;top:6px;opacity:.45;font-size:11px}
+.fsel{display:flex;align-items:center;gap:5px;font-size:12px}
+.fsel select{padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:12px;background:var(--surface);color:var(--ink)}
+.fsel label{color:var(--muted);font-size:11px}
+.fdiv{width:1px;height:24px;background:var(--line)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.fchip{display:inline-flex;align-items:center;gap:6px;background:var(--blue-100);color:var(--blue-700);padding:4px 10px;border-radius:20px;font-size:11.5px;border:0}
+.fchip b{font-weight:500}
+.fchip .rm{cursor:pointer;opacity:.6;font-weight:600}
+.fchip .rm:hover{opacity:1}
+.resultline{font-size:11.5px;color:var(--muted);margin:2px 0 10px}
+
+/* Table (Monday board) */
+.board{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin-bottom:14px}
+.board-grp{padding:11px 15px 5px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;font-size:10.5px;color:var(--muted);font-weight:500;padding:8px 12px;background:var(--blue-50);border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.4px;cursor:pointer;user-select:none}
+thead th:hover{color:var(--blue-700)}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line-2);font-size:12.5px;vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--blue-50)}
+.trow-lead{border-left:3px solid var(--red)}
+.people{display:flex;align-items:center;gap:6px}
+.mini{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;color:#fff;font-weight:500;flex-shrink:0}
+tfoot td{padding:9px 12px;font-size:11.5px;font-weight:500;background:var(--blue-50);border-top:1px solid var(--line);color:var(--muted)}
+
+/* Timeline */
+.tl-row{display:grid;grid-template-columns:210px 1fr;gap:10px;align-items:center;padding:6px 0}
+.tl-track{position:relative;height:24px;background:var(--blue-50);border-radius:7px}
+.tl-bar{position:absolute;height:24px;border-radius:7px;color:#fff;font-size:10.5px;display:flex;align-items:center;padding:0 8px;white-space:nowrap;overflow:hidden}
+.tl-scale{display:grid;grid-template-columns:repeat(10,1fr);font-size:10px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:6px}
+
+/* Tiles */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:15px;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.tile:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--blue-400)}
+.tile h4{font-size:14px;font-weight:600;margin-bottom:5px}
+.tile .meta{font-size:11px;color:var(--muted)}
+
+/* Announcements / feed */
+.ann{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-2)}
+.ann:last-child{border:0}
+.ann .who{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:600;flex-shrink:0}
+.ann h4{font-size:13.5px;font-weight:600}
+.ann .body{font-size:12.5px;color:#43506e;margin-top:3px;font-weight:300}
+.ann .time{font-size:10.5px;color:var(--muted);margin-top:4px}
+.pin{background:linear-gradient(90deg,var(--blue-50),#fff);border-left:3px solid var(--amber);padding-left:12px}
+.feed-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line-2);font-size:12.5px}
+.feed-item .fi{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;font-size:13px}
+
+/* Reports */
+.rep-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);margin-bottom:14px}
+.seg{display:inline-flex;background:var(--blue-50);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 13px;border-radius:7px;font-size:12px;color:var(--muted);font-weight:400}
+.seg button.active{background:var(--primary);color:#fff}
+.exec-summary{background:linear-gradient(120deg,#f2f6fd,#eef7f3);border:1px solid var(--blue-100);border-radius:var(--radius);padding:16px 18px;font-size:13px;line-height:1.75;font-weight:300}
+/* Monthly report form */
+.rpt{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:26px 30px;max-width:920px;margin:0 auto}
+.rpt h2{font-size:18px;text-align:center;font-weight:600}
+.rpt .rsub{text-align:center;color:var(--muted);font-size:12px;margin-bottom:14px}
+.rpt h3{font-size:14px;font-weight:600;margin:18px 0 8px;border-left:4px solid var(--primary);padding-left:9px}
+.rpt table{width:100%;border-collapse:collapse;margin-top:4px}
+.rpt th,.rpt td{border:1px solid var(--line);padding:6px 9px;font-size:12px;text-align:left;vertical-align:top}
+.rpt th{background:var(--blue-50);font-weight:500}
+.rpt .rmeta{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;font-size:12.5px;margin:6px 0 4px}
+.rpt .rmeta b{font-weight:500}
+.gyr{display:inline-block;padding:1px 8px;border-radius:20px;color:#fff;font-size:11px;font-weight:500}
+.rbox{border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12.5px;margin:4px 0;background:var(--blue-50)}
+.exec-summary b{color:var(--blue-800);font-weight:500}
+.donut-wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+
+/* Chat */
+.chat{display:flex;flex-direction:column;height:calc(100vh - 200px);min-height:420px}
+.chat-body{flex:1;overflow-y:auto;padding:6px 4px}
+.msg{max-width:76%;padding:10px 14px;border-radius:13px;margin:7px 0;font-size:13px;line-height:1.55;font-weight:300}
+.msg.u{background:var(--primary);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.msg.a{background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.a .q{font-family:monospace;font-size:11px;background:var(--blue-50);padding:6px 9px;border-radius:8px;color:var(--blue-800);margin:6px 0;display:block}
+.chip{display:inline-block;background:var(--blue-50);border:1px solid var(--line);color:var(--blue-700);padding:6px 11px;border-radius:20px;font-size:12px;margin:4px 6px 0 0;cursor:pointer}
+.chip:hover{background:var(--blue-100)}
+.chat-in{display:flex;gap:10px;margin-top:10px}
+.chat-in input{flex:1;padding:11px 15px;border:1px solid var(--line);border-radius:11px;font-size:13.5px}
+.datatable td,.datatable th{padding:5px 9px;font-size:11.5px;border-bottom:1px solid var(--line-2);text-align:left}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(11,42,107,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border-radius:16px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;position:sticky;top:0;background:var(--surface);z-index:2}
+.modal-h h3{font-size:17px;font-weight:600}
+.x{border:0;background:var(--blue-50);width:32px;height:32px;border-radius:9px;font-size:17px;color:var(--muted)}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.field .v{font-size:13.5px}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:13px}
+.kv .k{color:var(--muted)}
+.step{display:flex;gap:10px;padding:6px 0;font-size:12.5px}
+.step .n{width:21px;height:21px;border-radius:50%;background:var(--blue-100);color:var(--blue-700);display:grid;place-items:center;font-size:10.5px;flex-shrink:0;font-weight:500}
+.ai-note{background:linear-gradient(120deg,#f2f6fd,#eaf7f2);border:1px solid var(--blue-100);border-radius:11px;padding:11px 13px;font-size:12.5px;margin-top:8px}
+.ai-note b{color:var(--blue-700)}
+textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:13px;background:var(--surface);color:var(--ink)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast-item{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--green);border-radius:10px;padding:11px 15px;box-shadow:var(--shadow-lg);font-size:12.5px;max-width:340px;transition:opacity .3s;animation:tin .25s ease}
+.toast-item.info{border-left-color:var(--primary)}
+@keyframes tin{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+.checkbox{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.sub-item{display:flex;gap:10px;padding:7px 8px;font-size:12.5px;align-items:center;cursor:pointer;border-radius:8px;border:1px solid var(--line-2);margin-bottom:5px}
+.sub-item:hover{background:var(--blue-50);border-color:var(--blue-400)}
+.sub-item .cyc{margin-left:auto;font-size:10px;color:var(--muted);opacity:0}
+.sub-item:hover .cyc{opacity:1}
+/* Status buttons (segmented) */
+.statusbtns{display:flex;flex-wrap:wrap;gap:6px}
+.stbtn{border:1.5px solid var(--line);background:var(--surface);color:var(--muted);padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:400;transition:.12s}
+.stbtn:hover{border-color:var(--c);color:var(--c)}
+.stbtn.active{background:var(--c);border-color:var(--c);color:#fff;font-weight:500;box-shadow:0 2px 8px color-mix(in srgb,var(--c) 40%,transparent)}
+.logline{display:flex;gap:9px;padding:6px 0;font-size:12px;border-bottom:1px dashed var(--line-2)}
+/* Voice */
+#micBtn.listening{background:var(--red)!important;color:#fff!important;border-color:var(--red)!important;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,68,92,.5)}50%{box-shadow:0 0 0 7px rgba(226,68,92,0)}}
+.fdate{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:12px;background:var(--surface);color:var(--ink)}
+/* Print (PDF export) */
+@media print{
+  .brandbar,.sidebar,.topbar,.filterbar,.chips,#toast,.rep-head,.page-h .tbtn{display:none!important}
+  .app{display:block;height:auto}.main{overflow:visible;padding:0}
+  .card,.board,.stat{box-shadow:none;break-inside:avoid}
+  body{background:#fff}
+}
+
+#hamb{display:none}
+.scrim{display:none;position:fixed;inset:0;background:rgba(11,42,107,.4);z-index:55}
+/* Org chart */
+.orggrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
+.orgcol{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.orghead{color:#fff;padding:11px 14px}
+.orghead .c{font-size:10px;opacity:.85}
+.orghead b{font-size:13px;display:block;line-height:1.25;margin-top:1px}
+.orghead .th{font-size:11px;opacity:.92;font-weight:300;margin-top:2px}
+.orgteam{margin:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--blue-50)}
+.orgteam>b{font-size:12.5px}
+.orgteam .tsub{color:var(--muted);font-size:10.5px;margin-top:1px}
+.orgrole{display:flex;align-items:center;gap:7px;font-size:11px;padding:3px 0;color:#42506e}
+.execbox{background:linear-gradient(160deg,var(--blue-900),var(--blue-700));color:#fff;padding:12px 30px;border-radius:12px;text-align:center;box-shadow:var(--shadow)}
+@media(max-width:1100px){.orggrid{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.orggrid{grid-template-columns:1fr}}
+@media(max-width:1100px){.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:960px){
+  .app{grid-template-columns:1fr;grid-template-rows:58px 1fr;grid-template-areas:"top top" "main main"}
+  .brandbar{display:none}
+  #hamb{display:inline-flex}
+  .sidebar{position:fixed;left:-260px;top:0;bottom:0;width:248px;z-index:60;transition:left .2s}
+  body.nav-open .sidebar{left:0}
+  body.nav-open .scrim{display:block}
+  .topbar{gap:8px;padding:0 12px}
+  .search{min-width:0}
+}
+</style>
+</head>
+<body data-palette="#2f8fe6,#e8971b,#e2445c,#00a878,#7a53e0">
+<div class="app">
+  <div class="brandbar">
+    <div class="logo">CH</div>
+    <div><b>Company Hub</b><span>ศูนย์รวมงานองค์กร</span></div>
+  </div>
+
+  <div class="topbar">
+    <button class="tbtn" id="hamb" title="เมนู" onclick="document.body.classList.toggle('nav-open')">☰</button>
+    <div class="search"><input placeholder="ค้นหางาน / รหัส / แท็ก แล้วกด Enter" onkeydown="if(event.key==='Enter'){F.q=this.value;go('board');this.value=''}" /></div>
+    <div class="roleswitch" id="roleSwitch">
+      <button data-role="staff">👤 พนักงาน</button>
+      <button data-role="lead" class="active">🧑‍💼 หัวหน้างาน</button>
+      <button data-role="exec">👔 ผู้บริหาร</button>
+    </div>
+    <button class="tbtn" id="micBtn" title="สั่งการด้วยเสียง (พูดภาษาไทย)" onclick="voiceCommand()">🎤 พูดสั่ง</button>
+    <button class="tbtn primary" onclick="openCompose()">✨ สร้างงาน (AI)</button>
+    <button class="tbtn" id="bell" title="ประกาศที่ต้องรับทราบ" onclick="showAckPopup(true)">🔔</button>
+    <button class="tbtn" id="themeBtn" title="สลับโหมดกลางวัน/กลางคืน" onclick="toggleTheme()">🌙</button>
+    <div class="avatar" id="topAvatar">ธ</div>
+  </div>
+
+  <div class="sidebar">
+    <div class="side-user">
+      <div class="avatar" id="sideAvatar">ธ</div>
+      <div><div id="sideName" style="font-size:13px">—</div><small id="sideRole">—</small></div>
+    </div>
+    <div class="navgroup">เมนูหลัก</div>
+    <nav id="nav"></nav>
+    <div class="navgroup">แผนก</div>
+    <div id="deptNav" style="font-size:12px"></div>
+    <button class="navitem" style="margin-top:14px;opacity:.75;font-size:12px" onclick="resetDemo()"><span class="ic">↺</span>รีเซ็ตข้อมูลตัวอย่าง</button>
+  </div>
+
+  <div class="main" id="main"></div>
+</div>
+
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal"></div>
+</div>
+<div id="toast"></div>
+<div class="scrim" onclick="document.body.classList.remove('nav-open')"></div>
+
+<script>
+/* ============================================================
+   DATA
+============================================================ */
+const DEPTS = [
+  {code:'KPI',   name:'แผนก KPI',            color:'#7a53e0'},
+  {code:'MKT',   name:'การตลาด',             color:'#e2445c'},
+  {code:'GRAPHIC',name:'กราฟิก',             color:'#2f8fe6'},
+  {code:'CRM',   name:'ลูกค้าสัมพันธ์ (CRM)', color:'#00a878'},
+  {code:'ADMIN', name:'แอดมิน',              color:'#e8971b'},
+  {code:'QC',    name:'QC & Back Office',     color:'#2158c8'},
+  {code:'FIN',   name:'การเงิน',             color:'#0b7a75'},
+  {code:'BO',    name:'Back Office Mgmt',     color:'#67769a'},
+];
+const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
+const deptName  = c => (DEPTS.find(d=>d.code===c)||{}).name || c;
+/* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
+const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04'};
+const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
+const deptGroup=c=>DEPT_GROUP[c]||'01';
+const userLevel=id=>(String(id).startsWith('lead')||id==='boss')?'head':'staff';
+const levelName=l=>l==='head'?'หัวหน้างาน':'พนักงาน';
+
+const USERS = {
+  boss:{n:'คุณธนกร (ผู้บริหาร)',s:'ธ',c:'#0b2a6b'},
+  lead_gr:{n:'พิมพ์ (หัวหน้ากราฟิก)',s:'พ',c:'#2f8fe6'},
+  lead_crm:{n:'วีร์ (หัวหน้า CRM)',s:'ว',c:'#00a878'},
+  lead_mkt:{n:'นัท (หัวหน้าการตลาด)',s:'น',c:'#e2445c'},
+  a:{n:'ฟ้า',s:'ฟ',c:'#2f6fe0'}, b:{n:'ต้น',s:'ต',c:'#e8971b'},
+  c:{n:'มิ้น',s:'ม',c:'#7a53e0'}, d:{n:'โบ๊ท',s:'บ',c:'#0b7a75'},
+  e:{n:'จู',s:'จ',c:'#e2445c'}, f:{n:'เก่ง',s:'ก',c:'#2f8fe6'},
+};
+const u = id => USERS[id]||{n:id,s:'?',c:'#888'};
+
+/* กลุ่ม/ทีม — ตั้งไว้ล่วงหน้า กดเลือกทั้งกลุ่มได้ */
+let GROUPS=[
+  {id:'g_gr', name:'ทีมกราฟิก',          dept:'GRAPHIC', members:['lead_gr','a','f']},
+  {id:'g_crm',name:'ทีม CRM',            dept:'CRM',     members:['lead_crm','b','e']},
+  {id:'g_mkt',name:'ทีมการตลาด',         dept:'MKT',     members:['lead_mkt','c']},
+  {id:'g_fin',name:'ทีมการเงิน',         dept:'FIN',     members:['d']},
+  {id:'g_qc', name:'ทีม QC & Back Office',dept:'QC',     members:['e','d']},
+  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt']},
+];
+const groupById=id=>GROUPS.find(g=>g.id===id);
+
+const STATUS = {
+  todo :{t:'ยังไม่เริ่ม',c:'#b7c0d0'},
+  doing:{t:'กำลังทำ',   c:'#2f8fe6'},
+  review:{t:'รอตรวจ',   c:'#e8971b'},
+  block:{t:'ติดปัญหา',  c:'#e2445c'},
+  done :{t:'เสร็จ',     c:'#00a878'},
+};
+const PRIO = {high:{t:'สูง',c:'#e2445c'},mid:{t:'กลาง',c:'#e8971b'},low:{t:'ต่ำ',c:'#00a878'}};
+
+const TASKS = [
+  {id:'T-1042',dept:'GRAPHIC',title:'ออกแบบแบนเนอร์โปรฯ ฝากครั้งแรก 3XBET',creator:'lead_mkt',assignee:'a',status:'doing',prio:'high',start:'08-05',due:'08-08',spent:4,ontime:true,tags:['แบนเนอร์','โปรโมชั่น'],sop:'SOP-GR',
+    desc:'ทำแบนเนอร์เว็บ + ภาพบรอดแคสต์ไลน์/เทเลแกรม ตามบรีฟทีมการตลาด',sub:[{t:'ดราฟต์ v1',who:'a',st:'done'},{t:'รีทัชภาพหลัก',who:'f',st:'doing'}]},
+  {id:'T-1039',dept:'GRAPHIC',title:'ตัดต่อวิดีโอรีวิวลูกค้า 30 วินาที',creator:'lead_gr',assignee:'f',status:'review',prio:'mid',start:'08-04',due:'08-07',spent:6,ontime:true,tags:['วิดีโอ'],sop:'SOP-GR',desc:'ตัดต่อคลิปสั้นลง Social',sub:[]},
+  {id:'T-1055',dept:'CRM',title:'โทรติดตามลูกค้าใหม่รอบเช้า (ลิสต์ 80 ราย)',creator:'lead_crm',assignee:'b',status:'doing',prio:'high',start:'08-07',due:'08-07',spent:2,ontime:true,tags:['Realtime','โทรออก'],sop:'SOP-CRM',desc:'โทรหาลูกค้าสมัครใหม่ แนะนำโปรฯ และกระตุ้นการฝากครั้งแรก',sub:[]},
+  {id:'T-1051',dept:'CRM',title:'ดึงลูกค้าหายกลับ (Win-back) กลุ่มเงียบ 14 วัน',creator:'boss',assignee:'lead_crm',status:'doing',prio:'high',start:'08-06',due:'08-09',spent:3,ontime:true,tags:['Retention','แคมเปญ'],sop:'SOP-CRM',desc:'ทำแคมเปญโทร+ข้อความดึงลูกค้าที่ไม่เล่นเกิน 14 วัน',sub:[{t:'แบ่งกลุ่มลูกค้า',who:'b',st:'done'},{t:'ร่างสคริปต์โทร',who:'e',st:'review'}]},
+  {id:'T-1060',dept:'MKT',title:'วางแผนคอนเทนต์สัปดาห์หน้า (X / VK / Telegram)',creator:'lead_mkt',assignee:'c',status:'doing',prio:'mid',start:'08-06',due:'08-08',spent:2.5,ontime:true,tags:['คอนเทนต์','แพลน'],sop:'SOP-MKT',desc:'คัดหัวข้อคอนเทนต์ + ปฏิทินโพสต์ 3 แพลตฟอร์ม',sub:[]},
+  {id:'T-1058',dept:'MKT',title:'สรุปวิเคราะห์ Engagement แคมเปญสัปดาห์นี้',creator:'boss',assignee:'lead_mkt',status:'review',prio:'mid',start:'08-05',due:'08-07',spent:3,ontime:true,tags:['วิเคราะห์','รายงาน'],sop:'SOP-MKT',desc:'ดึง Data → คลีน Excel → สรุปผล → เขียนรายงาน',sub:[]},
+  {id:'T-1071',dept:'FIN',title:'อนุมัติรายการเบิกจ่ายประจำวัน',creator:'boss',assignee:'d',status:'doing',prio:'high',start:'08-07',due:'08-07',spent:0.7,ontime:true,tags:['เบิกจ่าย'],sop:'SOP-FIN',desc:'พิจารณา/อนุมัติยอดเบิก แล้วโอน — มีบอทช่วยดึงข้อมูล',sub:[]},
+  {id:'T-1066',dept:'FIN',title:'จัดทำสรุปยอดกระแสเงินสดรายเดือน (ก.ค.)',creator:'lead_crm',assignee:'d',status:'block',prio:'high',start:'08-03',due:'08-06',spent:8,ontime:false,tags:['สรุปเดือน','กระทบยอด'],sop:'SOP-FIN',desc:'ลงยอดเงินกระแส + กระทบยอด — ติดปัญหายอดไม่ตรง 2 รายการ',sub:[]},
+  {id:'T-1080',dept:'QC',title:'ตรวจคุณภาพการตอบแชทกะดึก',creator:'lead_crm',assignee:'e',status:'doing',prio:'mid',start:'08-07',due:'08-07',spent:1.5,ontime:true,tags:['QC','แชท'],sop:'SOP-QC',desc:'สุ่มตรวจแชท จับเคสตอบล่าช้า สรุปคะแนนคุณภาพ',sub:[]},
+  {id:'T-1081',dept:'QC',title:'จัดหา/สั่งบัญชีกับนายหน้า (รอบสัปดาห์)',creator:'boss',assignee:'d',status:'todo',prio:'mid',start:'08-08',due:'08-10',spent:0,ontime:true,tags:['BC','บัญชี'],sop:'SOP-QC',desc:'คุยนายหน้า สั่งบัญชี ตรวจสอบหน้าเว็บ',sub:[]},
+  {id:'T-1090',dept:'ADMIN',title:'สรุปเคสค้างข้ามวัน + ส่งต่อทีมที่เกี่ยวข้อง',creator:'boss',assignee:'lead_crm',status:'done',prio:'mid',start:'08-06',due:'08-06',spent:1,ontime:true,tags:['เคส','ประสานงาน'],sop:'SOP-ADMIN',
+    desc:'รวบรวมเคสที่ยังไม่ปิด แจกจ่ายทีม',solution:'พบว่าเคสค้างส่วนใหญ่เกิดจากลูกค้าส่งสลิปไม่ชัด → แก้โดยตั้งข้อความอัตโนมัติขอสลิปใหม่ทันที ลดเคสค้างลง 60%',sub:[]},
+  {id:'T-1030',dept:'GRAPHIC',title:'แก้ไฟล์ส่งออกผิดสเปกช่อง Telegram',creator:'lead_gr',assignee:'a',status:'done',prio:'low',start:'08-04',due:'08-05',spent:1,ontime:true,tags:['ไฟล์','แก้ไข'],sop:'SOP-GR',
+    desc:'ไฟล์ที่ส่งออกความละเอียดไม่ตรงข้อกำหนด',solution:'ตั้ง Preset การ Export ต่อช่องทาง (เว็บ/ไลน์/เทเลแกรม) ไว้ใน Photoshop เป็นเทมเพลตกลาง ป้องกันส่งผิดสเปกซ้ำ',sub:[]},
+  {id:'T-1024',dept:'ADMIN',title:'ตอบแชทลูกค้ากะบ่าย + ปิดเคสด่วน',creator:'lead_crm',assignee:'e',status:'done',prio:'low',start:'08-05',due:'08-05',spent:5,ontime:true,tags:['แชท','เคส'],sop:'SOP-ADMIN',desc:'ดูแลแชทลูกค้าและปิดเคส',sub:[]},
+  {id:'T-1018',dept:'MKT',title:'ปล่อยแคมเปญโบนัสวันหยุด',creator:'lead_mkt',assignee:'c',status:'done',prio:'mid',start:'08-02',due:'08-04',spent:6,ontime:false,tags:['แคมเปญ'],sop:'SOP-MKT',desc:'จัดแคมเปญโบนัส',sub:[]},
+];
+
+const KPI = {
+  CRM:[{n:'สายโทรออก/คน/วัน',tg:'≥80',ac:76,pct:95},{n:'อัตราลูกค้ากลับมา (Retention)',tg:'≥45%',ac:48,pct:107},{n:'เวลาตอบลูกค้า',tg:'≤5น.',ac:4,pct:110}],
+  GRAPHIC:[{n:'ชิ้นงานเสร็จ/คน/วัน',tg:'≥6',ac:6.4,pct:107},{n:'ส่งงานตรงเวลา',tg:'≥90%',ac:84,pct:93},{n:'รอบแก้ไขเฉลี่ย',tg:'≤2',ac:2.4,pct:80}],
+  MKT:[{n:'โพสต์คอนเทนต์/วัน',tg:'≥8',ac:9,pct:112},{n:'Engagement Rate',tg:'≥5%',ac:4.6,pct:92},{n:'แคมเปญตามแผน',tg:'≥95%',ac:96,pct:101}],
+  FIN:[{n:'เวลาอนุมัติเบิกจ่าย',tg:'≤30น.',ac:26,pct:110},{n:'ความถูกต้องสรุปเดือน',tg:'100%',ac:97,pct:97},{n:'รายการค้างสิ้นวัน',tg:'0',ac:2,pct:70}],
+  QC:[{n:'แชทที่ตรวจ/วัน',tg:'≥300',ac:312,pct:104},{n:'อัตราตอบแชทล่าช้า',tg:'≤3%',ac:3.4,pct:88},{n:'คะแนนคุณภาพบริการ',tg:'≥90',ac:91,pct:101}],
+  ADMIN:[{n:'เวลาตอบแชทเฉลี่ย',tg:'≤1น.',ac:1.1,pct:91},{n:'เคสที่ปิด/วัน',tg:'≥120',ac:131,pct:109},{n:'เคสค้างข้ามวัน',tg:'≤5',ac:4,pct:108}],
+};
+/* คะแนนรวมแผนก: แต่ละตัวชี้วัดนับได้สูงสุด 100% (ทำเกินเป้าไม่บวกเพิ่ม) → คะแนนรวมเต็ม 100 พอดี */
+const deptScore = code => { const a=KPI[code]; if(!a)return null; return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100),0)/a.length); };
+const scoreColor = s => s>=90?'var(--green)':s>=75?'var(--amber)':'var(--red)';
+const scoreLabel = s => s>=90?'ดีมาก':s>=75?'ตามเป้า':'ต้องปรับปรุง';
+function kpiLegend(){return `<div class="legend" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2)">
+  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--green)">✓</span> ผ่านเป้า</span>
+  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--amber)">≈</span> เกือบถึง (85–99%)</span>
+  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--red)">!</span> ต่ำกว่าเป้า</span>
+  <span class="muted" style="font-size:11px">คะแนนรวมแผนกเต็ม 100</span></div>`;}
+const KPI_TREND = {label:'คะแนน KPI รวมบริษัท (5 สัปดาห์)',pts:[92,90,94,95,99],weeks:['W27','W28','W29','W30','W31']};
+const BIZ = {customers:[980,1040,1010,1180,1284], revenue:[620,680,590,740,842], completed:[9,11,10,13,15]};
+
+const SOPS = [
+  {id:'SOP-KPI',dept:'KPI',title:'Workflow แผนก KPI',v:'1.2',steps:['รับนโยบายจากผู้บริหาร','ประชุมแต่ละแผนก เก็บหน้าที่/เป้า/ปัญหา','ออกแบบ KPI (Target/Weight/รอบวัด)','จัดทำ Dashboard','ติดตามผล วัน/สัปดาห์/เดือน','วิเคราะห์ปัญหา หา Root Cause','ติดตามการแก้ไข (Action Plan)','รายงานผู้บริหาร']},
+  {id:'SOP-GR',dept:'GRAPHIC',title:'Workflow กราฟิก',v:'2.0',steps:['รับบรีฟ + ตรวจข้อมูลประกอบ','วางแผน/ประเมินเวลา/มอบหมาย','ออกแบบ + จัดองค์ประกอบ','ตรวจสอบภายใน (คำ/วันที่/โลโก้)','ส่งตรวจกับผู้สั่งงาน แก้จนอนุมัติ','ตั้งชื่อไฟล์มาตรฐาน + จัดเก็บ/ปิดงาน']},
+  {id:'SOP-CRM',dept:'CRM',title:'Workflow CRM (Realtime & Retention)',v:'1.1',steps:['รับลิสต์ลูกค้า/เป้าหมายรายวัน','โทรหาลูกค้าใหม่ + แนะนำโปรฯ','ดูแลลูกค้าเดิม + กระตุ้นการเล่น','บันทึกผลการติดต่อลงระบบ','ติดตามลูกค้าหาย (Win-back)','สรุปผลรายวัน/แจ้งหัวหน้า']},
+  {id:'SOP-MKT',dept:'MKT',title:'Workflow การตลาด',v:'1.3',steps:['คัดคอนเทนต์ + ตรวจอาร์ตเวิร์ก','โพสต์ Social (X/VK/Telegram)','ตอบคอมเมนต์/Inbox','ดึง Data + คลีน Excel','สรุปผล + เขียนรายงานวิเคราะห์']},
+  {id:'SOP-FIN',dept:'FIN',title:'Workflow การเงิน',v:'1.0',steps:['รับรายการเบิกจ่าย','พิจารณา/อนุมัติยอด','โอนยอดเบิกจ่าย (มีบอทช่วย)','ลงยอดกระแสเงินสด','ทำสรุปเดือน + กระทบยอด']},
+  {id:'SOP-QC',dept:'QC',title:'Workflow QC Chat & Back Office',v:'1.0',steps:['เริ่มตรวจคุณภาพการตอบแชท','จับเคสตอบล่าช้า/ผิดเกณฑ์','แจ้งทีมที่เกี่ยวข้อง','ตรวจบัญชีหน้าเว็บ (BC)','จัดหา/สั่งบัญชีกับนายหน้า','สรุปคะแนนคุณภาพ']},
+  {id:'SOP-ADMIN',dept:'ADMIN',title:'Workflow แอดมิน',v:'1.0',steps:['รับแชท/เคสลูกค้า','ตอบและแก้ปัญหาเบื้องต้น','ส่งต่อทีมที่เกี่ยวข้อง','ติดตามจนปิดเคส','สรุปเคสค้างประจำวัน']},
+];
+
+/* เอกสารกลาง / ระเบียบ */
+const DOCS=[{id:'REG-01',title:'ระเบียบการประชุมติดตามผลการดำเนินงานประจำเดือน',en:'Monthly Performance Review Meeting Regulation',owner:'Executive / KPI / Secret',rev:'Rev.00',
+ sections:[
+  {h:'1. วัตถุประสงค์',items:['ให้ผู้บริหารติดตามผลการดำเนินงานของทุกหน่วยงานอย่างเป็นระบบและต่อเนื่อง','เปรียบเทียบผลจริงกับเป้าหมาย/KPI และระบุประเด็นที่ต้องเร่งแก้ไข','ให้ทุกมติและงานติดตามมีผู้รับผิดชอบ กำหนดเวลา และสถานะที่ชัดเจน','ให้การตัดสินใจของ Executive Board ใช้ข้อมูลชุดเดียวกันและตรวจสอบย้อนหลังได้']},
+  {h:'2. ขอบเขตและหน่วยงานที่เข้าร่วม',items:['ใช้กับการประชุมติดตามประจำเดือนของทุกหน่วยงาน จัดลำดับตามโครงสร้าง 4 กลุ่ม: 01 Corporate & Governance / 02 Brand, Content & Marketing / 03 Technology & Customer / 04 Operations & Quality']},
+  {h:'3. ความถี่และกำหนดการประชุม',items:['ประชุมอย่างน้อยเดือนละ 1 ครั้ง ภายใน 7 วันทำการแรกของเดือนถัดไป','แจ้งวัน/เวลา/สถานที่-ลิงก์ และ Agenda ล่วงหน้าอย่างน้อย 3 วันทำการ','ทุกหน่วยงานส่ง Monthly Report + KPI ก่อนประชุมอย่างน้อย 1 วันทำการ']},
+  {h:'4. ผู้เข้าร่วมและหน้าที่',items:['ประธาน: Executive Board — กำหนดทิศทาง ตัดสินใจ อนุมัติ สั่งการ','ผู้รายงาน: Head/Manager แต่ละทีม — รายงาน KPI/ผลงาน/ปัญหา/Action Plan','KPI Team — รวบรวม/ตรวจสอบข้อมูล สรุป Target vs Actual','Secret Team — เลขานุการ: Agenda, บันทึกมติ, Action List, ติดตาม Due Date']},
+  {h:'5. ข้อมูลมาตรฐานที่ทุกฝ่ายต้องรายงาน',items:['KPI/Target ประจำเดือน และผล Actual','ผลงาน/Milestone ที่เสร็จในเดือน','งานค้างจากเดือนก่อนและสถานะล่าสุด','ปัญหา/ความเสี่ยง พร้อมสาเหตุและผลกระทบ','Corrective/Preventive Action','แผนงานและเป้าหมายเดือนถัดไป','เรื่องขอ Support/การตัดสินใจจาก Executive Board']},
+  {h:'6. Agenda มาตรฐาน',items:['1) Previous Action','2) KPI Review','3) Performance','4) Problem / Issue','5) Corrective Action','6) Next Month Plan','7) Support Required','8) Management Decision','9) Action Items']},
+  {h:'7. กติกาการนำเสนอ',items:['แต่ละทีม 10–15 นาที','เรื่องตามเป้ารายงานย่อ เน้นเวลากับ Yellow/Red หรือเรื่องที่ต้องตัดสินใจ','ข้อมูลต้องมีตัวเลข/หลักฐานรองรับ','ห้ามเล่ากิจกรรมย้อนหลังโดยไม่มีข้อสรุป/Action']},
+  {h:'8. ระบบสถานะงาน',items:['Green = เป็นไปตามแผน','Yellow = มีความเสี่ยง ต้องมีแผนแก้ไข','Red = ไม่เป็นไปตามเป้า/เกินกำหนด ต้องระบุสาเหตุ + Owner + Due ใหม่','Completed = เสร็จสิ้น ปิดงานเมื่อมีหลักฐานยืนยัน']},
+  {h:'9. การควบคุม Action Item',items:['ทุก Action ต้องมี: Action / Owner / Due Date / Status / Remark','Action ที่ยังไม่ Completed ต้องยกไปติดตามเป็นวาระแรกในเดือนถัดไป','Action ที่เกิน Due ต้องระบุสาเหตุ + กำหนด Due ใหม่ โดยไม่ลบประวัติเดิม','เปลี่ยน Owner/Due ที่มีผลต่อแผนหลัก ต้องได้รับความเห็นชอบจากผู้บังคับบัญชา/ประธาน']},
+  {h:'10. การบันทึกและเผยแพร่มติ',items:['Secret Team จัดทำ Meeting Minutes + Action List ภายใน 1 วันทำการ','ผู้เข้าร่วมตรวจ/แจ้งแก้ไขภายใน 1 วันทำการ','เอกสารฉบับสุดท้ายเป็นข้อมูลอ้างอิงเดือนถัดไป']},
+  {h:'11. การขาดประชุมและการมอบหมายแทน',items:['แจ้ง Secret Team ล่วงหน้า + มอบผู้แทนที่มีข้อมูลเพียงพอ','ไม่ส่งรายงาน/ไม่เข้าประชุมโดยไม่มีผู้แทน บันทึกไว้ใน Minutes']},
+  {h:'12. หลักการสรุปการประชุม',items:['ติดตามผล → ระบุปัญหา → ตัดสินใจ → มอบหมาย → ปิดงาน']},
+  {h:'13. การอนุมัติใช้ระเบียบ',items:['จัดทำโดย ______ · ตรวจสอบโดย ______ · อนุมัติโดย Executive Board']},
+ ]}];
+
+const KB = [
+  {id:'KB-08',dept:'ADMIN',title:'ลดเคสค้างจากสลิปไม่ชัด',problem:'ลูกค้าส่งสลิปโอนเงินไม่ชัด ทำให้เคสค้างข้ามวันจำนวนมาก',solution:'ตั้งข้อความอัตโนมัติขอสลิปใหม่ทันทีเมื่อระบบอ่านไม่ออก + เพิ่มตัวอย่างสลิปที่ถูกต้อง ลดเคสค้างลง ~60%',from:'T-1090',tags:['เคส','แชท','automation']},
+  {id:'KB-05',dept:'GRAPHIC',title:'กันไฟล์ส่งออกผิดสเปกแต่ละช่องทาง',problem:'ไฟล์ Export ความละเอียด/ขนาดไม่ตรงข้อกำหนดของแต่ละแพลตฟอร์ม',solution:'สร้าง Export Preset ต่อช่องทาง (เว็บ/ไลน์/เทเลแกรม) เป็นเทมเพลตกลางใน Photoshop',from:'T-1030',tags:['ไฟล์','กราฟิก','มาตรฐาน']},
+  {id:'KB-03',dept:'FIN',title:'ตรวจยอดกระทบไม่ตรงให้เร็วขึ้น',problem:'สรุปเดือนแล้วยอดกระแสเงินสดไม่ตรงกับ BO',solution:'ให้บอทดึงยอด BO เทียบกับ Google Sheet ทุกสิ้นวัน + ตั้ง flag รายการที่ต่างเกิน 1 บาทให้ตรวจทันที',from:'T-0990',tags:['การเงิน','กระทบยอด']},
+  {id:'KB-01',dept:'CRM',title:'สคริปต์โทร Win-back ที่ได้ผล',problem:'ลูกค้าเงียบเกิน 14 วันไม่กลับมาเล่น',solution:'ใช้สคริปต์เปิดด้วยโปรฯ เฉพาะบุคคล + ถามเหตุผลที่หยุด บันทึกกลุ่มเหตุผล เพื่อให้การตลาดทำโปรฯ ตรงกลุ่ม',from:'T-0951',tags:['CRM','retention','สคริปต์']},
+];
+
+const ANN = [
+  {id:'A1',who:'boss',pin:true,title:'เป้าหมายไตรมาส 3: ยกอัตรา Retention ทั้งบริษัทเป็น 50%',body:'ขอให้ทุกแผนกโฟกัสการรักษาฐานลูกค้า CRM นำทีม Win-back / การตลาดสนับสนุนโปรฯ ตรงกลุ่ม / กราฟิกเตรียมสื่อ',time:'วันนี้ 09:12',from:'08-01',until:'09-30',audience:'ทั้งบริษัท',acks:['a','b','c'],comments:[{who:'lead_mkt',text:'รับทราบครับ ทีมการตลาดจะเตรียมโปรฯ ตรงกลุ่มให้',time:'วันนี้ 09:40'}]},
+  {id:'A2',who:'lead_crm',pin:false,title:'ปรับลิสต์โทรรอบเช้าเป็น 80 รายต่อคน',body:'เริ่มพรุ่งนี้ ใช้ลิสต์จากระบบอัตโนมัติ ดูใน บอร์ด CRM',time:'เมื่อวาน 17:40',from:'08-08',until:'',audience:'วีร์, ต้น, จู',audienceIds:['lead_crm','b','e'],acks:['b'],comments:[]},
+  {id:'A3',who:'lead_gr',pin:false,title:'ใช้ Export Preset ใหม่ทุกงานส่งออก',body:'อ้างอิงบทความ KB-05 เพื่อกันไฟล์ผิดสเปก',time:'2 วันก่อน',from:'08-04',until:'08-06',audience:'พิมพ์, ฟ้า, เก่ง',audienceIds:['lead_gr','a','f'],acks:['lead_gr','a','f'],comments:[]},
+];
+let ANN_SEQ=3;
+
+/* แผนผังองค์กร (Company Chart) — จากต้นฉบับจริง */
+const ORG=[
+  {code:'01',title:'CORPORATE & GOVERNANCE',th:'งานบริหารและกำกับองค์กร',color:'#2158c8',teams:[
+    {name:'Management Team',th:'ทีมบริหาร'},
+    {name:'Finance Team : Head + Staffs',th:'ทีมการเงิน · หัวหน้า + พนักงาน',dept:'FIN'},
+    {name:'Audit Team : Head + Staffs',th:'ทีมออดิท · หัวหน้า + พนักงาน'},
+    {name:'HR Team : Head + Staffs',th:'ทีม HR · หัวหน้า + พนักงาน'},
+    {name:'KPI Team : Head + Staffs',th:'ทีม KPI · หัวหน้า + พนักงาน',dept:'KPI'},
+    {name:'Secret Team : Head + Staffs',th:'ทีมซีเคร็ท · หัวหน้า + พนักงาน'},
+    {name:'Data Provider Team : Head + Staffs',th:'ทีมบัญชี/ข้อมูล · หัวหน้า + พนักงาน'},
+  ]},
+  {code:'02',title:'BRAND, CONTENT & MARKETING',th:'งานคอนเทนต์และการตลาด',color:'#00a878',teams:[
+    {name:'Content Creative Team',th:'ทีมคอนเทนต์',dept:'GRAPHIC',roles:['Content Creative — พนักงานคิดคอนเทนต์','Graphic Design — พนักงานออกแบบกราฟฟิก']},
+    {name:'Marketing Team',th:'ทีมการตลาด',dept:'MKT',roles:['Director — หัวหน้าผู้จัดการ','Manager (HR) — ผู้จัดการ','IT Support — ผู้ดูแลระบบ','SEO — หัวหน้า/พนักงาน','Social Media — หัวหน้า/พนักงาน']},
+  ]},
+  {code:'03',title:'TECHNOLOGY & CUSTOMER',th:'งานเทคโนโลยีและลูกค้าสัมพันธ์',color:'#e8971b',teams:[
+    {name:'Programmer Team : Head + Staffs',th:'ทีมโปรแกรมเมอร์ · หัวหน้า + พนักงาน'},
+    {name:'CS Team',th:'ทีมลูกค้าสัมพันธ์',dept:'CRM',roles:['CRM — พนักงานติดตามลูกค้า','Data Support — พนักงานสนับสนุนข้อมูล']},
+  ]},
+  {code:'04',title:'OPERATIONS & QUALITY',th:'งานปฏิบัติการและคุณภาพ',color:'#7a53e0',teams:[
+    {name:'Admin Team',th:'ทีมแอดมิน',dept:'ADMIN',roles:['Back Office Manager — ผู้จัดการออฟฟิศหลังบ้าน','Back Office Assistant — ผู้ช่วยออฟฟิศหลังบ้าน','Admin Head — หัวหน้าแอดมิน','Admin Staff — พนักงานแอดมิน','Career Levels — ระดับสายอาชีพ']},
+    {name:'Recheck Team : Head + Staffs',th:'ทีมรีเช็ค · หัวหน้า + พนักงาน'},
+    {name:'QC Team : Head + Staffs',th:'ทีมตรวจสอบคุณภาพ · หัวหน้า + พนักงาน',dept:'QC'},
+  ]},
+];
+const FEED = [
+  {u:'a',ic:'🎨',c:'#e7f2fd',t:'<b>ฟ้า</b> อัปเดต <b>T-1042</b> เป็น กำลังทำ',time:'5 น.ที่แล้ว'},
+  {u:'d',ic:'⛔',c:'#fde7ea',t:'<b>โบ๊ท</b> ตั้งค่า <b>T-1066</b> เป็น ติดปัญหา (ยอดไม่ตรง 2 รายการ)',time:'22 น.ที่แล้ว'},
+  {u:'lead_crm',ic:'✅',c:'#e6f7f1',t:'<b>วีร์</b> ปิดงาน <b>T-1090</b> + บันทึกลงคลังความรู้',time:'1 ชม.ที่แล้ว'},
+  {u:'lead_mkt',ic:'📤',c:'#fff3e0',t:'<b>นัท</b> ส่ง <b>T-1058</b> รอตรวจ',time:'2 ชม.ที่แล้ว'},
+  {u:'boss',ic:'📢',c:'#eef2ff',t:'<b>คุณธนกร</b> ประกาศเป้าหมายไตรมาส 3',time:'วันนี้ 09:12'},
+];
+
+/* ============================================================
+   STATE + HELPERS
+============================================================ */
+let ROLE='lead', VIEW='dash', BOARD_DEPT='';
+const ROLE_META={
+  staff:{u:'a',dept:'GRAPHIC',label:'พนักงาน — แผนกกราฟิก',home:'myTasks'},
+  lead :{u:'lead_gr',dept:'GRAPHIC',label:'หัวหน้างาน — แผนกกราฟิก',home:'dash'},
+  exec :{u:'boss',dept:null,label:'ผู้บริหาร',home:'dash'},
+};
+const NAV = {
+  dash:{ic:'📊',t:'แดชบอร์ด'}, myTasks:{ic:'✅',t:'งานของฉัน'}, board:{ic:'🗂️',t:'บอร์ดงาน'},
+  timeline:{ic:'📅',t:'ไทม์ไลน์'}, kpi:{ic:'🎯',t:'KPI แดชบอร์ด'}, reports:{ic:'📈',t:'รายงานสรุป'}, monthly:{ic:'📄',t:'รายงานประจำเดือน'}, tracker:{ic:'🧾',t:'Action Tracker'},
+  org:{ic:'🏢',t:'แผนผังองค์กร'}, sop:{ic:'📘',t:'คลัง SOP / คู่มือ'}, kb:{ic:'💡',t:'คลังความรู้'}, ann:{ic:'📢',t:'ประกาศ & อัปเดต'}, talk:{ic:'🤖',t:'Talk to Data'},
+};
+// Filter state
+let F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+let REPORT_EDITS={};      // แก้ไขข้อความรายงาน (persisted)
+let CARRIED=[];           // taskId ที่ยกไปเดือนถัดไป (persisted)
+let TRACK_MONTH='08', TRACK_GROUP='', TRACK_DEPT='', TRACK_LEVEL='';  // ตัวกรอง Action Tracker
+let REP_MONTH='08', REP_GROUP='', REP_DEPT='';  // ตัวกรองรายงานประจำเดือน
+
+const nf=n=>Number(n).toLocaleString('th-TH');
+/* เทมเพลตวันที่ไทย: '08-12' -> 'ศ. 12 ส.ค.' */
+const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const THDAY=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+function fmtDate(mmdd,withYear){
+  if(!mmdd)return '-';const p=mmdd.split('-').map(Number);const m=p[0],d=p[1];
+  const dt=new Date(2026,m-1,d);
+  return THDAY[dt.getDay()]+' '+d+' '+THMON[m-1]+(withYear?' 69':'');
+}
+const normSp=s=>(s||'').replace(/\s+/g,' ').trim();
+/* ระยะเวลาดำเนินการ (SLA) */
+const DFROM=s=>new Date(2026,+s.split('-')[0]-1,+s.split('-')[1]);
+const addFrom=(s,n)=>{const d=DFROM(s);d.setDate(d.getDate()+n);return ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+const slaUnitTxt=un=>un==='hr'?'ชม.':'วัน';
+const slaOf=t=>t.sla||{n:Math.max(1,Math.round((DFROM(t.due)-DFROM(t.start))/86400000)),unit:'day'};
+const slaText=t=>{const s=slaOf(t);return s.n+' '+slaUnitTxt(s.unit);};
+const slaOverdue=t=>{if(t.status==='done')return false;const s=slaOf(t);if(s.unit!=='day')return false;return addFrom(t.start,s.n)<TODAY_MMDD;};
+const TODAY_MMDD='08-07';
+function annStatus(a){if(a.until&&a.until<TODAY_MMDD)return{t:'หมดอายุ',c:'var(--gray)'};if(a.from&&a.from>TODAY_MMDD)return{t:'ยังไม่เริ่ม',c:'var(--amber)'};return{t:'กำลังใช้',c:'var(--green)'};}
+function av(id,cls='mini'){const x=u(id);return `<span class="${cls}" style="background:${x.c}">${x.s}</span>`;}
+const statusPill=s=>`<span class="pill" style="background:${STATUS[s].c}">${STATUS[s].t}</span>`;
+const prioPill=p=>`<span class="pill" style="background:${PRIO[p].c}">${PRIO[p].t}</span>`;
+const deptPill=c=>`<span class="pill" style="background:${deptColor(c)}">${deptName(c)}</span>`;
+const shortName=id=>u(id).n.split(' (')[0];
+
+/* ============================================================
+   INTERACTIVE STATE (ทำให้ทุกปุ่มทำงานจริง — in-memory)
+============================================================ */
+const ASSIGNABLE=['a','b','c','d','e','f','lead_gr','lead_crm','lead_mkt'];
+const me=()=>ROLE_META[ROLE].u;
+const annAudienceIds=a=>(a.audienceIds&&a.audienceIds.length)?a.audienceIds:ASSIGNABLE;
+const nextAnnId=()=>'A'+(++ANN_SEQ);
+function pendingAcks(){return ANN.filter(a=>annStatus(a).t!=='หมดอายุ'&&annAudienceIds(a).includes(me())&&!(a.acks||[]).includes(me()));}
+function updateBell(){const el=document.getElementById('bell');if(!el)return;const n=pendingAcks().length;el.innerHTML='🔔'+(n?` <span style="background:var(--red);color:#fff;border-radius:20px;padding:0 6px;font-size:10px">${n}</span>`:'');}
+function ackAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;a.acks=a.acks||[];
+  if(!a.acks.includes(me())){a.acks.push(me());logFeed('✅','#e6f7f1',`<b>${shortName(me())}</b> รับทราบประกาศ: ${a.title}`);toast('รับทราบประกาศแล้ว');}
+  updateBell();saveState();
+  if(document.getElementById('ackpop')){ if(pendingAcks().length) showAckPopup(); else { closeModal(); if(VIEW==='ann')RENDER.ann(); } }
+  else if(document.getElementById('anndetail')){ openAnn(id); }
+  else if(VIEW==='ann')RENDER.ann();
+}
+function showAckPopup(manual){
+  const list=pendingAcks();
+  if(!list.length){ if(manual)toast('ไม่มีประกาศที่ต้องรับทราบ 🎉'); return; }
+  showModal(`<div class="modal-h"><div><h3>🔔 ประกาศที่ต้องรับทราบ (${list.length})</h3><div class="muted" style="font-size:11.5px">กรุณากดรับทราบ เพื่อให้ผู้ประกาศทราบ</div></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="pad" id="ackpop">${list.map(a=>`<div class="feed-item" style="align-items:flex-start;border-bottom:1px solid var(--line-2);padding-bottom:10px"><span class="fi" style="background:${u(a.who).c};color:#fff">${u(a.who).s}</span>
+    <div style="flex:1"><b style="font-weight:500">${a.pin?'📌 ':''}${a.title}</b><div class="muted" style="font-size:11px">${shortName(a.who)} · ${a.time}</div><div style="font-size:12.5px;margin-top:3px">${a.body}</div>
+    <div style="margin-top:7px;display:flex;gap:6px"><button class="tbtn sm primary" onclick="ackAnn('${a.id}')">✓ รับทราบ</button><button class="tbtn sm" onclick="openAnn('${a.id}')">เปิดอ่าน / ตอบกลับ</button></div></div></div>`).join('')}</div>`);
+}
+function openAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;const st=annStatus(a);
+  const aud=annAudienceIds(a),ack=a.acks||[],pend=aud.filter(x=>!ack.includes(x));
+  const canSee=a.who===me()||ROLE==='exec'||ROLE==='lead';const iRecip=aud.includes(me()),iAck=ack.includes(me());
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:4px"><span class="pill" style="background:${st.c}">${st.t}</span></div><h3>${a.pin?'📌 ':''}${a.title}</h3>
+    <div class="muted" style="font-size:11.5px">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 มีผล ${fmtDate(a.from)}${a.until?(' – '+fmtDate(a.until)):' (ไม่มีสิ้นสุด)'}`:''}</div></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="pad" id="anndetail">
+    <div class="v" style="font-size:13.5px;line-height:1.65">${a.body}</div>
+    ${iRecip?(iAck?`<div class="ai-note" style="margin-top:12px">✅ คุณรับทราบประกาศนี้แล้ว</div>`:`<button class="tbtn primary" style="margin-top:12px" onclick="ackAnn('${a.id}')">✓ กดรับทราบ</button>`):`<div class="muted" style="margin-top:12px;font-size:12px">คุณไม่ได้อยู่ในผู้รับของประกาศนี้</div>`}
+    <div class="field" style="margin-top:14px"><label>สถานะการรับทราบ — ${ack.length}/${aud.length} คน</label>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${ack.length?avStack(ack):'<span class="muted" style="font-size:12px">ยังไม่มีใครรับทราบ</span>'}</div>
+      ${canSee?`<div style="font-size:12px"><b style="font-weight:500;color:var(--green)">✓ รับทราบแล้ว:</b> ${ack.map(shortName).join(', ')||'-'}</div>
+        <div style="font-size:12px;margin-top:3px"><b style="font-weight:500;color:var(--amber)">⏳ ยังไม่รับทราบ:</b> ${pend.map(shortName).join(', ')||'ครบทุกคนแล้ว 🎉'}</div>`:`<div class="muted" style="font-size:11px">* เฉพาะผู้ประกาศ / หัวหน้า / ผู้บริหาร เห็นรายชื่อ</div>`}
+    </div>
+    <div class="field"><label>ตอบกลับประกาศ (${(a.comments||[]).length})</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px"><input class="fin" id="annCmt_${a.id}" placeholder="เขียนตอบกลับ..." style="flex:1" onkeydown="if(event.key==='Enter')addAnnComment('${a.id}')"><button class="tbtn" title="พูด" onclick="voiceDictate('annCmt_${a.id}')">🎤</button><button class="tbtn primary" onclick="addAnnComment('${a.id}')">ส่ง</button></div>
+      ${(a.comments||[]).map(cm=>`<div class="logline"><span class="mini" style="background:${u(cm.who).c}">${u(cm.who).s}</span><div><b style="font-weight:500;font-size:12px">${shortName(cm.who)}</b> <span class="muted" style="font-size:11px">· ${cm.time}</span><div style="font-size:12.5px">${cm.text}</div></div></div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีการตอบกลับ</div>'}
+    </div>
+  </div>`);
+}
+function addAnnComment(id){const a=ANN.find(x=>x.id===id);const v=normSp(val('annCmt_'+id));if(!v)return;
+  a.comments=a.comments||[];a.comments.push({who:me(),text:v,time:'เมื่อสักครู่'});
+  logFeed('💬','#eef2ff',`<b>${shortName(me())}</b> ตอบกลับประกาศ: ${a.title}`);saveState();toast('ตอบกลับแล้ว');
+  if(VIEW==='ann')RENDER.ann();openAnn(id);}
+const sopForDept=c=>c==='GRAPHIC'?'SOP-GR':('SOP-'+c);
+const val=id=>{const el=document.getElementById(id);return el?el.value:'';};
+function toast(msg,type='ok'){
+  const wrap=document.getElementById('toast');const d=document.createElement('div');
+  d.className='toast-item'+(type==='info'?' info':'');d.innerHTML=(type==='info'?'ℹ️ ':'✅ ')+msg;wrap.appendChild(d);
+  setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300);},2600);
+}
+function refresh(){RENDER[VIEW](BOARD_DEPT);if(typeof saveState==='function')saveState();}
+function nextTaskId(){return 'T-'+(Math.max(...TASKS.map(t=>+t.id.split('-')[1]))+1);}
+function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'เมื่อสักครู่'});}
+
+function createTask(d){
+  const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
+  const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,
+    status:'todo',prio:d.prio||'mid',start:'08-07',due:d.due||'08-12',spent:0,ontime:true,sla:d.sla||null,
+    tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
+  TASKS.unshift(t);
+  logFeed('🆕','#eef2ff',`<b>${shortName(t.creator)}</b> สร้างงาน <b>${t.id}</b> ${t.title} · มอบ ${assignees.map(shortName).join(', ')}`);
+  return t;
+}
+function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.status===st)return;
+  t.status=st;(t.log=t.log||[]).unshift({who:ROLE_META[ROLE].u,txt:'เปลี่ยนสถานะเป็น '+STATUS[st].t,time:'เมื่อสักครู่'});
+  logFeed('🔄','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> เปลี่ยน <b>${id}</b> เป็น ${STATUS[st].t}`);
+  toast('อัปเดต '+id+' → '+STATUS[st].t);refresh();openTask(id);}
+function setAssignee(id,v){const t=TASKS.find(x=>x.id===id);t.assignee=v;
+  toast('เปลี่ยนผู้รับผิดชอบเป็น '+shortName(v));refresh();openTask(id);}
+function setPrio(id,v){TASKS.find(x=>x.id===id).prio=v;toast('ปรับความสำคัญเป็น '+PRIO[v].t);refresh();openTask(id);}
+function setDue(id,v){const t=TASKS.find(x=>x.id===id);if(!v)return;t.due=v.slice(5);if(t.due<t.start)t.start=t.due;t.ontime=(t.due>='08-07');toast('เปลี่ยนกำหนดส่งเป็น '+fmtDate(t.due));refresh();openTask(id);}
+function setSpent(id){const t=TASKS.find(x=>x.id===id);t.spent=Math.max(0,parseFloat(val('spent_'+id))||0);toast('บันทึกเวลาที่ใช้ '+t.spent+' ชม.');refresh();openTask(id);}
+function addSpent(id,h){const t=TASKS.find(x=>x.id===id);t.spent=Math.round(((t.spent||0)+h)*10)/10;toast('บันทึกเวลา +'+h+' ชม. (รวม '+t.spent+' ชม.)');refresh();openTask(id);}
+function setSla(id){const t=TASKS.find(x=>x.id===id);t.sla={n:Math.max(1,parseInt(val('sla_n_'+id))||1),unit:val('sla_u_'+id)||'day'};toast('บันทึกระยะเวลาดำเนินการ '+slaText(t));refresh();openTask(id);}
+function addSub(id){
+  const name=val('subName').trim(),who=val('subWho');
+  if(!name){toast('กรุณาระบุชื่องานย่อยก่อน','info');return;}
+  const t=TASKS.find(x=>x.id===id);t.sub.push({t:name,who,st:'todo'});
+  logFeed('🔀','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> มอบงานย่อยใน <b>${id}</b> ให้ ${shortName(who)}`);
+  toast('มอบงานต่อให้ '+shortName(who)+' แล้ว');refresh();openTask(id);}
+function toggleSub(id,i){const t=TASKS.find(x=>x.id===id),o=['todo','doing','review','done'];
+  t.sub[i].st=o[(o.indexOf(t.sub[i].st)+1)%o.length];saveState();openTask(id);}
+function saveSolution(id){const t=TASKS.find(x=>x.id===id),sol=val('solIn').trim();
+  if(!sol){toast('ยังไม่ได้กรอกวิธีแก้','info');return;}t.solution=sol;saveState();toast('บันทึกวิธีแก้แล้ว');openTask(id);}
+function closeTaskWithSolution(id){
+  const t=TASKS.find(x=>x.id===id),sol=(val('solIn')||t.solution||'').trim();t.status='done';
+  if(sol){t.solution=sol;const kbid='KB-'+String(KB.length+9).padStart(2,'0');
+    KB.unshift({id:kbid,dept:t.dept,title:t.title.length>44?t.title.slice(0,44)+'…':t.title,problem:t.desc||t.title,solution:sol,from:t.id,tags:t.tags});
+    logFeed('✅','#e6f7f1',`<b>${shortName(ROLE_META[ROLE].u)}</b> ปิดงาน <b>${id}</b> + บันทึก ${kbid} ลงคลังความรู้`);
+    toast('ปิดงานแล้ว + สร้างบทความ '+kbid+' ในคลังความรู้');
+  }else{logFeed('✅','#e6f7f1',`<b>${shortName(ROLE_META[ROLE].u)}</b> ปิดงาน <b>${id}</b>`);toast('ปิดงาน '+id+' แล้ว');}
+  closeModal();refresh();}
+function addComment(id){const v=val('cmtIn').trim();if(!v)return;
+  const t=TASKS.find(x=>x.id===id);(t.log=t.log||[]).unshift({who:ROLE_META[ROLE].u,txt:v,time:'เมื่อสักครู่'});
+  logFeed('💬','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> คอมเมนต์ใน <b>${id}</b>`);
+  saveState();toast('เพิ่มความคิดเห็นแล้ว');openTask(id);}
+function assigneeOptions(sel){return ASSIGNABLE.map(a=>`<option value="${a}" ${sel===a?'selected':''}>${shortName(a)}</option>`).join('');}
+function deptOptions(sel){return DEPTS.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
+
+/* Announcements */
+function openAnnForm(){PICK=new Set();showModal(`<div class="modal-h"><div><h3>📢 ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="pad">
+    <div class="field"><label>หัวข้อ</label><input class="fin" id="annT" placeholder="เช่น ปรับเป้าหมายทีมสัปดาห์นี้"></div>
+    <div class="field"><label>รายละเอียด (พิมพ์หรือพูด)</label><textarea class="fin" id="annB" rows="3" placeholder="เนื้อหาประกาศ"></textarea>
+      <button class="tbtn sm" style="margin-top:6px" onclick="voiceDictate('annB')">🎤 พูดใส่</button></div>
+    <div class="two"><div class="field"><label>มีผลตั้งแต่</label><input type="date" class="fin" id="annFrom" value="2026-08-07"></div>
+      <div class="field"><label>ถึงวันที่ (เว้นว่าง = ไม่มีกำหนดสิ้นสุด)</label><input type="date" class="fin" id="annUntil"></div></div>
+    <label class="checkbox" style="margin-bottom:12px"><input type="checkbox" id="annPin"> 📌 ปักหมุดไว้ด้านบน</label>
+    <div class="field"><label>ส่งถึง (เลือกกลุ่ม/หลายคน — ไม่เลือก = ทั้งบริษัท)</label><div id="pickerBox"></div></div>
+    <button class="tbtn primary" onclick="postAnn()">📢 โพสต์ & แจ้งเตือน</button></div>`);renderPicker();}
+function postAnn(){const t=normSp(val('annT'));
+  if(!t){toast('กรุณาใส่หัวข้อประกาศ','info');return;}
+  const sel=[...PICK];const all=(!sel.length||sel.length>=ASSIGNABLE.length);
+  const audience=all?'ทั้งบริษัท':sel.map(shortName).join(', ');
+  const from=(val('annFrom')||'').slice(5)||TODAY_MMDD, until=(val('annUntil')||'').slice(5);
+  ANN.unshift({id:nextAnnId(),who:ROLE_META[ROLE].u,pin:document.getElementById('annPin').checked,title:t,body:normSp(val('annB')),time:'เมื่อสักครู่',audience,from,until,audienceIds:all?[]:sel,acks:[],comments:[]});
+  logFeed('📢','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> ประกาศ: ${t} → ${audience}`);
+  closeModal();toast('โพสต์ประกาศ & แจ้งเตือนถึง '+(all?'ทั้งบริษัท':sel.length+' คน'));go('ann');}
+
+/* Export */
+function downloadRows(rows,name){
+  const esc=v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const csv=rows.map(r=>r.map(esc).join(',')).join('\r\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  toast('ส่งออกไฟล์ '+name+' ('+(rows.length-1>0?rows.length-1:0)+' บรรทัด) แล้ว');}
+function taskRows(list){const rows=[['รหัส','งาน','แผนก','ผู้รับผิดชอบ','ผู้สั่ง','สถานะ','ความสำคัญ','เริ่ม','กำหนดส่ง','เวลาที่ใช้(ชม.)','งานย่อย','แท็ก']];
+  list.forEach(t=>rows.push([t.id,t.title,deptName(t.dept),assigneesOf(t).map(shortName).join(' | '),shortName(t.creator),STATUS[t.status].t,PRIO[t.prio].t,t.start,t.due,t.spent,(t.sub||[]).length,(t.tags||[]).join(' | ')]));return rows;}
+function downloadCSV(list,name){downloadRows(taskRows(list),name);}
+function reportDepts(){if(REP_DEPT)return [REP_DEPT];if(REP_GROUP)return Object.keys(DEPT_GROUP).filter(c=>DEPT_GROUP[c]===REP_GROUP&&KPI[c]);if(ROLE!=='exec')return [ROLE_META[ROLE].dept];return Object.keys(KPI);}
+function reportScope(){const d=reportDepts();return TASKS.filter(t=>d.includes(t.dept));}
+function exportCurrent(){
+  const base=VIEW==='myTasks'?myTasks():TASKS;
+  const list=applyFilters(base);
+  if(!list.length){toast('ไม่มีงานให้ส่งออก (ลองล้างตัวกรอง)','info');return;}
+  downloadCSV(list,(VIEW==='myTasks'?'my-tasks':'tasks')+'-'+list.length+'.csv');}
+function exportReportExcel(){
+  const scope=reportScope();const rows=[];
+  rows.push(['รายงานสรุป Company Hub']);rows.push(['ช่วง',{today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',quarter:'ไตรมาสนี้'}[REP_PERIOD]]);rows.push(['จัดทำโดย',shortName(ROLE_META[ROLE].u)]);rows.push([]);
+  rows.push(['[ Scorecard รายแผนก ]']);
+  rows.push(['แผนก','คะแนน KPI','งานทั้งหมด','เสร็จ','ติดปัญหา','ส่งตรงเวลา %']);
+  reportDepts().filter(c=>KPI[c]).forEach(c=>{
+    const dt=TASKS.filter(t=>t.dept===c),dn=dt.filter(t=>t.status==='done'),ot=dn.filter(t=>t.ontime).length;
+    rows.push([deptName(c),deptScore(c)+'/100',dt.length,dn.length,dt.filter(t=>t.status==='block').length,dn.length?Math.round(ot/dn.length*100):0]);});
+  rows.push([]);rows.push(['[ รายการงานทั้งหมด ]']);
+  taskRows(scope).forEach(r=>rows.push(r));
+  downloadRows(rows,'report-'+REP_PERIOD+'.csv');}
+function printReport(){toast('เปิดหน้าต่างพิมพ์ / บันทึกเป็น PDF');setTimeout(()=>window.print(),200);}
+function sendAuto(){toast('ตั้งค่าส่งรายงานอัตโนมัติเข้าอีเมล/Telegram แล้ว (สาธิต)');}
+
+/* ===== Date filter helper ===== */
+const d2=s=>s?('2026-'+s):'';
+
+/* ===== Voice command (Web Speech API) ===== */
+function speechOK(){return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;}
+function makeRec(){const R=window.SpeechRecognition||window.webkitSpeechRecognition;const r=new R();r.lang='th-TH';r.interimResults=false;r.maxAlternatives=1;return r;}
+function voiceCommand(){
+  if(!speechOK()){toast('เบราว์เซอร์นี้ไม่รองรับสั่งงานด้วยเสียง — แนะนำใช้ Google Chrome','info');return;}
+  const r=makeRec(),btn=document.getElementById('micBtn');
+  toast('🎤 กำลังฟัง... พูดคำสั่งได้เลย เช่น "สร้างงาน..." "ไปบอร์ด" "กรองแผนกกราฟิก" "ส่งออก"','info');
+  btn.classList.add('listening');
+  r.onresult=e=>interpretCommand(e.results[0][0].transcript);
+  r.onerror=()=>toast('ไม่ได้ยินเสียง หรือยังไม่ได้อนุญาตไมโครโฟน','info');
+  r.onend=()=>btn.classList.remove('listening');
+  r.start();
+}
+function interpretCommand(txt){
+  toast('🎙️ ได้ยิน: "'+txt+'"');const s=txt.toLowerCase();
+  const dep=DEPTS.find(d=>s.includes(d.name.toLowerCase())||s.includes(d.code.toLowerCase()));
+  if(/สร้างงาน|เพิ่มงาน|มอบงาน|สั่งงาน/.test(s)){openCompose();setTimeout(()=>{const el=document.getElementById('cmpIn');if(el){el.value=normSp(txt);aiCompose(ROLE==='exec'?'GRAPHIC':ROLE_META[ROLE].dept);}},150);return;}
+  if(/ติดปัญหา|มีปัญหา|ค้าง/.test(s)){clearAllFilters();F.status='block';go('board');toast('กรองงานติดปัญหา');return;}
+  if(/รอตรวจ|รออนุมัติ/.test(s)){clearAllFilters();F.status='review';go('board');toast('กรองงานรอตรวจ');return;}
+  if(/รายงาน|สรุป/.test(s)){go('reports');return;}
+  if(/ภาพรวม|แดชบอร์ด|หน้าแรก/.test(s)){go('dash');return;}
+  if(/ไทม์ไลน์|ปฏิทิน|timeline/.test(s)){go('timeline');return;}
+  if(/คลังความรู้|ความรู้|knowledge/.test(s)){go('kb');return;}
+  if(/คู่มือ|sop|ขั้นตอน/.test(s)){go('sop');return;}
+  if(/ประกาศ/.test(s)){go('ann');return;}
+  if(/ถามข้อมูล|talk|วิเคราะห์/.test(s)){go('talk');return;}
+  if(/ส่งออก|export|ดาวน์โหลด/.test(s)){go('board');setTimeout(exportCurrent,200);return;}
+  if(dep&&/กรอง|แผนก|ดู/.test(s)){F.dept=dep.code;go('board');toast('กรองแผนก '+dep.name);return;}
+  if(dep){F.dept=dep.code;go('board');toast('กรองแผนก '+dep.name);return;}
+  F.q=txt;go('board');toast('ค้นหา: '+txt);
+}
+function voiceDictate(targetId){
+  if(!speechOK()){toast('เบราว์เซอร์นี้ไม่รองรับเสียง — ใช้ Chrome','info');return;}
+  const r=makeRec();toast('🎤 กำลังฟัง... พูดรายละเอียดงาน','info');
+  r.onresult=e=>{const el=document.getElementById(targetId);if(el)el.value=(el.value?el.value+' ':'')+e.results[0][0].transcript;};
+  r.start();
+}
+
+/* ===== ผู้รับผิดชอบหลายคน + กลุ่ม (People Picker) ===== */
+const assigneesOf=t=>(t.assignees&&t.assignees.length)?t.assignees:[t.assignee];
+function avStack(ids){return `<span style="display:inline-flex;vertical-align:middle">${ids.slice(0,4).map((id,i)=>`<span class="mini" style="background:${u(id).c};margin-left:${i?-8:0}px;border:2px solid #fff">${u(id).s}</span>`).join('')}${ids.length>4?`<span class="mini" style="background:#9aa7bd;margin-left:-8px;border:2px solid #fff">+${ids.length-4}</span>`:''}</span>`;}
+let PICK=new Set();
+function renderPicker(){
+  const box=document.getElementById('pickerBox');if(!box)return;const sel=[...PICK];
+  box.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <b style="font-weight:500;font-size:12.5px">เลือกแล้ว ${sel.length} คน</b>
+      ${sel.length?avStack(sel):'<span class="muted" style="font-size:12px">ยังไม่เลือก</span>'}
+      ${sel.length?`<button class="tbtn sm" style="margin-left:auto" onclick="PICK.clear();renderPicker()">ล้าง</button>`:''}</div>
+    <div style="margin-bottom:6px">${GROUPS.map(g=>`<button class="chip" onclick="pickGroup('${g.id}')">＋ ${g.name} (${g.members.length})</button>`).join('')}<button class="chip" onclick="pickAllPeople()">＋ ทั้งบริษัท</button></div>
+    <div style="display:flex;gap:6px;margin:6px 0 8px"><input class="fin" id="grpName" placeholder="ตั้งชื่อกลุ่มจากคนที่เลือก" style="flex:1;padding:6px 10px"><button class="tbtn sm" onclick="saveGroupFromPick()">💾 บันทึกกลุ่ม</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+      ${ASSIGNABLE.map(a=>`<label class="checkbox" style="font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;${PICK.has(a)?'background:var(--blue-50);border-color:var(--blue-400)':''}"><input type="checkbox" ${PICK.has(a)?'checked':''} onchange="pickToggle('${a}')"> <span class="mini" style="background:${u(a).c}">${u(a).s}</span> ${shortName(a)}</label>`).join('')}
+    </div>`;
+}
+function pickToggle(id){PICK.has(id)?PICK.delete(id):PICK.add(id);renderPicker();}
+function pickGroup(gid){const g=groupById(gid);g.members.forEach(m=>PICK.add(m));renderPicker();toast('เพิ่ม '+g.name+' ('+g.members.length+' คน)');}
+function pickAllPeople(){ASSIGNABLE.forEach(a=>PICK.add(a));renderPicker();}
+function saveGroupFromPick(){if(PICK.size<2){toast('เลือกอย่างน้อย 2 คนเพื่อตั้งกลุ่ม','info');return;}const name=normSp(val('grpName'));if(!name){toast('กรุณาตั้งชื่อกลุ่ม','info');return;}GROUPS.push({id:'g'+GROUPS.length,name,dept:null,members:[...PICK]});saveState();renderPicker();toast('บันทึกกลุ่ม "'+name+'" ('+PICK.size+' คน) แล้ว');}
+function openAssigneePicker(taskId){
+  const t=TASKS.find(x=>x.id===taskId);PICK=new Set(assigneesOf(t));
+  showModal(`<div class="modal-h"><div><h3>เลือกผู้รับผิดชอบ</h3><div class="muted" style="font-size:11.5px">${t.id} · เลือกได้หลายคน หรือทั้งกลุ่ม</div></div><button class="x" onclick="openTask('${taskId}')">×</button></div>
+    <div class="pad"><div id="pickerBox"></div><button class="tbtn primary" style="margin-top:12px" onclick="saveAssignees('${taskId}')">บันทึกผู้รับผิดชอบ</button></div>`);renderPicker();}
+function saveAssignees(id){const t=TASKS.find(x=>x.id===id);if(!PICK.size){toast('เลือกอย่างน้อย 1 คน','info');return;}
+  t.assignees=[...PICK];t.assignee=t.assignees[0];
+  logFeed('👥','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> ตั้งผู้รับผิดชอบ <b>${id}</b>: ${t.assignees.map(shortName).join(', ')}`);
+  toast('บันทึกผู้รับผิดชอบ '+t.assignees.length+' คน');refresh();openTask(id);}
+
+/* ===== AI วิเคราะห์คำสั่ง (เก่งขึ้น) ===== */
+function addDays(n){const d=new Date(2026,7,7);d.setDate(d.getDate()+n);return ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function nextWeekday(target){const d=new Date(2026,7,7);let diff=(target-d.getDay()+7)%7;if(diff===0)diff=7;d.setDate(d.getDate()+diff);return ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function analyzeCommand(raw){
+  const s=raw.toLowerCase();
+  const dmap=[['GRAPHIC',/แบนเนอร์|ออกแบบ|กราฟิก|โลโก้|วิดีโอ|ภาพ|อาร์ต|โมชั่น/],['CRM',/โทร|ลูกค้า|retention|วินแบ็ก|win-?back|ดูแลลูกค้า|เติมเงิน/],['MKT',/คอนเทนต์|โพสต์|แคมเปญ|การตลาด|โฆษณา|engagement|โปรโมชั่น/],['FIN',/เบิก|โอน|การเงิน|สรุปเดือน|กระทบยอด|เงินสด/],['ADMIN',/แชท|ตอบลูกค้า|เคส|แอดมิน/],['QC',/ตรวจแชท|คุณภาพ|นายหน้า|บัญชีหน้าเว็บ|qc/]];
+  let dept='GRAPHIC';for(const[c,re]of dmap){if(re.test(s)){dept=c;break;}}
+  let prio='mid';if(/ด่วน|เร่ง|ทันที|วันนี้/.test(s))prio='high';else if(/ไม่เร่ง|เมื่อว่าง|ไม่รีบ/.test(s))prio='low';
+  let due=addDays(5);const wd={'อาทิตย์':0,'จันทร์':1,'อังคาร':2,'พุธ':3,'พฤหัส':4,'ศุกร์':5,'เสาร์':6};const mIn=s.match(/ภายใน\s*(\d+)\s*วัน/);
+  if(/วันนี้/.test(s))due=addDays(0);else if(/พรุ่งนี้/.test(s))due=addDays(1);else if(/มะรืน/.test(s))due=addDays(2);
+  else if(/สัปดาห์หน้า/.test(s))due=addDays(7);else if(/สิ้นเดือน/.test(s))due='08-31';else if(mIn)due=addDays(+mIn[1]);
+  else{for(const k in wd){if(s.includes(k)){due=nextWeekday(wd[k]);break;}}}
+  let title=normSp(raw.replace(/ส่ง\s*(วันนี้|พรุ่งนี้|มะรืน|สัปดาห์หน้า|สิ้นเดือน|ภายใน\s*\d+\s*วัน)/g,'').replace(/(อาทิตย์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เสาร์)นี้?/g,'').replace(/ภายใน\s*\d+\s*วัน|ด่วนที่สุด|เร่งด่วน|ด่วน/g,''))||raw;
+  const grp=GROUPS.find(g=>g.dept===dept);const members=grp?grp.members:['a'];
+  const load=id=>TASKS.filter(t=>assigneesOf(t).includes(id)&&t.status!=='done').length;
+  const assignee=members.slice().sort((a,b)=>load(a)-load(b))[0];
+  const sop=SOPS.find(x=>x.dept===dept);const checklist=sop?sop.steps.slice(0,4):['ดำเนินการ','ตรวจสอบ','ส่งอนุมัติ'];
+  const desc='ดำเนินการ "'+title+'" ตามมาตรฐานแผนก'+deptName(dept)+' พร้อมตรวจสอบความถูกต้องก่อนส่ง';
+  const kb=KB.find(k=>k.dept===dept);
+  const slaN=Math.max(1,Math.round((DFROM(due)-new Date(2026,7,7))/86400000));
+  return {title,dept,prio,due,assignee,checklist,desc,kb,sla:{n:slaN,unit:'day'}};
+}
+function printReport(){toast('เปิดหน้าต่างพิมพ์ / บันทึกเป็น PDF');setTimeout(()=>window.print(),200);}
+function sendAuto(){toast('ตั้งค่าส่งรายงานอัตโนมัติเข้าอีเมล/Telegram แล้ว (สาธิต)');}
+
+/* ============================================================
+   SHELL
+============================================================ */
+function setRole(r){
+  ROLE=r; F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+  REP_GROUP='';REP_DEPT='';REP_MONTH='08';TRACK_GROUP='';TRACK_DEPT='';TRACK_LEVEL='';TRACK_MONTH='08';
+  document.querySelectorAll('#roleSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.role===r));
+  const m=ROLE_META[r], usr=u(m.u);
+  sideAvatar.textContent=usr.s; topAvatar.textContent=usr.s;
+  sideName.textContent=shortName(m.u); sideRole.textContent=m.label;
+  buildNav(); go(m.home); updateBell();
+  setTimeout(()=>showAckPopup(false),400);
+}
+function buildNav(){
+  let items=Object.keys(NAV);
+  if(ROLE==='staff') items=['myTasks','board','org','sop','kb','ann','talk'];
+  if(ROLE==='lead')  items=['dash','myTasks','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'];
+  if(ROLE==='exec')  items=['dash','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'];
+  nav.innerHTML=items.map(k=>{
+    const badge=k==='myTasks'?`<span class="badge">${myTasks().filter(t=>t.status!=='done').length}</span>`:'';
+    return `<button class="navitem ${k===VIEW?'active':''}" onclick="navGo('${k}')"><span class="ic">${NAV[k].ic}</span>${NAV[k].t}${badge}</button>`;
+  }).join('');
+  deptNav.innerHTML=DEPTS.map(d=>`<button class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
+}
+function go(v,arg){VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
+function navGo(v){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
+function myTasks(){const m=ROLE_META[ROLE].u;if(ROLE==='exec')return TASKS;return TASKS.filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
+function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}
+
+/* ============================================================
+   CHART HELPERS
+============================================================ */
+function donut(data,total,centerLabel){
+  const R=54,C=2*Math.PI*R;let off=0;const segs=data.filter(d=>d.value>0).map(d=>{
+    const frac=d.value/(total||1),len=frac*C,s=`<circle r="${R}" cx="70" cy="70" fill="none" stroke="${d.color}" stroke-width="20" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;off+=len;return s;}).join('');
+  return `<svg width="140" height="140" viewBox="0 0 140 140">${segs}
+    <text x="70" y="66" text-anchor="middle" font-size="26" font-weight="600" fill="#182338">${total}</text>
+    <text x="70" y="86" text-anchor="middle" font-size="11" fill="#67769a">${centerLabel}</text></svg>`;
+}
+function goBoardFiltered(o={}){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};Object.assign(F,o);go('board');}
+function hbars(rows,unit=''){const max=Math.max(...rows.map(r=>r.v),1);
+  return rows.map(r=>`<div class="hbar${r.click?' hlink':''}" ${r.click?`onclick="${r.click}" title="ดูรายละเอียด"`:''}><span style="display:flex;align-items:center;gap:6px">${r.dot?`<span class="dot" style="background:${r.dot}"></span>`:''}${r.label}</span>
+    <span class="track"><i style="width:${Math.max(r.v/max*100,2)}%;${r.color?`background:${r.color}`:''}"></i></span>
+    <span class="num">${nf(r.v)}${unit}</span></div>`).join('');
+}
+function sparkline(pts,w=260,h=64){
+  const max=Math.max(...pts),min=Math.min(...pts)-2,rng=(max-min)||1;
+  const step=w/(pts.length-1);
+  const xy=pts.map((p,i)=>[i*step,h-((p-min)/rng)*(h-10)-5]);
+  const line=xy.map((c,i)=>(i?'L':'M')+c[0].toFixed(1)+' '+c[1].toFixed(1)).join(' ');
+  const area=line+` L${w} ${h} L0 ${h} Z`;
+  const dots=xy.map(c=>`<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="3.5" fill="#2158c8"/>`).join('');
+  return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2158c8" stop-opacity=".18"/><stop offset="1" stop-color="#2158c8" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#g)"/><path d="${line}" fill="none" stroke="#2158c8" stroke-width="2"/>${dots}</svg>`;
+}
+function statusCounts(list){const c={todo:0,doing:0,review:0,block:0,done:0};list.forEach(t=>c[t.status]++);return c;}
+function statusDonutBlock(list){
+  const c=statusCounts(list),total=list.length;
+  const data=Object.keys(c).map(k=>({key:k,label:STATUS[k].t,value:c[k],color:STATUS[k].c}));
+  return `<div class="donut-wrap">${donut(data,total,'งานทั้งหมด')}
+    <div style="flex:1;min-width:150px">${data.map(d=>`<div class="legrow" onclick="goBoardFiltered({status:'${d.key}'})" title="ดูงานสถานะนี้" style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+      <span class="dot" style="background:${d.color}"></span><span style="flex:1">${d.label}</span><b>${d.value}</b>
+      <span class="muted" style="width:38px;text-align:right">${total?Math.round(d.value/total*100):0}%</span></div>`).join('')}</div></div>`;
+}
+
+/* ============================================================
+   FILTER SYSTEM
+============================================================ */
+function applyFilters(list){
+  let r=list.filter(t=>{
+    if(F.q){const q=F.q.toLowerCase();if(!(t.title.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.tags.join(' ').toLowerCase().includes(q)))return false;}
+    if(F.dept&&t.dept!==F.dept)return false;
+    if(F.status&&t.status!==F.status)return false;
+    if(F.prio&&t.prio!==F.prio)return false;
+    if(F.assignee&&t.assignee!==F.assignee)return false;
+    if(F.period==='today'&&t.due!=='08-07')return false;
+    if(F.period==='overdue'&&!(t.due<'08-07'&&t.status!=='done'))return false;
+    if(F.period==='active'&&t.status==='done')return false;
+    if(F.dateFrom&&d2(t.due)<F.dateFrom)return false;
+    if(F.dateTo&&d2(t.start)>F.dateTo)return false;
+    return true;
+  });
+  const key=F.sort;
+  r.sort((a,b)=>{let x,y;
+    if(key==='prio'){const o={high:0,mid:1,low:2};x=o[a.prio];y=o[b.prio];}
+    else if(key==='status'){const o=Object.keys(STATUS);x=o.indexOf(a.status);y=o.indexOf(b.status);}
+    else if(key==='spent'){x=a.spent;y=b.spent;}
+    else {x=a[key];y=b[key];}
+    return (x>y?1:x<y?-1:0)*F.dir;});
+  return r;
+}
+function activeFilterChips(){
+  const chips=[];
+  const add=(k,label,val)=>chips.push(`<button class="fchip"><b>${label}:</b> ${val} <span class="rm" onclick="clearFilter('${k}')">✕</span></button>`);
+  if(F.q)add('q','ค้นหา',F.q);
+  if(F.dept)add('dept','แผนก',deptName(F.dept));
+  if(F.status)add('status','สถานะ',STATUS[F.status].t);
+  if(F.prio)add('prio','ความสำคัญ',PRIO[F.prio].t);
+  if(F.assignee)add('assignee','ผู้รับผิดชอบ',shortName(F.assignee));
+  if(F.period)add('period','ช่วง',{today:'วันนี้',overdue:'เกินกำหนด',active:'ที่ยังไม่เสร็จ'}[F.period]);
+  if(F.dateFrom)add('dateFrom','ตั้งแต่',F.dateFrom);
+  if(F.dateTo)add('dateTo','ถึง',F.dateTo);
+  if(!chips.length)return '';
+  return `<div class="chips">${chips.join('')}<button class="fchip" style="background:#fde7ea;color:#b01a30" onclick="clearAllFilters()">ล้างทั้งหมด</button></div>`;
+}
+function setF(k,v){F[k]=v;RENDER[VIEW](BOARD_DEPT);}
+function clearFilter(k){F[k]='';RENDER[VIEW](BOARD_DEPT);}
+function clearAllFilters(){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};RENDER[VIEW](BOARD_DEPT);}
+function toggleSort(k){if(F.sort===k)F.dir*=-1;else{F.sort=k;F.dir=1;}RENDER[VIEW](BOARD_DEPT);}
+function filterBarLite(ph){
+  const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
+  return `<div class="filterbar">
+    <div class="fsearch"><input placeholder="${ph||'ค้นหา'}" value="${F.q}" oninput="F.q=this.value;clearTimeout(window._t);window._t=setTimeout(()=>RENDER[VIEW](),250)"></div>
+    <div class="fsel"><label>แผนก</label><select onchange="setF('dept',this.value)">${opt(F.dept,'','ทั้งหมด')}${DEPTS.map(d=>opt(F.dept,d.code,d.name)).join('')}</select></div>
+    ${(F.q||F.dept)?`<button class="tbtn sm" onclick="clearAllFilters()">ล้างตัวกรอง</button>`:''}
+  </div>`;
+}
+
+function filterBar(lockDept){
+  const assignees=[...new Set(TASKS.map(t=>t.assignee))];
+  const opt=(cur,val,txt)=>`<option value="${val}" ${cur===val?'selected':''}>${txt}</option>`;
+  return `<div class="filterbar">
+    <div class="fsearch"><input placeholder="ค้นหางาน / รหัส / แท็ก" value="${F.q}" oninput="F.q=this.value;clearTimeout(window._t);window._t=setTimeout(()=>RENDER[VIEW](BOARD_DEPT),250)"></div>
+    ${lockDept?'':`<div class="fsel"><label>แผนก</label><select onchange="setF('dept',this.value)">${opt(F.dept,'','ทั้งหมด')}${DEPTS.map(d=>opt(F.dept,d.code,d.name)).join('')}</select></div>`}
+    <div class="fsel"><label>สถานะ</label><select onchange="setF('status',this.value)">${opt(F.status,'','ทั้งหมด')}${Object.keys(STATUS).map(s=>opt(F.status,s,STATUS[s].t)).join('')}</select></div>
+    <div class="fsel"><label>ความสำคัญ</label><select onchange="setF('prio',this.value)">${opt(F.prio,'','ทั้งหมด')}${Object.keys(PRIO).map(p=>opt(F.prio,p,PRIO[p].t)).join('')}</select></div>
+    <div class="fsel"><label>ผู้รับผิดชอบ</label><select onchange="setF('assignee',this.value)">${opt(F.assignee,'','ทุกคน')}${assignees.map(a=>opt(F.assignee,a,shortName(a))).join('')}</select></div>
+    <div class="fsel"><label>ช่วง</label><select onchange="setF('period',this.value)">${opt(F.period,'','ทั้งหมด')}${opt(F.period,'today','วันนี้')}${opt(F.period,'active','ยังไม่เสร็จ')}${opt(F.period,'overdue','เกินกำหนด')}</select></div>
+    <div class="fsel"><label>ตั้งแต่</label><input type="date" class="fdate" value="${F.dateFrom}" onchange="F.dateFrom=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
+    <div class="fsel"><label>ถึง</label><input type="date" class="fdate" value="${F.dateTo}" onchange="F.dateTo=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
+    <button class="tbtn sm" onclick="exportCurrent()">📤 ส่งออก</button>
+    <div class="fdiv"></div>
+    <div class="fsel"><label>จัดกลุ่ม</label><select onchange="setF('group',this.value)">${opt(F.group,'dept','ตามแผนก')}${opt(F.group,'status','ตามสถานะ')}${opt(F.group,'assignee','ตามผู้รับผิดชอบ')}${opt(F.group,'none','ไม่จัดกลุ่ม')}</select></div>
+    <div class="fsel"><label>เรียง</label><select onchange="setF('sort',this.value)">${opt(F.sort,'due','กำหนดส่ง')}${opt(F.sort,'prio','ความสำคัญ')}${opt(F.sort,'status','สถานะ')}${opt(F.sort,'spent','เวลาที่ใช้')}</select></div>
+    <button class="tbtn sm" onclick="F.dir*=-1;RENDER[VIEW](BOARD_DEPT)">${F.dir>0?'▲':'▼'}</button>
+  </div>`;
+}
+
+/* ============================================================
+   VIEWS
+============================================================ */
+const RENDER={};
+
+RENDER.dash=function(){return ROLE==='exec'?execDash():leadDash();};
+
+function execDash(){
+  const all=TASKS,done=all.filter(t=>t.status==='done').length,block=all.filter(t=>t.status==='block').length;
+  const overdue=all.filter(t=>t.due<'08-07'&&t.status!=='done').length;
+  const overall=Math.round(Object.keys(KPI).reduce((s,c)=>s+deptScore(c),0)/Object.keys(KPI).length);
+  const byDept=DEPTS.filter(d=>all.some(t=>t.dept===d.code)).map(d=>({label:d.name,v:all.filter(t=>t.dept===d.code).length,click:`goBoardFiltered({dept:'${d.code}'})`})).sort((a,b)=>b.v-a.v);
+  // Action Center — งานที่ผู้บริหารควรลงมือ (ไม่ซ้ำ)
+  const seen=new Set(),action=[];
+  all.filter(t=>t.status==='block').forEach(t=>{action.push({t,ic:'⛔',bg:'#fde7ea',reason:'ติดปัญหา ต้องช่วยปลดล็อก',tag:'ติดปัญหา',color:'var(--red)'});seen.add(t.id);});
+  all.filter(t=>t.due<'08-07'&&t.status!=='done').forEach(t=>{if(seen.has(t.id))return;action.push({t,ic:'⏰',bg:'#fff3e0',reason:'เกินกำหนดส่ง',tag:'เกินกำหนด',color:'var(--amber)'});seen.add(t.id);});
+  all.filter(t=>t.status==='review').forEach(t=>{if(seen.has(t.id))return;action.push({t,ic:'👀',bg:'#eef2ff',reason:'รอตรวจ/อนุมัติ',tag:'รออนุมัติ',color:'var(--sky)'});seen.add(t.id);});
+  // แผนกที่ต้องจับตา — จัดอันดับความเสี่ยง
+  const risk=Object.keys(KPI).map(c=>{const dt=all.filter(t=>t.dept===c);const bl=dt.filter(t=>t.status==='block').length;const ov=dt.filter(t=>t.due<'08-07'&&t.status!=='done').length;const sc=deptScore(c);const reasons=[];if(sc<90)reasons.push('KPI '+sc);if(bl)reasons.push(bl+' ติดปัญหา');if(ov)reasons.push(ov+' เกินกำหนด');return {code:c,score:sc,rk:(100-sc)+bl*12+ov*8,reason:reasons.join(' · ')||'อยู่ในเกณฑ์ดี'};}).sort((a,b)=>b.rk-a.rk).slice(0,4);
+  const doneT=all.filter(t=>t.status==='done');const ontimeRate=doneT.length?Math.round(doneT.filter(t=>t.ontime).length/doneT.length*100):0;
+  main.innerHTML=`
+  ${crumb('หน้าแรก','ภาพรวมองค์กร')}
+  <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">📈 รายงานสรุป</button><button class="tbtn primary" onclick="go('talk')">🤖 ถามข้อมูล</button></div></div>
+  <div class="stats" style="margin-bottom:14px">
+    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall}<span style="font-size:14px">/100</span></div><div class="sub">▲ +4 จากสัปดาห์ก่อน</div><div class="icn">🎯</div><span class="go">ดู KPI →</span></div>
+    <div class="stat click" onclick="goBoardFiltered()"><div class="lbl">งานทั้งหมด</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${Math.round(done/all.length*100)}%)</div><div class="icn">🗂️</div><span class="go">ดูบอร์ด →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({status:'block'})"><div class="lbl">งานติดปัญหา</div><div class="val" style="color:var(--red)">${block}</div><div class="sub down">ต้องเข้าดูด่วน</div><div class="icn">⛔</div><span class="go">ดูงาน →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({period:'overdue'})"><div class="lbl">งานเกินกำหนด</div><div class="val" style="color:var(--amber)">${overdue}</div><div class="sub muted">ข้ามแผนก</div><div class="icn">⏰</div><span class="go">ดูงาน →</span></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:14px">
+    <div class="card"><div class="card-h"><h3>📊 สัดส่วนสถานะงาน</h3></div><div class="pad">${statusDonutBlock(all)}</div></div>
+    <div class="card"><div class="card-h"><h3>🗂️ งานตามแผนก</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byDept)}</div></div>
+    <div class="card"><div class="card-h"><h3>📈 แนวโน้ม KPI รวม</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(KPI_TREND.pts)}
+      <div class="legend"><span><span class="dot" style="background:#2158c8"></span>คะแนน KPI รวม (ล่าสุด ${KPI_TREND.pts.slice(-1)}/100)</span></div></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1.4fr 1fr">
+    <div class="card"><div class="card-h"><h3>🎯 คะแนน KPI รายแผนก</h3><span class="act">คะแนนเต็ม 100</span></div><div class="pad">
+      ${Object.keys(KPI).map(c=>{const s=deptScore(c);return `<div class="kpirow"><div class="nm">${deptName(c)}<small>${KPI[c].length} ตัวชี้วัด · <span style="color:${scoreColor(s)}">${scoreLabel(s)}</span></small></div>
+      <div class="bar"><i style="width:${s}%;background:${scoreColor(s)}"></i></div><div class="score" style="color:${scoreColor(s)}">${s}/100</div></div>`;}).join('')}${kpiLegend()}</div></div>
+    <div class="card"><div class="card-h"><h3>📌 ทุกวันต้องรู้ (Back Office)</h3></div><div class="pad">
+      <div>${[
+        ['ลูกค้าเข้าวันนี้',nf(1284)+' ราย ▲12%','var(--green)',"goBoardFiltered({dept:'CRM'})"],
+        ['เงินเข้า - ออก','+฿ '+nf(842000),'var(--ink)',"goBoardFiltered({dept:'FIN'})"],
+        ['เคสค้างผิดปกติ','18 เคส (สูงกว่าปกติ)','var(--amber)',"goBoardFiltered({dept:'ADMIN'})"],
+        ['หน้างานติดปัญหา','การเงิน: ยอดไม่ตรง','var(--red)',"goBoardFiltered({dept:'FIN',status:'block'})"],
+        ['ลูกค้ากลับมา (สัปดาห์)','48%','var(--green)',"goBoardFiltered({dept:'CRM'})"],
+      ].map(r=>`<div class="legrow" onclick="${r[3]}" style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:12.5px">${r[0]}</span><b style="color:${r[2]};font-size:12.5px">${r[1]} ›</b></div>`).join('')}</div>
+      <div class="ai-note" style="margin-top:12px"><b>🤖 AI สรุป:</b> เคสค้างเพิ่มจากปัญหาสลิปไม่ชัด (วิธีแก้ใน KB-08) และการเงินติดยอดไม่ตรง 2 รายการใน T-1066 แนะนำติดตามด่วน</div></div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1.5fr 1fr;margin-top:16px">
+    <div class="card"><div class="card-h"><h3>🚨 ต้องดำเนินการ / ตัดสินใจ</h3><span class="act">${action.length} รายการ</span></div><div class="pad">
+      ${action.length?action.map(a=>`<div class="feed-item" style="cursor:pointer" onclick="openTask('${a.t.id}')"><span class="fi" style="background:${a.bg}">${a.ic}</span><div style="flex:1"><b style="font-weight:500">${a.t.title}</b><div class="muted" style="font-size:11px">${a.t.id} · ${deptName(a.t.dept)} · ${a.reason} · กำหนด ${fmtDate(a.t.due)}</div></div><span class="pill" style="background:${a.color}">${a.tag}</span></div>`).join(''):'<div class="muted" style="padding:8px 0">ไม่มีงานที่ต้องดำเนินการด่วน 🎉</div>'}
+    </div></div>
+    <div class="card"><div class="card-h"><h3>⚠️ แผนกที่ต้องจับตา</h3><span class="act">เรียงตามความเสี่ยง</span></div><div class="pad">
+      ${risk.map((r,i)=>`<div class="kpirow" style="grid-template-columns:1fr 72px;cursor:pointer" onclick="goBoardFiltered({dept:'${r.code}'})"><div class="nm">${i+1}. ${deptName(r.code)}<small>${r.reason}</small></div><div class="score" style="color:${scoreColor(r.score)}">${r.score}/100</div></div>`).join('')}
+    </div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
+    <div class="card"><div class="card-h"><h3>👥 ลูกค้าเข้ารายสัปดาห์</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(BIZ.customers)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ${nf(BIZ.customers.slice(-1)[0])} ราย ▲ ${Math.round((BIZ.customers.slice(-1)[0]/BIZ.customers.slice(-2)[0]-1)*100)}%</span></div></div></div>
+    <div class="card"><div class="card-h"><h3>💰 รายได้สุทธิ</h3><span class="act">พันบาท/สัปดาห์</span></div><div class="pad">${sparkline(BIZ.revenue)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ฿${nf(BIZ.revenue.slice(-1)[0]*1000)}</span></div></div></div>
+    <div class="card"><div class="card-h"><h3>⚡ ผลิตภาพ: งานเสร็จ/สัปดาห์</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(BIZ.completed)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ${BIZ.completed.slice(-1)[0]} งาน · ตรงเวลา ${ontimeRate}%</span></div></div></div>
+  </div>`;
+}
+
+function leadDash(){
+  const dept=ROLE_META[ROLE].dept, dt=TASKS.filter(t=>t.dept===dept), s=deptScore(dept);
+  const byAssignee=[...new Set(dt.map(t=>t.assignee))].map(a=>({label:shortName(a),v:dt.filter(t=>t.assignee===a).length,dot:u(a).c,click:`goBoardFiltered({dept:'${dept}',assignee:'${a}'})`}));
+  main.innerHTML=`
+  ${crumb('หน้าแรก','แดชบอร์ดหัวหน้า',deptName(dept))}
+  <div class="page-h"><div><h1>แดชบอร์ดหัวหน้า — ${deptName(dept)}</h1><p>ภาพรวมงานทีม · อนุมัติ · KPI แผนก</p></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">📈 รายงานทีม</button><button class="tbtn primary" onclick="openCompose()">✨ สั่งงานใหม่</button></div></div>
+  <div class="stats" style="margin-bottom:14px">
+    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI แผนก</div><div class="val">${s}/100</div><div class="sub">เกณฑ์: ${scoreLabel(s)}</div><div class="icn">🎯</div><span class="go">ดู KPI →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}'})"><div class="lbl">งานในทีม</div><div class="val">${dt.length}</div><div class="sub up">กำลังทำ ${dt.filter(t=>t.status==='doing').length}</div><div class="icn">🗂️</div><span class="go">ดูบอร์ด →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'review'})"><div class="lbl">รอฉันอนุมัติ</div><div class="val" style="color:var(--amber)">${dt.filter(t=>t.status==='review').length}</div><div class="sub muted">คลิกเพื่อตรวจ</div><div class="icn">👀</div><span class="go">ตรวจงาน →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'block'})"><div class="lbl">ติดปัญหา</div><div class="val" style="color:var(--red)">${dt.filter(t=>t.status==='block').length}</div><div class="sub down">ช่วยปลดล็อก</div><div class="icn">⛔</div><span class="go">ดูงาน →</span></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+    <div class="card"><div class="card-h"><h3>📊 สัดส่วนสถานะงานทีม</h3></div><div class="pad">${statusDonutBlock(dt)}</div></div>
+    <div class="card"><div class="card-h"><h3>👥 ภาระงานรายคน</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byAssignee)}</div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1.5fr 1fr">
+    <div><div class="card"><div class="card-h"><h3>🗂️ งานทีมล่าสุด</h3><span class="act">${dt.length} งาน</span></div>${boardTableInner(dt.slice(0,6))}</div></div>
+    <div class="card"><div class="card-h"><h3>🎯 KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept)}${kpiLegend()}</div></div>
+  </div>`;
+}
+
+RENDER.myTasks=function(){
+  const base=myTasks(),list=applyFilters(base);
+  main.innerHTML=`${crumb('หน้าแรก','งานของฉัน')}
+  <div class="page-h"><div><h1>งานของฉัน</h1><p>งานที่ได้รับมอบหมายและงานที่ฉันสั่ง</p></div>
+    <button class="tbtn primary" onclick="openCompose()">✨ สร้างงาน (AI)</button></div>
+  ${filterBar(false)}${activeFilterChips()}
+  <div class="resultline">แสดง ${list.length} จาก ${base.length} งาน</div>
+  ${groupedBoards(list)}`;
+};
+
+RENDER.board=function(deptFilter){
+  if(deptFilter)F.dept=deptFilter;
+  const base=TASKS,list=applyFilters(base);
+  main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',deptFilter?deptName(deptFilter):'ทุกแผนก')}
+  <div class="page-h"><div><h1>บอร์ดงาน ${deptFilter?'— '+deptName(deptFilter):''}</h1>
+    <p>มุมมองตารางสไตล์ Monday · กรอง จัดกลุ่ม เรียงลำดับ · คลิกงานเพื่อดูรายละเอียด</p></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">📅 ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
+  ${filterBar(!!deptFilter)}${activeFilterChips()}
+  <div class="resultline">แสดง ${list.length} จาก ${base.length} งาน · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
+  ${groupedBoards(list)}`;
+};
+
+function groupedBoards(list){
+  if(!list.length)return `<div class="card pad" style="text-align:center;color:var(--muted);padding:40px">ไม่พบงานที่ตรงกับตัวกรอง <br><button class="tbtn sm" style="margin-top:10px" onclick="clearAllFilters()">ล้างตัวกรอง</button></div>`;
+  if(F.group==='none')return `<div class="board">${boardTableInner(list)}</div>`;
+  const groups={};
+  list.forEach(t=>{let key=F.group==='dept'?t.dept:F.group==='status'?t.status:t.assignee;(groups[key]=groups[key]||[]).push(t);});
+  return Object.keys(groups).map(g=>{
+    let label,color;
+    if(F.group==='dept'){label=deptName(g);color=deptColor(g);}
+    else if(F.group==='status'){label=STATUS[g].t;color=STATUS[g].c;}
+    else {label=shortName(g);color=u(g).c;}
+    return `<div class="board"><div class="board-grp"><span class="dot" style="background:${color}"></span>${label} <span class="muted" style="font-weight:300;font-size:11.5px">(${groups[g].length})</span></div>${boardTableInner(groups[g],F.group!=='dept')}</div>`;
+  }).join('');
+}
+function boardTableInner(list,showDept=true){
+  const th=(k,t)=>`<th onclick="toggleSort('${k}')">${t}${F.sort===k?(F.dir>0?' ▲':' ▼'):''}</th>`;
+  const totalSpent=list.reduce((s,t)=>s+t.spent,0);
+  return `<table><thead><tr>
+    <th>งาน</th>${showDept?'<th>แผนก</th>':''}<th>ผู้รับผิดชอบ</th>${th('status','สถานะ')}${th('prio','ความสำคัญ')}${th('due','กำหนดส่ง')}${th('spent','เวลาที่ใช้')}</tr></thead>
+    <tbody>${list.map(t=>`<tr class="${t.prio==='high'?'trow-lead':''}" onclick="openTask('${t.id}')">
+      <td><b style="font-weight:500">${t.title}</b><div class="muted" style="font-size:10.5px">${t.id} · สั่งโดย ${shortName(t.creator)} · ⏱ ${slaText(t)}${slaOverdue(t)?' <span style="color:var(--red);font-weight:500">· เกิน SLA</span>':''}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
+      ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
+      <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${shortName(assigneesOf(t)[0])}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
+      <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>
+      <td class="nowrap">${fmtDate(t.due)} ${t.due<'08-07'&&t.status!=='done'?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="${showDept?6:5}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
+}
+
+RENDER.timeline=function(){
+  const list=applyFilters(TASKS).filter(t=>t.status!=='done');
+  const D=s=>new Date(2026,+s.split('-')[0]-1,+s.split('-')[1]);
+  const mmdd=dt=>('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2);
+  const all=list.flatMap(t=>[t.start,t.due]).filter(Boolean).sort();
+  const minS=all[0]||'08-04', maxS=all[all.length-1]||'08-13';
+  const sD=D(minS), eD=D(maxS);
+  const span=Math.max(Math.round((eD-sD)/86400000)+1,1);
+  const idx=s=>Math.round((D(s)-sD)/86400000);
+  const step=Math.max(1,Math.ceil(span/12));const ticks=[];
+  for(let i=0;i<span;i+=step){const d=new Date(sD);d.setDate(d.getDate()+i);ticks.push(fmtDate(mmdd(d)));}
+  main.innerHTML=`${crumb('หน้าแรก','ไทม์ไลน์งาน')}
+  <div class="page-h"><div><h1>ไทม์ไลน์งาน</h1><p>ช่วงเวลาดำเนินงานและกำหนดส่ง · ${fmtDate(minS)} – ${fmtDate(maxS)} 2569</p></div></div>
+  ${filterBar(false)}${activeFilterChips()}
+  ${list.length?`<div class="card pad">
+    <div class="tl-scale" style="grid-template-columns:repeat(${ticks.length},1fr)">${ticks.map(d=>`<span>${d}</span>`).join('')}</div>
+    ${list.map(t=>{const l=idx(t.start)/span*100,w=Math.max((idx(t.due)-idx(t.start)+1)/span*100,3);
+      return `<div class="tl-row"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${deptPill(t.dept)} ${t.title} <span class="muted">· ส่ง ${fmtDate(t.due)}</span></div>
+        <div class="tl-track"><div class="tl-bar" style="left:${l}%;width:${w}%;background:${STATUS[t.status].c}" onclick="openTask('${t.id}')" title="${t.title} (${fmtDate(t.start)}→${fmtDate(t.due)})">${t.id}</div></div></div>`;}).join('')}
+    <div class="legend" style="margin-top:12px">${Object.keys(STATUS).map(s=>`<span><span class="dot" style="background:${STATUS[s].c}"></span>${STATUS[s].t}</span>`).join('')}</div>
+  </div>`:'<div class="card pad" style="text-align:center;color:var(--muted);padding:40px">ไม่มีงานที่กำลังดำเนินการในช่วงนี้</div>'}`;
+};
+
+RENDER.kpi=function(){
+  const codes=Object.keys(KPI);
+  main.innerHTML=`${crumb('หน้าแรก','KPI แดชบอร์ด')}
+  <div class="page-h"><div><h1>KPI แดชบอร์ด</h1><p>ตัวชี้วัดรายแผนก · เทียบเป้าหมาย · คะแนนเต็ม 100</p></div></div>
+  <div class="card pad" style="margin-bottom:14px;padding-top:10px;padding-bottom:10px">${kpiLegend().replace('margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2)','')}</div>
+  <div class="stats" style="margin-bottom:14px">
+    ${codes.slice(0,4).map(c=>{const s=deptScore(c);return `<div class="stat"><div class="lbl">${deptName(c)}</div><div class="val" style="color:${scoreColor(s)}">${s}<span style="font-size:14px;color:var(--muted)">/100</span></div><div style="font-size:11px;color:${scoreColor(s)};margin-top:1px">${scoreLabel(s)}</div><div class="bar" style="margin-top:8px"><i style="width:${s}%;background:${scoreColor(s)}"></i></div></div>`;}).join('')}
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    ${codes.map(c=>{const s=deptScore(c);return `<div class="card"><div class="card-h"><h3><span class="dot" style="background:${deptColor(c)}"></span> ${deptName(c)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(c)}</div></div>`;}).join('')}
+  </div>`;
+};
+function kpiStatus(pct){return pct>=100?{t:'ผ่านเป้า',c:'var(--green)',ic:'✓'}:pct>=85?{t:'เกือบถึง',c:'var(--amber)',ic:'≈'}:{t:'ต่ำกว่าเป้า',c:'var(--red)',ic:'!'};}
+function kpiList(c){return KPI[c].map(k=>{const st=kpiStatus(k.pct);const over=k.pct>100;return `
+  <div class="kpi-item">
+    <span class="kpi-icn" style="background:${st.c}" title="${st.t}">${st.ic}</span>
+    <div style="flex:1;min-width:0">
+      <div class="kpi-name">${k.n}</div>
+      <div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(k.pct,100)}%;background:${st.c}"></i></div>
+      <div class="kpi-val muted">ทำได้ <b style="color:var(--ink)">${k.ac}</b> · เป้า ${k.tg}</div>
+    </div>
+    <span class="pill" style="background:${st.c};margin-top:2px">${over?'เกินเป้า ▲':st.t}</span>
+  </div>`;}).join('');}
+
+/* ===== REPORTS (new) ===== */
+let REP_PERIOD='week';
+RENDER.reports=function(){
+  const isExec=ROLE==='exec';
+  let depts;
+  if(REP_DEPT) depts=[REP_DEPT];
+  else if(REP_GROUP) depts=Object.keys(DEPT_GROUP).filter(c=>DEPT_GROUP[c]===REP_GROUP&&KPI[c]);
+  else if(!isExec) depts=[ROLE_META[ROLE].dept];
+  else depts=Object.keys(KPI);
+  const scope=TASKS.filter(t=>depts.includes(t.dept));
+  const done=scope.filter(t=>t.status==='done'),ontime=done.filter(t=>t.ontime).length;
+  const codes=depts.filter(c=>KPI[c]);
+  const overall=Math.round(codes.reduce((s,c)=>s+deptScore(c),0)/(codes.length||1));
+  const blocked=scope.filter(t=>t.status==='block'||(t.due<'08-07'&&t.status!=='done'));
+  const kbList=KB.filter(k=>depts.includes(k.dept));
+  const unit=REP_DEPT?deptName(REP_DEPT):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?deptName(ROLE_META[ROLE].dept):'ภาพรวมบริษัท');
+  const pname={today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',quarter:'ไตรมาสนี้'}[REP_PERIOD];
+  const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
+  main.innerHTML=`${crumb('หน้าแรก','รายงานสรุป')}
+  <div class="page-h"><div><h1>รายงานสรุป${isExec?'ผู้บริหาร':'ทีม'}</h1><p>สรุปผลการดำเนินงานเชิงตัวเลข · ${unit} · ${pname}</p></div></div>
+  <div class="rep-head">
+    <div class="seg">${['today','week','month','quarter'].map(p=>`<button class="${REP_PERIOD===p?'active':''}" onclick="REP_PERIOD='${p}';RENDER.reports()">${{today:'วันนี้',week:'สัปดาห์',month:'เดือน',quarter:'ไตรมาส'}[p]}</button>`).join('')}</div>
+    <div style="display:flex;gap:8px">
+      <button class="tbtn sm" onclick="printReport()">📄 PDF</button>
+      <button class="tbtn sm" onclick="exportReportExcel()">📊 Excel</button>
+      <button class="tbtn sm primary" onclick="sendAuto()">✉️ ส่งอัตโนมัติ</button></div>
+  </div>
+  <div class="filterbar" style="margin-bottom:14px">
+    <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="REP_GROUP=this.value;REP_DEPT='';RENDER.reports()">${opt(REP_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(REP_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
+    <div class="fsel"><label>แผนก</label><select onchange="REP_DEPT=this.value;RENDER.reports()">${opt(REP_DEPT,'','ทั้งบริษัท')}${DEPTS.filter(x=>(!REP_GROUP||deptGroup(x.code)===REP_GROUP)&&KPI[x.code]).map(x=>opt(REP_DEPT,x.code,x.name)).join('')}</select></div>
+    ${(REP_GROUP||REP_DEPT)?`<button class="tbtn sm" onclick="REP_GROUP='';REP_DEPT='';RENDER.reports()">ล้างตัวกรอง</button>`:''}
+    <span style="margin-left:auto;font-size:12px" class="muted">กำลังสรุป: <b style="color:var(--blue-700)">${unit}</b></span>
+  </div>
+  <div class="exec-summary" style="margin-bottom:14px">
+    <b>🤖 บทสรุป (AI):</b> ${pname} · <b>${unit}</b> ทำคะแนน KPI รวม <b>${overall}/100</b> (เกณฑ์: ${scoreLabel(overall)}).
+    ปิดงานได้ <b>${done.length}</b> จาก ${scope.length} งาน · อัตราส่งตรงเวลา <b>${done.length?Math.round(ontime/done.length*100):0}%</b>.
+    จุดที่ต้องติดตาม: ${blocked.length?blocked.map(t=>t.title).join(' · '):'ไม่มีงานติดปัญหา/เกินกำหนด'}.
+    องค์ความรู้ที่บันทึก ${kbList.length} เรื่อง.
+  </div>
+  <div class="stats" style="margin-bottom:14px">
+    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI รวม (${unit})</div><div class="val">${overall}/100</div><div class="sub">${scoreLabel(overall)}</div><span class="go">ดู KPI →</span></div>
+    <div class="stat click" onclick="goBoardFiltered(${REP_DEPT?"{dept:'"+REP_DEPT+"',status:'done'}":"{status:'done'}"})"><div class="lbl">งานที่ปิดได้</div><div class="val">${done.length}</div><div class="sub muted">จาก ${scope.length} งาน</div><span class="go">ดูงาน →</span></div>
+    <div class="stat"><div class="lbl">ส่งตรงเวลา</div><div class="val" style="color:${done.length&&ontime/done.length>=.9?'var(--green)':'var(--amber)'}">${done.length?Math.round(ontime/done.length*100):0}%</div><div class="sub muted">On-time rate</div></div>
+    <div class="stat click" onclick="go('kb')"><div class="lbl">องค์ความรู้ใหม่</div><div class="val">${kbList.length}</div><div class="sub muted">บทความเข้า KB</div><span class="go">ดูคลัง →</span></div>
+  </div>
+  <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+    <div class="card"><div class="card-h"><h3>📊 สัดส่วนสถานะงาน</h3><span class="act">${unit}</span></div><div class="pad">${statusDonutBlock(scope)}</div></div>
+    <div class="card"><div class="card-h"><h3>📈 แนวโน้มคะแนน KPI</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(KPI_TREND.pts)}
+      <div class="legend"><span><span class="dot" style="background:#2158c8"></span>คะแนน KPI รวม</span></div></div></div>
+  </div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>🏆 Scorecard ${depts.length>1?'รายแผนก':deptName(depts[0])}</h3><span class="act">${unit} · ${pname}</span></div>
+    <table><thead><tr><th>แผนก</th><th>คะแนน KPI</th><th>งานทั้งหมด</th><th>เสร็จ</th><th>ติดปัญหา</th><th>ส่งตรงเวลา</th><th>สถานะ</th></tr></thead>
+    <tbody>${codes.map(c=>{const dt=TASKS.filter(t=>t.dept===c);const dn=dt.filter(t=>t.status==='done');const ot=dn.filter(t=>t.ontime).length;const s=deptScore(c);
+      return `<tr onclick="go('board','${c}')"><td><b style="font-weight:500">${deptName(c)}</b></td>
+      <td style="color:${scoreColor(s)};font-weight:600">${s}/100</td><td>${dt.length}</td><td>${dn.length}</td>
+      <td style="color:${dt.filter(t=>t.status==='block').length?'var(--red)':'inherit'}">${dt.filter(t=>t.status==='block').length}</td>
+      <td>${dn.length?Math.round(ot/dn.length*100):0}%</td>
+      <td><span class="pill" style="background:${scoreColor(s)}">${scoreLabel(s)}</span></td></tr>`;}).join('')}
+    </tbody></table></div>
+  <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="card"><div class="card-h"><h3>⛔ ปัญหาที่ต้องติดตาม (${unit})</h3></div><div class="pad">
+      ${blocked.map(t=>`<div class="feed-item" style="cursor:pointer" onclick="openTask('${t.id}')"><span class="fi" style="background:#fde7ea">⚠</span><div style="flex:1"><b style="font-weight:500">${t.title}</b><div class="muted" style="font-size:11px">${t.id} · ${deptName(t.dept)} · ${STATUS[t.status].t}</div></div></div>`).join('')||'<div class="muted">ไม่มี</div>'}</div></div>
+    <div class="card"><div class="card-h"><h3>💡 องค์ความรู้ (${unit})</h3></div><div class="pad">
+      ${kbList.map(k=>`<div class="feed-item" style="cursor:pointer" onclick="openKB('${k.id}')"><span class="fi" style="background:#e6f7f1">💡</span><div style="flex:1"><b style="font-weight:500">${k.title}</b><div class="muted" style="font-size:11px">${k.id} · ${deptName(k.dept)} · จาก ${k.from}</div></div></div>`).join('')||'<div class="muted">ยังไม่มี</div>'}</div></div>
+  </div>`;
+};
+
+function scopeKey(){return REP_DEPT||(REP_GROUP?('grp'+REP_GROUP):(ROLE==='exec'?'company':ROLE_META[ROLE].dept));}
+function getEdit(k,def){const o=REPORT_EDITS[scopeKey()]||{};return (o[k]!==undefined&&o[k]!=='')?o[k]:def;}
+function setEdit(k,v){(REPORT_EDITS[scopeKey()]=REPORT_EDITS[scopeKey()]||{})[k]=v;saveState();toast('บันทึกการแก้ไขแล้ว');}
+function monthlyData(){
+  const isExec=ROLE==='exec';let depts;
+  if(REP_DEPT) depts=[REP_DEPT];
+  else if(REP_GROUP) depts=Object.keys(DEPT_GROUP).filter(c=>DEPT_GROUP[c]===REP_GROUP&&KPI[c]);
+  else if(!isExec) depts=[ROLE_META[ROLE].dept];
+  else depts=Object.keys(KPI);
+  const base=REP_MONTH==='09'?TASKS.filter(t=>CARRIED.includes(t.id)):TASKS;
+  const scope=base.filter(t=>depts.includes(t.dept));
+  const codes=depts.filter(c=>KPI[c]);
+  const score=Math.round(codes.reduce((s,c)=>s+deptScore(c),0)/(codes.length||1));
+  const done=scope.filter(t=>t.status==='done'),blocked=scope.filter(t=>t.status==='block');
+  const overdue=scope.filter(t=>t.due<'08-07'&&t.status!=='done'),open=scope.filter(t=>t.status!=='done');
+  const company=depts.length>1;
+  const unit=REP_DEPT?deptName(REP_DEPT):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?deptName(ROLE_META[ROLE].dept):'ภาพรวมบริษัท');
+  const monthLabel=REP_MONTH==='09'?'กันยายน 2569':'สิงหาคม 2569';
+  const d={isExec,depts,dept:depts[0],scope,codes,score,done,blocked,overdue,open,unit,company,monthLabel};
+  d.dHighlight='ปิดงานสำเร็จ '+done.length+' งาน · คะแนน KPI รวม '+score+'/100 ('+scoreLabel(score)+')';
+  d.dUrgent=blocked.length?blocked.map(t=>t.title).join(' · '):'ไม่มี';
+  d.dDecision=overdue.length?('งานเกินกำหนด '+overdue.length+' รายการ ขอแนวทาง/ทรัพยากรเพิ่ม'):'—';
+  d.dSupportOther='ประสานข้อมูล/ทรัพยากรตามงานที่ติดปัญหา';
+  d.dSupportExec=(overdue.length||blocked.length)?'อนุมัติแนวทางแก้ไข/ทรัพยากรเพิ่มเติม':'—';
+  return d;
+}
+const gyrScore=s=>{const g=s>=90?['Green','var(--green)']:s>=75?['Yellow','var(--amber)']:['Red','var(--red)'];return '<span class="gyr" style="background:'+g[1]+'">'+g[0]+'</span>';};
+const gyrKpi=pc=>{const g=pc>=100?['Green','var(--green)']:pc>=85?['Yellow','var(--amber)']:['Red','var(--red)'];return '<span class="gyr" style="background:'+g[1]+'">'+g[0]+'</span>';};
+function mKpiRows(d,exp){return d.company
+  ? d.codes.map(c=>{const s=deptScore(c);const g=s>=90?'Green':s>=75?'Yellow':'Red';return `<tr><td>${deptName(c)}</td><td>—</td><td>${s}/100</td><td>${exp?g:gyrScore(s)}</td><td>${scoreLabel(s)}</td></tr>`;}).join('')
+  : (KPI[d.dept]?KPI[d.dept].map(k=>{const g=k.pct>=100?'Green':k.pct>=85?'Yellow':'Red';return `<tr><td>${k.n}</td><td>${k.tg}</td><td>${k.ac}</td><td>${exp?g:gyrKpi(k.pct)}</td><td>${k.pct>100?'เกินเป้า':k.pct>=85?'ใกล้เป้า':'ต่ำกว่าเป้า'}</td></tr>`;}).join(''):'<tr><td colspan="5">—</td></tr>');}
+function mMile(d){return d.done.length?d.done.map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${t.solution?t.solution.slice(0,70):'สำเร็จตามเป้า'}</td><td>เสร็จ</td></tr>`).join(''):'<tr><td colspan="4">—</td></tr>';}
+function mProb(d){const rows=[...d.blocked,...d.overdue.filter(t=>t.status!=='block')];return rows.length?rows.map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${t.desc?t.desc.slice(0,55):'อยู่ระหว่างวิเคราะห์'}</td><td>${t.prio==='high'?'สูง':'ปานกลาง'}</td><td>${t.status==='block'?'Red':'Yellow'}</td></tr>`).join(''):'<tr><td colspan="5">ไม่มี</td></tr>';}
+function mAct(d){return d.open.length?d.open.slice(0,10).map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${assigneesOf(t).map(shortName).join(', ')}</td><td>${fmtDate(t.due)}</td><td>${STATUS[t.status].t}</td></tr>`).join(''):'<tr><td colspan="5">—</td></tr>';}
+function mNext(d){const r=d.scope.filter(t=>t.status==='todo').slice(0,5);return r.length?r.map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${shortName(t.assignee)}</td><td>${fmtDate(t.due)}</td></tr>`).join(''):'<tr><td colspan="4">กำหนดในที่ประชุม</td></tr>';}
+function repFilterBar(){const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
+  return `<div class="filterbar" style="margin-bottom:12px">
+    <div class="fsel"><label>เดือน</label><select onchange="REP_MONTH=this.value;RENDER.monthly()">${opt(REP_MONTH,'08','สิงหาคม 2569')}${opt(REP_MONTH,'09','กันยายน 2569 (งานยกมา)')}</select></div>
+    <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="REP_GROUP=this.value;REP_DEPT='';RENDER.monthly()">${opt(REP_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(REP_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
+    <div class="fsel"><label>แผนก</label><select onchange="REP_DEPT=this.value;RENDER.monthly()">${opt(REP_DEPT,'','ทั้งบริษัท')}${DEPTS.filter(x=>KPI[x.code]&&(!REP_GROUP||deptGroup(x.code)===REP_GROUP)).map(x=>opt(REP_DEPT,x.code,x.name)).join('')}</select></div>
+    ${(REP_GROUP||REP_DEPT||REP_MONTH!=='08')?`<button class="tbtn sm" onclick="REP_GROUP='';REP_DEPT='';REP_MONTH='08';RENDER.monthly()">ล้างตัวกรอง</button>`:''}
+  </div>`;}
+RENDER.monthly=function(){
+  const d=monthlyData();const score=d.score;const gyr=score>=90?{t:'Green',c:'var(--green)'}:score>=75?{t:'Yellow',c:'var(--amber)'}:{t:'Red',c:'var(--red)'};
+  const ta=(k,def,rows)=>`<textarea class="fin" rows="${rows||2}" onchange="setEdit('${k}',this.value)" style="margin-top:2px">${getEdit(k,def)}</textarea>`;
+  main.innerHTML=`${crumb('หน้าแรก','รายงานประจำเดือน')}
+  <div class="rep-head">
+    <div><b style="font-size:14px">แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน</b><div class="muted" style="font-size:11.5px">🔄 ดึงข้อมูลอัตโนมัติ · แก้ไขข้อความได้ · ${d.unit} · ${d.monthLabel}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn sm" onclick="printReport()">📄 PDF</button><button class="tbtn sm" onclick="exportMonthlyWord()">📝 Word</button><button class="tbtn sm" onclick="exportMonthlyExcel()">📊 Excel</button><button class="tbtn sm primary" onclick="toast('สาธิต: ส่งรายงานเข้าที่ประชุม/อีเมลอัตโนมัติ')">✉️ ส่งเข้าประชุม</button></div>
+  </div>
+  ${repFilterBar()}
+  <div class="rpt">
+    <h2>รายงานผลการดำเนินงานประจำเดือน</h2>
+    <div class="rsub">Monthly Performance Report · ใช้ประกอบ Monthly Performance Review Meeting</div>
+    <div class="rmeta">
+      <div>เดือน / ปี: <b>${d.monthLabel}</b></div><div>หน่วยงาน: <b>${d.unit}</b></div>
+      <div>ผู้รายงาน: <b>${shortName(ROLE_META[ROLE].u)}</b></div><div>ตำแหน่ง: <b>${d.isExec?'ผู้บริหาร':'หัวหน้างาน'}</b></div>
+      <div>วันที่รายงาน: <b>${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</b></div>
+      <div>สถานะภาพรวม: <span class="gyr" style="background:${gyr.c}">${gyr.t}</span> (${score}/100)</div>
+    </div>
+    <h3>1. Executive Summary <span style="font-size:10px;color:var(--muted);font-weight:400">✎ แก้ไขได้</span></h3>
+    <label style="font-size:11px;color:var(--muted)">ผลงานเด่นของเดือน</label>${ta('highlight',d.dHighlight)}
+    <label style="font-size:11px;color:var(--muted)">ประเด็นที่ต้องเร่งแก้ไข</label>${ta('urgent',d.dUrgent)}
+    <label style="font-size:11px;color:var(--muted)">เรื่องที่ต้องการการตัดสินใจจากผู้บริหาร</label>${ta('decision',d.dDecision)}
+    <h3>2. KPI / Target vs Actual</h3>
+    <table><thead><tr><th>KPI / ตัวชี้วัด${d.company?' (รายแผนก)':''}</th><th>Target</th><th>Actual</th><th>Status</th><th>หมายเหตุ</th></tr></thead><tbody>${mKpiRows(d)}</tbody></table>
+    <h3>3. ผลงานสำคัญประจำเดือน (Milestones)</h3>
+    <table><thead><tr><th>#</th><th>งาน / Milestone</th><th>ผลลัพธ์</th><th>สถานะ</th></tr></thead><tbody>${mMile(d)}</tbody></table>
+    <h3>4. ปัญหา / ความเสี่ยง / สาเหตุ</h3>
+    <table><thead><tr><th>#</th><th>Issue / Risk</th><th>สาเหตุ (Root Cause)</th><th>ผลกระทบ</th><th>สถานะ</th></tr></thead><tbody>${mProb(d)}</tbody></table>
+    <h3>5. Corrective Action / Action Plan</h3>
+    <table><thead><tr><th>#</th><th>Action</th><th>Owner</th><th>Due Date</th><th>Status</th></tr></thead><tbody>${mAct(d)}</tbody></table>
+    <h3>6. แผนและเป้าหมายเดือนถัดไป</h3>
+    <table><thead><tr><th>#</th><th>แผนงาน / เป้าหมาย</th><th>Owner</th><th>Due Date</th></tr></thead><tbody>${mNext(d)}</tbody></table>
+    <h3>7. Support Required / Management Decision <span style="font-size:10px;color:var(--muted);font-weight:400">✎ แก้ไขได้</span></h3>
+    <label style="font-size:11px;color:var(--muted)">สิ่งที่ต้องการจากฝ่ายอื่น</label>${ta('supportOther',d.dSupportOther)}
+    <label style="font-size:11px;color:var(--muted)">สิ่งที่ต้องการจาก Executive Board</label>${ta('supportExec',d.dSupportExec)}
+    <label style="font-size:11px;color:var(--muted)">มติ/ข้อสั่งการของผู้บริหาร</label>${ta('resolution','(บันทึกในที่ประชุม)')}
+    <h3>8. สรุป Action หลังประชุม <span style="font-size:10px;color:var(--muted);font-weight:400">✎ แก้ไขได้</span></h3>
+    ${ta('post','1) ____________  Owner: ____  Due: __/__  Status: ____\n2) ____________  Owner: ____  Due: __/__  Status: ____',4)}
+    <h3>9. หมายเหตุเพิ่มเติม <span style="font-size:10px;color:var(--muted);font-weight:400">✎ แก้ไขได้</span></h3>
+    <label style="font-size:11px;color:var(--muted)">บันทึกข้อมูลเพิ่มเติม / ข้อสังเกต / สิ่งที่ต้องติดตามเป็นพิเศษ</label>${ta('note','',4)}
+    <div class="muted" style="font-size:11px;margin-top:12px;text-align:center">อ้างอิงแบบฟอร์ม: แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน · จัดทำโดยระบบ Company Hub</div>
+  </div>`;
+};
+function monthlyStaticHTML(){
+  const d=monthlyData();const score=d.score;const gyr=score>=90?['Green','#00a878']:score>=75?['Yellow','#e8971b']:['Red','#e2445c'];
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const nl=s=>esc(s).replace(/\n/g,'<br>');
+  const css="body{font-family:'Tahoma','TH Sarabun New',sans-serif;color:#182338;font-size:12pt}h2{text-align:center;color:#1a49a6;margin:0}h3{color:#1a49a6;border-left:4px solid #1a49a6;padding-left:8px;margin:16px 0 6px;font-size:13pt}table{width:100%;border-collapse:collapse;margin-top:4px}th,td{border:1px solid #ccd;padding:5px 7px;font-size:10pt;text-align:left;vertical-align:top}th{background:#e7effc}";
+  return `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'><head><meta charset="utf-8"><style>${css}</style></head><body>
+  <h2>รายงานผลการดำเนินงานประจำเดือน</h2>
+  <p style="text-align:center;color:#666;font-size:9pt">Monthly Performance Report · ใช้ประกอบ Monthly Performance Review Meeting</p>
+  <table><tr><td>เดือน / ปี</td><td><b>${d.monthLabel}</b></td><td>หน่วยงาน</td><td><b>${esc(d.unit)}</b></td></tr>
+  <tr><td>ผู้รายงาน</td><td><b>${esc(shortName(ROLE_META[ROLE].u))}</b></td><td>ตำแหน่ง</td><td><b>${d.isExec?'ผู้บริหาร':'หัวหน้างาน'}</b></td></tr>
+  <tr><td>สถานะภาพรวม</td><td><b style="color:${gyr[1]}">${gyr[0]} (${score}/100)</b></td><td>รอบประชุม</td><td><b>ประจำเดือน</b></td></tr></table>
+  <h3>1. Executive Summary</h3>
+  <p><b>ผลงานเด่นของเดือน:</b> ${nl(getEdit('highlight',d.dHighlight))}</p>
+  <p><b>ประเด็นที่ต้องเร่งแก้ไข:</b> ${nl(getEdit('urgent',d.dUrgent))}</p>
+  <p><b>เรื่องที่ต้องการการตัดสินใจจากผู้บริหาร:</b> ${nl(getEdit('decision',d.dDecision))}</p>
+  <h3>2. KPI / Target vs Actual</h3>
+  <table><tr><th>KPI / ตัวชี้วัด</th><th>Target</th><th>Actual</th><th>Status</th><th>หมายเหตุ</th></tr>${mKpiRows(d,true)}</table>
+  <h3>3. ผลงานสำคัญประจำเดือน</h3><table><tr><th>#</th><th>งาน / Milestone</th><th>ผลลัพธ์</th><th>สถานะ</th></tr>${mMile(d)}</table>
+  <h3>4. ปัญหา / ความเสี่ยง / สาเหตุ</h3><table><tr><th>#</th><th>Issue / Risk</th><th>Root Cause</th><th>ผลกระทบ</th><th>สถานะ</th></tr>${mProb(d)}</table>
+  <h3>5. Corrective Action / Action Plan</h3><table><tr><th>#</th><th>Action</th><th>Owner</th><th>Due</th><th>Status</th></tr>${mAct(d)}</table>
+  <h3>6. แผนและเป้าหมายเดือนถัดไป</h3><table><tr><th>#</th><th>แผนงาน / เป้าหมาย</th><th>Owner</th><th>Due</th></tr>${mNext(d)}</table>
+  <h3>7. Support Required / Management Decision</h3>
+  <p><b>สิ่งที่ต้องการจากฝ่ายอื่น:</b> ${nl(getEdit('supportOther',d.dSupportOther))}</p>
+  <p><b>สิ่งที่ต้องการจาก Executive Board:</b> ${nl(getEdit('supportExec',d.dSupportExec))}</p>
+  <p><b>มติ/ข้อสั่งการของผู้บริหาร:</b> ${nl(getEdit('resolution','(บันทึกในที่ประชุม)'))}</p>
+  <h3>8. สรุป Action หลังประชุม</h3><p>${nl(getEdit('post',''))||'—'}</p>
+  <h3>9. หมายเหตุเพิ่มเติม</h3><p>${nl(getEdit('note',''))||'—'}</p>
+  </body></html>`;
+}
+function downloadBlob(content,name,mime){const blob=new Blob(['﻿'+content],{type:mime});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();toast('ส่งออกไฟล์ '+name+' แล้ว');}
+function exportMonthlyWord(){downloadBlob(monthlyStaticHTML(),'รายงานประจำเดือน-'+scopeKey()+'.doc','application/msword');}
+function exportMonthlyExcel(){
+  const d=monthlyData();const rows=[['รายงานผลการดำเนินงานประจำเดือน'],['เดือน',d.monthLabel],['หน่วยงาน',d.unit],['ผู้รายงาน',shortName(ROLE_META[ROLE].u)],[]];
+  rows.push(['[ KPI / Target vs Actual ]']);
+  if(d.company){rows.push(['แผนก','คะแนน','สถานะ']);d.codes.forEach(c=>rows.push([deptName(c),deptScore(c)+'/100',scoreLabel(deptScore(c))]));}
+  else if(KPI[d.dept]){rows.push(['KPI','Target','Actual','สถานะ']);KPI[d.dept].forEach(k=>rows.push([k.n,k.tg,k.ac,(k.pct>100?'เกินเป้า':k.pct>=85?'ใกล้เป้า':'ต่ำกว่าเป้า')]));}
+  rows.push([],['[ Action Plan (งานที่ยังไม่เสร็จ) ]'],['Action','Owner','Due','Status']);
+  d.open.forEach(t=>rows.push([t.title,assigneesOf(t).map(shortName).join(' | '),fmtDate(t.due),STATUS[t.status].t]));
+  rows.push([],['[ Milestones ]'],['งาน','ผลลัพธ์']);
+  d.done.forEach(t=>rows.push([t.title,t.solution||'สำเร็จตามเป้า']));
+  rows.push([],['[ หมายเหตุเพิ่มเติม ]'],[getEdit('note','')||'—']);
+  downloadRows(rows,'monthly-report-'+scopeKey()+'.csv');
+}
+
+/* ===== Action Tracker (สะสมข้ามเดือน) ===== */
+function trackerStatus(t){if(t.status==='done')return['Completed','var(--green)'];if(t.status==='block'||(t.due<'08-07'&&t.status!=='done'))return['Red','var(--red)'];if(t.status==='review'||t.status==='todo')return['Yellow','var(--amber)'];return['Green','var(--sky)'];}
+function trackerBase(month){return month==='09'?TASKS.filter(t=>CARRIED.includes(t.id)):TASKS;}
+function trackerRows(month){return trackerBase(month).filter(t=>(!TRACK_GROUP||deptGroup(t.dept)===TRACK_GROUP)&&(!TRACK_DEPT||t.dept===TRACK_DEPT)&&(!TRACK_LEVEL||assigneesOf(t).some(a=>userLevel(a)===TRACK_LEVEL)));}
+function daysOver(t){if(t.status==='done'||t.due>=TODAY_MMDD)return 0;return Math.round((DFROM(TODAY_MMDD)-DFROM(t.due))/86400000);}
+function carryOver(){const open=trackerBase('08').filter(t=>t.status!=='done');let n=0;open.forEach(t=>{if(!CARRIED.includes(t.id)){CARRIED.push(t.id);n++;}});saveState();toast('ยกงานค้าง '+n+' รายการ ไปเดือน ก.ย. 2569');TRACK_MONTH='09';RENDER.tracker();}
+RENDER.tracker=function(){
+  const month=TRACK_MONTH;const rows=trackerRows(month);const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
+  const cnt={Green:0,Yellow:0,Red:0,Completed:0};rows.forEach(t=>cnt[trackerStatus(t)[0]]++);
+  const mLabel=month==='08'?'สิงหาคม 2569':'กันยายน 2569';
+  main.innerHTML=`${crumb('หน้าแรก','Action Tracker')}
+  <div class="page-h"><div><h1>Action Tracker</h1><p>ทะเบียนติดตาม Action · แยกดูตามเดือน / กลุ่มงาน / แผนก / ระดับตำแหน่ง</p></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="carryOver()">↪ ยกงานค้าง → ก.ย.</button><button class="tbtn" onclick="exportTrackerExcel()">📊 Excel</button></div></div>
+  <div class="filterbar">
+    <div class="fsel"><label>เดือน</label><select onchange="TRACK_MONTH=this.value;RENDER.tracker()">${opt(month,'08','สิงหาคม 2569')}${opt(month,'09','กันยายน 2569 (งานยกมา)')}</select></div>
+    <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="TRACK_GROUP=this.value;TRACK_DEPT='';RENDER.tracker()">${opt(TRACK_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(TRACK_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
+    <div class="fsel"><label>แผนก</label><select onchange="TRACK_DEPT=this.value;RENDER.tracker()">${opt(TRACK_DEPT,'','ทุกแผนก')}${DEPTS.filter(x=>!TRACK_GROUP||deptGroup(x.code)===TRACK_GROUP).map(x=>opt(TRACK_DEPT,x.code,x.name)).join('')}</select></div>
+    <div class="fsel"><label>ระดับตำแหน่ง</label><select onchange="TRACK_LEVEL=this.value;RENDER.tracker()">${opt(TRACK_LEVEL,'','ทุกระดับ')}${opt(TRACK_LEVEL,'head','หัวหน้างาน')}${opt(TRACK_LEVEL,'staff','พนักงาน')}</select></div>
+    ${(TRACK_GROUP||TRACK_DEPT||TRACK_LEVEL)?`<button class="tbtn sm" onclick="TRACK_GROUP='';TRACK_DEPT='';TRACK_LEVEL='';RENDER.tracker()">ล้าง</button>`:''}
+    <div style="margin-left:auto;font-size:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span><span class="gyr" style="background:var(--green)">Green</span> ${cnt.Green}</span>
+      <span><span class="gyr" style="background:var(--amber)">Yellow</span> ${cnt.Yellow}</span>
+      <span><span class="gyr" style="background:var(--red)">Red</span> ${cnt.Red}</span>
+      <span><span class="gyr" style="background:var(--sky)">Completed</span> ${cnt.Completed}</span></div></div>
+  <div class="resultline">แสดง ${rows.length} Action · ${mLabel}${TRACK_GROUP?' · '+GROUP_NAME[TRACK_GROUP]:''}${TRACK_DEPT?' · '+deptName(TRACK_DEPT):''}${TRACK_LEVEL?' · '+levelName(TRACK_LEVEL):''}</div>
+  ${(!rows.length)?'<div class="card pad" style="text-align:center;color:var(--muted);padding:36px">ไม่พบ Action ตามตัวกรอง'+(month==='09'?' — กดปุ่ม "ยกงานค้าง → ก.ย." เพื่อสร้างรอบเดือนถัดไป':'')+'</div>':`
+  <div class="board"><table><thead><tr><th>ID</th><th>เดือนประชุม</th><th>กลุ่ม</th><th>แผนก</th><th>Action Item</th><th>Owner</th><th>Due</th><th>Status</th><th>Priority</th><th>เกิน(วัน)</th></tr></thead>
+  <tbody>${rows.map(t=>{const s=trackerStatus(t);const ov=daysOver(t);return `<tr onclick="openTask('${t.id}')"><td>${t.id}</td><td>${mLabel}</td><td>${deptGroup(t.dept)}</td><td>${deptName(t.dept)}</td><td><b style="font-weight:500">${t.title}</b></td><td>${assigneesOf(t).map(shortName).join(', ')}</td><td>${fmtDate(t.due)}</td><td><span class="gyr" style="background:${s[1]}">${s[0]}</span></td><td>${PRIO[t.prio].t}</td><td style="color:${ov>0?'var(--red)':'inherit'}">${ov||'-'}</td></tr>`;}).join('')}</tbody>
+  <tfoot><tr><td colspan="10">รวม ${rows.length} Action</td></tr></tfoot></table></div>`}`;
+};
+function exportTrackerExcel(){
+  const month=TRACK_MONTH;const rows=trackerRows(month);const mLabel=month==='08'?'สิงหาคม 2569':'กันยายน 2569';
+  const out=[['ID','Meeting Month','Group','Department','Action Item','Owner','Assigned Date','Due Date','Status','Priority','Days Overdue']];
+  rows.forEach(t=>{const s=trackerStatus(t);out.push([t.id,mLabel,deptGroup(t.dept),deptName(t.dept),t.title,assigneesOf(t).map(shortName).join(' | '),fmtDate(t.start),fmtDate(t.due),s[0],PRIO[t.prio].t,daysOver(t)]);});
+  downloadRows(out,'action-tracker-'+month+(TRACK_DEPT?'-'+TRACK_DEPT:TRACK_GROUP?'-g'+TRACK_GROUP:'')+'.csv');
+}
+RENDER.org=function(){
+  main.innerHTML=`${crumb('หน้าแรก','แผนผังองค์กร')}
+  <div class="page-h"><div><h1>แผนผังองค์กร (Company Chart)</h1><p>โครงสร้างทีมและสายงาน · จัดกลุ่มให้อ่านง่ายสำหรับผู้บริหาร</p></div></div>
+  <div style="display:flex;justify-content:center;margin-bottom:6px"><div class="execbox"><b style="font-size:15px">Executive Board</b><div style="font-size:11.5px;opacity:.85">บอร์ดบริหาร</div></div></div>
+  <div class="muted" style="text-align:center;font-size:11.5px;margin-bottom:14px">จัดกลุ่มเพื่อให้เห็นภาพรวม โดยยังคงทีมและสายงานย่อยตามต้นฉบับ</div>
+  <div class="orggrid">
+    ${ORG.map(g=>`<div class="orgcol">
+      <div class="orghead" style="background:${g.color}"><div class="c">${g.code}</div><b>${g.title}</b><div class="th">${g.th}</div></div>
+      <div style="padding-bottom:4px">${g.teams.map(t=>`<div class="orgteam${t.dept?' hlink':''}" ${t.dept?`onclick="goBoardFiltered({dept:'${t.dept}'})" title="ดูบอร์ดงานทีมนี้"`:''}><b>${t.name}${t.dept?' <span style="font-size:10px;color:var(--blue-700);font-weight:400">ดูงาน →</span>':''}</b><div class="tsub">${t.th}</div>
+        ${t.roles?`<div style="margin-top:6px">${t.roles.map(r=>`<div class="orgrole"><span class="dot" style="background:${g.color}"></span>${r}</div>`).join('')}</div>`:''}
+      </div>`).join('')}</div>
+    </div>`).join('')}
+  </div>
+  <div class="muted" style="font-size:11px;margin-top:12px">หมายเหตุ: มุมมองนี้จัดกลุ่มเพื่อความเข้าใจง่าย ไม่ได้เปลี่ยนโครงสร้างจริงจากเอกสารต้นฉบับ · Source: COMPANY CHART</div>`;
+};
+RENDER.sop=function(){
+  const q=F.q.toLowerCase();
+  const list=SOPS.filter(s=>(!F.dept||s.dept===F.dept)&&(!q||s.title.toLowerCase().includes(q)||deptName(s.dept).toLowerCase().includes(q)));
+  main.innerHTML=`${crumb('หน้าแรก','คลัง SOP')}
+  <div class="page-h"><div><h1>คลัง SOP / คู่มือ & เอกสารกลาง</h1><p>ระเบียบ · แบบฟอร์ม · คู่มือปฏิบัติงานของทุกแผนก</p></div></div>
+  <div class="sect-title" style="margin-top:2px">📕 เอกสารกลาง / ระเบียบ & แบบฟอร์ม</div>
+  <div class="tiles" style="margin-bottom:18px">
+    ${DOCS.map(doc=>`<div class="tile" onclick="openDoc('${doc.id}')"><span class="pill" style="background:var(--blue-800);margin-bottom:8px">ระเบียบ · ${doc.rev}</span><h4>${doc.title}</h4><div class="meta">${doc.en} · ${doc.owner}</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดอ่าน →</div></div>`).join('')}
+    <div class="tile" onclick="go('monthly')"><span class="pill" style="background:var(--green);margin-bottom:8px">แบบฟอร์ม</span><h4>แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน</h4><div class="meta">กรอกอัตโนมัติ · Export Word/Excel/PDF</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดฟอร์ม →</div></div>
+    <div class="tile" onclick="go('tracker')"><span class="pill" style="background:var(--sky);margin-bottom:8px">ทะเบียน</span><h4>Action Tracker (ทะเบียนติดตาม Action)</h4><div class="meta">สะสมข้ามเดือน · แยกกลุ่ม/แผนก/ระดับ</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดทะเบียน →</div></div>
+  </div>
+  <div class="sect-title">📘 คู่มือปฏิบัติงาน (SOP)</div>
+  ${filterBarLite('ค้นหาคู่มือ SOP')}
+  <div class="resultline">แสดง ${list.length} จาก ${SOPS.length} คู่มือ</div>
+  ${list.length?`<div class="tiles">${list.map(s=>`<div class="tile" onclick="openSOP('${s.id}')">
+    <span class="pill" style="background:${deptColor(s.dept)};margin-bottom:8px">${deptName(s.dept)}</span>
+    <h4>${s.title}</h4><div class="meta">เวอร์ชัน ${s.v} · ${s.steps.length} ขั้นตอน</div>
+    <div style="margin-top:10px;font-size:12px;color:var(--blue-700)">ดูขั้นตอน →</div></div>`).join('')}</div>`:'<div class="card pad" style="text-align:center;color:var(--muted);padding:36px">ไม่พบคู่มือที่ตรงกับตัวกรอง</div>'}`;
+};
+RENDER.kb=function(){
+  const q=F.q.toLowerCase();
+  const list=KB.filter(k=>(!F.dept||k.dept===F.dept)&&(!q||k.title.toLowerCase().includes(q)||k.problem.toLowerCase().includes(q)||k.tags.join(' ').toLowerCase().includes(q)));
+  main.innerHTML=`${crumb('หน้าแรก','คลังความรู้')}
+  <div class="page-h"><div><h1>คลังความรู้ (Knowledge Base)</h1><p>วิธีแก้ปัญหาที่ระบบเก็บอัตโนมัติจากการปิดงาน · ค้นหาและใช้ซ้ำได้</p></div></div>
+  ${filterBarLite('ค้นหาปัญหา / วิธีแก้ / แท็ก')}
+  <div class="ai-note" style="margin-bottom:12px">💡 บทความเหล่านี้ถูกสร้างอัตโนมัติจากช่อง "วิธีแก้ปัญหา" ตอนปิดงาน แล้ว AI ช่วยสรุปให้อ่านง่าย</div>
+  <div class="resultline">แสดง ${list.length} จาก ${KB.length} บทความ</div>
+  ${list.length?`<div class="tiles">${list.map(k=>`<div class="tile" onclick="openKB('${k.id}')">
+    <span class="pill" style="background:${deptColor(k.dept)};margin-bottom:8px">${deptName(k.dept)}</span>
+    <h4>${k.title}</h4><div class="meta">${k.id} · จากงาน ${k.from}</div>
+    <p style="font-size:12px;color:#43506e;margin-top:8px;font-weight:300">${k.problem}</p>
+    <div style="margin-top:8px">${k.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div>`).join('')}</div>`:'<div class="card pad" style="text-align:center;color:var(--muted);padding:36px">ไม่พบบทความที่ตรงกับตัวกรอง</div>'}`;
+};
+RENDER.ann=function(){
+  main.innerHTML=`${crumb('หน้าแรก','ประกาศ & อัปเดต')}
+  <div class="page-h"><div><h1>ประกาศ & บอร์ดอัปเดต</h1><p>บอร์ดกลางของบริษัท — ประกาศจากผู้บริหาร/หัวหน้า และความเคลื่อนไหวงาน</p></div>
+    ${ROLE!=='staff'?'<button class="tbtn primary" onclick="openAnnForm()">+ ประกาศใหม่</button>':''}</div>
+  <div class="grid" style="grid-template-columns:1.4fr 1fr">
+    <div class="card"><div class="card-h"><h3>📢 ประกาศ</h3></div><div class="pad">
+      ${ANN.map(a=>{const st=annStatus(a);const aud=annAudienceIds(a);const ack=(a.acks||[]).length;const meNeed=aud.includes(me())&&!(a.acks||[]).includes(me())&&st.t!=='หมดอายุ';return `<div class="ann ${a.pin?'pin':''}" style="cursor:pointer" onclick="openAnn('${a.id}')"><div class="who" style="background:${u(a.who).c}">${u(a.who).s}</div>
+        <div style="flex:1"><h4>${a.pin?'📌 ':''}${a.title} <span class="pill" style="background:${st.c};font-size:10px">${st.t}</span></h4><div class="body">${a.body}</div>
+        <div class="time">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 ${fmtDate(a.from)}${a.until?('–'+fmtDate(a.until)):''}`:''}</div>
+        <div style="margin-top:6px;font-size:11.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="color:var(--green)">✓ รับทราบ ${ack}/${aud.length}</span><span class="muted">💬 ตอบกลับ ${(a.comments||[]).length}</span>${meNeed?'<span class="pill" style="background:var(--amber);font-size:10px">คุณยังไม่รับทราบ — คลิกเพื่อรับทราบ</span>':''}</div></div></div>`;}).join('')}</div></div>
+    <div class="card"><div class="card-h"><h3>🔔 ฟีดงานรวม</h3></div><div class="pad">
+      ${FEED.map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')}</div></div>
+  </div>`;
+};
+RENDER.talk=function(){
+  main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}
+  <div class="page-h"><div><h1>Talk to Data 🤖</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p></div></div>
+  <div class="card pad chat">
+    <div class="chat-body" id="chatBody">
+      <div class="msg a">สวัสดีค่ะ 👋 ถามข้อมูลงาน/KPI/ลูกค้าได้เลย ระบบจะดึงเฉพาะจากฐานข้อมูลภายในของเรา<br>
+        <div style="margin-top:8px">${['เดือนนี้แต่ละแผนกทำ KPI ได้เท่าไหร่','งานติดปัญหาตอนนี้มีอะไรบ้าง','กราฟิกส่งงานตรงเวลากี่เปอร์เซ็นต์'].map(q=>`<span class="chip" onclick="ask('${q}')">${q}</span>`).join('')}</div></div>
+    </div>
+    <div class="chat-in"><input id="chatInput" placeholder="พิมพ์คำถาม... หรือกดไมค์เพื่อพูด" onkeydown="if(event.key==='Enter')ask(this.value)"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('chatInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('chatInput').value)">ส่ง</button></div>
+  </div>`;
+};
+function ask(q){
+  if(!q||!q.trim())return;
+  const body=document.getElementById('chatBody'),inp=document.getElementById('chatInput');if(inp)inp.value='';
+  body.insertAdjacentHTML('beforeend',`<div class="msg u">${q}</div>`);
+  let ans='';
+  if(/kpi|เท่าไหร่|แผนก/.test(q)){
+    ans=`<b>คะแนน KPI รายแผนก (เดือนนี้)</b><span class="q">SELECT dept, AVG(score) FROM kpi_records WHERE month='2026-08' GROUP BY dept</span>
+      <table class="datatable" style="width:100%"><tr><th>แผนก</th><th>คะแนน</th></tr>
+      ${Object.keys(KPI).map(c=>`<tr><td>${deptName(c)}</td><td style="color:${scoreColor(deptScore(c))}">${deptScore(c)}/100</td></tr>`).join('')}</table>`;
+  }else if(/ติดปัญหา|block|ค้าง/.test(q)){
+    const b=TASKS.filter(t=>t.status==='block'||t.status==='review');
+    ans=`<b>งานที่ต้องจับตา (ติดปัญหา/รอตรวจ) มี ${b.length} งาน</b><span class="q">SELECT * FROM tasks WHERE status IN ('block','review')</span>
+      ${b.map(t=>`• <b>${t.id}</b> ${t.title} — ${STATUS[t.status].t} (${deptName(t.dept)})`).join('<br>')}`;
+  }else if(/ตรงเวลา|กราฟิก|graphic/.test(q)){
+    ans=`แผนกกราฟิกส่งงานตรงเวลา <b style="color:var(--amber)">84%</b> (เป้า ≥90%) ต่ำกว่าเป้าเล็กน้อย<span class="q">SELECT on_time_rate FROM kpi WHERE dept='GRAPHIC'</span>สาเหตุหลักจากงานเร่งแทรกและแก้หลายรอบ — มีวิธีลดใน KB-05`;
+  }else{ans=`พบข้อมูลที่เกี่ยวข้องในระบบ ${TASKS.length} งาน และ ${KB.length} บทความความรู้<span class="q">SELECT ... FROM internal_db /* ข้อมูลภายในเท่านั้น */</span>ลองถามเจาะจง เช่น "งานของ CRM วันนี้"`;}
+  setTimeout(()=>{body.insertAdjacentHTML('beforeend',`<div class="msg a">${ans}</div>`);body.scrollTop=body.scrollHeight;},250);
+  body.scrollTop=body.scrollHeight;
+}
+
+/* ============================================================
+   MODALS
+============================================================ */
+function showModal(html){modal.innerHTML=html;overlay.classList.add('show');}
+function closeModal(){overlay.classList.remove('show');}
+function openTask(id){
+  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop);
+  const sSel=`<div class="statusbtns">${Object.keys(STATUS).map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`;
+  const aBox=`<div style="display:flex;align-items:center;gap:8px;padding-top:4px">${avStack(assigneesOf(t))}<span style="font-size:12.5px">${assigneesOf(t).map(shortName).join(', ')}</span><button class="tbtn sm" style="margin-left:auto" onclick="openAssigneePicker('${t.id}')">แก้ / เพิ่มคน</button></div>`;
+  const pSel=`<div class="statusbtns">${Object.keys(PRIO).map(pk=>`<button class="stbtn ${t.prio===pk?'active':''}" style="--c:${PRIO[pk].c}" onclick="setPrio('${t.id}','${pk}')">${PRIO[pk].t}</button>`).join('')}</div>`;
+  const _D=s=>new Date(2026,+s.split('-')[0]-1,+s.split('-')[1]);
+  const dl=Math.round((_D(t.due)-new Date(2026,7,7))/86400000);
+  const dueNote=t.status==='done'?'ปิดงานแล้ว':dl>0?('เหลืออีก '+dl+' วัน'):dl===0?'ครบกำหนดวันนี้':('เกินกำหนด '+(-dl)+' วัน');
+  const dueColor=t.status==='done'?'var(--green)':dl<0?'var(--red)':dl===0?'var(--amber)':'var(--muted)';
+  const _sla=slaOf(t);
+  const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)}</div>
+    <h3>${t.title}</h3><div class="muted" style="font-size:11.5px">${t.id} · สั่งโดย ${shortName(t.creator)}</div></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="pad">
+    <div class="field"><label>รายละเอียดงาน</label><div class="v">${t.desc||'-'}</div></div>
+    <div class="field" style="margin-top:6px"><label>สถานะ (คลิกเพื่อเปลี่ยน)</label>${sSel}</div>
+    <div class="field"><label>ความสำคัญ</label>${pSel}</div>
+    <div class="field"><label>ผู้รับผิดชอบ (${assigneesOf(t).length} คน)</label>${aBox}</div>
+    <div class="two">
+      <div class="field"><label>กำหนดส่ง</label>
+        <input type="date" class="fin" value="2026-${t.due}" onchange="setDue('${t.id}',this.value)">
+        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}</div></div>
+      <div class="field"><label>เวลาที่ใช้ (ชม.)</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" min="0" step="0.5" class="fin" id="spent_${t.id}" value="${t.spent||0}" style="max-width:90px">
+          <button class="tbtn sm" onclick="setSpent('${t.id}')">บันทึก</button>
+          <button class="tbtn sm" onclick="addSpent('${t.id}',1)">+1 ชม.</button></div></div>
+    </div>
+    <div class="field"><label>ระยะเวลาดำเนินการที่กำหนด (SLA)</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="number" min="1" class="fin" id="sla_n_${t.id}" value="${_sla.n}" style="max-width:80px">
+        <select class="fin" id="sla_u_${t.id}" style="max-width:110px"><option value="day" ${_sla.unit==='day'?'selected':''}>วัน</option><option value="hr" ${_sla.unit==='hr'?'selected':''}>ชั่วโมง</option></select>
+        <button class="tbtn sm" onclick="setSla('${t.id}')">บันทึก</button></div>
+      <div class="muted" style="font-size:11px;margin-top:4px">${_slaNote}</div></div>
+    <div class="field"><label>แท็ก</label><span>${t.tags.map(x=>`<span class="tag">${x}</span>`).join('')||'-'}</span></div>
+
+    <div class="field"><label>งานย่อย / มอบต่อ (Delegation) — คลิกเพื่อเปลี่ยนสถานะงานย่อย</label>
+      ${(t.sub||[]).map((s,i)=>`<div class="sub-item" onclick="toggleSub('${t.id}',${i})" title="คลิกเพื่อเปลี่ยนสถานะ"><span class="mini" style="background:${u(s.who).c}">${u(s.who).s}</span><div style="flex:1">${s.t} <span class="muted" style="font-size:11px">· ${shortName(s.who)}</span></div>${statusPill(s.st)}<span class="cyc">↻ เปลี่ยน</span></div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีงานย่อย</div>'}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input class="fin" id="subName" placeholder="ชื่องานย่อยที่มอบต่อ" style="flex:1">
+        <select class="fin" id="subWho" style="width:110px">${assigneeOptions(t.assignee)}</select>
+        <button class="tbtn" onclick="addSub('${t.id}')">+ มอบต่อ</button></div></div>
+
+    ${sop?`<div class="field"><label>SOP ที่ผูกกับงานนี้ — ${sop.title}</label>
+      ${sop.steps.slice(0,4).map((s,i)=>`<div class="step"><span class="n">${i+1}</span>${s}</div>`).join('')}
+      <a style="font-size:11.5px;color:var(--blue-700);cursor:pointer" onclick="openSOP('${sop.id}')">ดู SOP เต็ม →</a></div>`:''}
+
+    ${t.solution?`<div class="field"><label>✅ วิธีแก้ปัญหา (บันทึกลงคลังความรู้แล้ว)</label><div class="ai-note">${t.solution}</div></div>`:
+      `<div class="field"><label>วิธีแก้ปัญหา / ผลการดำเนินงาน</label><textarea id="solIn" rows="2" placeholder="พิมพ์วิธีแก้ แล้วกด 'อนุมัติ/ปิดงาน' → ระบบเก็บเข้าคลังความรู้อัตโนมัติ"></textarea></div>`}
+    <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
+      ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">💾 บันทึกวิธีแก้</button>`:''}
+      ${ROLE!=='staff'&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button>`:''}
+      ${t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
+
+    <div class="field" style="margin-top:14px"><label>ความเคลื่อนไหว / ความคิดเห็น</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px"><input class="fin" id="cmtIn" placeholder="เขียนความคิดเห็น..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${t.id}')"><button class="tbtn" onclick="addComment('${t.id}')">ส่ง</button></div>
+      ${(t.log||[]).map(l=>`<div class="logline"><span class="mini" style="background:${u(l.who).c}">${u(l.who).s}</span><div><b style="font-weight:500;font-size:12px">${shortName(l.who)}</b> <span class="muted" style="font-size:11px">· ${l.time}</span><div style="font-size:12px">${l.txt}</div></div></div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีความเคลื่อนไหว</div>'}</div>
+  </div>`);
+}
+function openDoc(id){const d=DOCS.find(x=>x.id===id);if(!d)return;
+  showModal(`<div class="modal-h"><div><span class="pill" style="background:var(--blue-800)">ระเบียบ · ${d.rev}</span><h3 style="margin-top:6px">${d.title}</h3><div class="muted" style="font-size:11.5px">${d.en} · หน่วยงานเจ้าของ: ${d.owner}</div></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="pad">${d.sections.map(s=>`<div class="field"><label style="font-size:12.5px;color:var(--blue-700);font-weight:500">${s.h}</label>${s.items.map(it=>`<div class="step"><span style="color:var(--blue-500);font-weight:700">•</span><div style="flex:1">${it}</div></div>`).join('')}</div>`).join('')}
+  <div class="ai-note">📎 เอกสารต้นฉบับ: <b>ระเบียบการประชุมติดตามผลประจำเดือน.pdf</b> — เก็บใน โฟลเดอร์ บริษัท/รายงานเพิ่มเติม/08.08.2026</div></div>`);}
+function openSOP(id){
+  const s=SOPS.find(x=>x.id===id);if(!s)return;
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(s.dept)}</div><h3>${s.title}</h3>
+    <div class="muted" style="font-size:11.5px">เวอร์ชัน ${s.v} · อนุมัติแล้ว</div></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="pad"><div class="field"><label>ขั้นตอนการทำงาน (Workflow)</label>
+    ${s.steps.map((st,i)=>`<div class="step"><span class="n">${i+1}</span>${st}</div>`).join('')}</div>
+    <div class="ai-note">🤖 <b>AI:</b> ผูก SOP นี้กับงานอัตโนมัติได้ เมื่อเปิดงานในแผนก ${deptName(s.dept)} ระบบจะแสดงขั้นตอนนี้ และนับการปฏิบัติตาม SOP เป็นส่วนหนึ่งของ KPI</div></div>`);
+}
+function openKB(id){
+  const k=KB.find(x=>x.id===id);if(!k)return;
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(k.dept)}</div><h3>${k.title}</h3>
+    <div class="muted" style="font-size:11.5px">${k.id} · สร้างจากงาน ${k.from}</div></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="pad"><div class="field"><label>ปัญหา</label><div class="v">${k.problem}</div></div>
+    <div class="field"><label>✅ วิธีแก้</label><div class="ai-note">${k.solution}</div></div>
+    <div class="field"><label>แท็ก</label>${k.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div>`);
+}
+function openCompose(){
+  const defDept=ROLE==='exec'?'GRAPHIC':ROLE_META[ROLE].dept;
+  showModal(`<div class="modal-h"><div><h3>✨ สร้างงานด้วย AI</h3><div class="muted" style="font-size:11.5px">พิมพ์สั้น ๆ AI จะจัดรูปให้อ่านง่าย แล้วกดสร้าง</div></div><button class="x" onclick="closeModal()">×</button></div>
+  <div class="pad">
+    <div class="field"><label>สั่งงานแบบสั้น (พิมพ์หรือพูดก็ได้)</label><textarea id="cmpIn" rows="2">ทำแบนเนอร์โปรฯ ฝากครั้งแรกให้ 3XBET ส่งศุกร์นี้</textarea></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="voiceDictate('cmpIn')">🎤 พูดใส่</button><button class="tbtn primary" onclick="aiCompose('${defDept}')">🤖 ให้ AI จัดรูปงาน</button></div>
+    <div id="cmpOut" style="margin-top:14px"></div></div>`);
+}
+function aiCompose(defDept){
+  const raw=normSp(val('cmpIn'))||'งานใหม่';
+  const a=analyzeCommand(raw); if(defDept&&!/แบนเนอร์|ออกแบบ|โทร|คอนเทนต์|เบิก|แชท|ตรวจ/.test(raw.toLowerCase()))a.dept=defDept;
+  PICK=new Set([a.assignee]);
+  document.getElementById('cmpOut').innerHTML=`
+    <div class="ai-note"><b>🤖 AI วิเคราะห์ให้แล้ว:</b> แผนก <b>${deptName(a.dept)}</b> · ความสำคัญ <b>${PRIO[a.prio].t}</b> · กำหนดส่ง <b>${fmtDate(a.due)}</b> · แนะนำ <b>${shortName(a.assignee)}</b> (ว่างสุดในทีม)</div>
+    <div class="two" style="margin-top:12px">
+      <div class="field"><label>หัวข้องาน</label><input class="fin" id="f_title" value="${a.title}"></div>
+      <div class="field"><label>แผนก</label><select class="fin" id="f_dept">${deptOptions(a.dept)}</select></div></div>
+    <div class="field"><label>รายละเอียด</label><textarea class="fin" id="f_desc" rows="2">${a.desc}</textarea></div>
+    <div class="two">
+      <div class="field"><label>ความสำคัญ</label><select class="fin" id="f_prio">${Object.keys(PRIO).map(pk=>`<option value="${pk}" ${a.prio===pk?'selected':''}>${PRIO[pk].t}</option>`).join('')}</select></div>
+      <div class="field"><label>กำหนดส่ง</label><input type="date" class="fin" id="f_due" value="2026-${a.due}"></div></div>
+    <div class="field"><label>ระยะเวลาดำเนินการ (SLA) — ต้องเสร็จภายใน</label><div style="display:flex;gap:6px"><input type="number" min="1" class="fin" id="f_sla_n" value="${a.sla.n}" style="max-width:90px"><select class="fin" id="f_sla_u" style="max-width:120px"><option value="day">วัน</option><option value="hr">ชั่วโมง</option></select></div></div>
+    <div class="field"><label>ผู้รับผิดชอบ — เลือกได้หลายคน หรือกดทั้งกลุ่ม</label><div id="pickerBox"></div></div>
+    <div class="field"><label>Checklist (AI แตกจาก SOP ${deptName(a.dept)})</label>${a.checklist.map((c,i)=>`<div class="step"><span class="n">${i+1}</span>${c}</div>`).join('')}</div>
+    ${a.kb?`<div class="ai-note">🔗 เกี่ยวข้อง: SOP ${deptName(a.dept)} · บทความ ${a.kb.id} (${a.kb.title})</div>`:''}
+    <button class="tbtn primary" style="margin-top:12px" onclick="submitCompose()">✓ สร้างงานนี้</button>`;
+  renderPicker();
+}
+function submitCompose(){
+  const title=normSp(val('f_title'));if(!title){toast('กรุณาระบุหัวข้องาน','info');return;}
+  if(!PICK.size){toast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน','info');return;}
+  const due=(val('f_due')||'').slice(5)||'08-12';const assignees=[...PICK];
+  const sla={n:Math.max(1,parseInt(val('f_sla_n'))||1),unit:val('f_sla_u')||'day'};
+  const t=createTask({title,dept:val('f_dept'),assignees,prio:val('f_prio'),due,sla,desc:val('f_desc'),tags:['งานใหม่']});
+  closeModal();F.dept='';go('board');toast('สร้างงาน '+t.id+' ให้ '+assignees.length+' คน (ส่ง '+fmtDate(due)+')');
+}
+
+/* ===== Persistence (localStorage) ===== */
+const LS_KEY='companyhub_state_v1';
+function saveState(){try{localStorage.setItem(LS_KEY,JSON.stringify({TASKS,KB,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED}));}catch(e){}}
+function loadState(){try{const s=JSON.parse(localStorage.getItem(LS_KEY)||'null');if(!s)return;
+  if(s.TASKS){TASKS.length=0;TASKS.push(...s.TASKS);}if(s.KB){KB.length=0;KB.push(...s.KB);}
+  if(s.ANN){ANN.length=0;ANN.push(...s.ANN);}if(s.GROUPS){GROUPS.length=0;GROUPS.push(...s.GROUPS);}
+  if(typeof s.ANN_SEQ==='number')ANN_SEQ=s.ANN_SEQ;if(s.REPORT_EDITS)REPORT_EDITS=s.REPORT_EDITS;if(Array.isArray(s.CARRIED))CARRIED=s.CARRIED;}catch(e){}}
+function resetDemo(){try{localStorage.removeItem(LS_KEY);}catch(e){}location.reload();}
+
+/* ===== Theme ===== */
+function applyTheme(d){document.body.classList.toggle('dark',d);const b=document.getElementById('themeBtn');if(b)b.textContent=d?'☀️':'🌙';}
+function toggleTheme(){const d=!document.body.classList.contains('dark');applyTheme(d);try{localStorage.setItem('ch_theme',d?'dark':'light');}catch(e){}}
+
+/* ===== INIT ===== */
+loadState();
+try{applyTheme(localStorage.getItem('ch_theme')==='dark');}catch(e){}
+setRole('lead');
+document.querySelectorAll('#roleSwitch button').forEach(b=>b.onclick=()=>setRole(b.dataset.role));
+</script>
+</body>
+</html>

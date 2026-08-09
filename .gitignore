@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Node (สำหรับตอนพัฒนา Next.js ในอนาคต)
+node_modules/
+.next/
+dist/
+.env
+.env.local

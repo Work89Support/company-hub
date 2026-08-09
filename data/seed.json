@@ -1,0 +1,44 @@
+{
+  "_comment": "ข้อมูลตัวอย่างตั้งต้นระบบ Company Hub — ใช้เป็น seed ตอนพัฒนา Next.js/Prisma",
+  "departments": [
+    {"code":"KPI","name":"แผนก KPI"},
+    {"code":"MKT","name":"การตลาด"},
+    {"code":"GRAPHIC","name":"กราฟิก"},
+    {"code":"CRM","name":"ลูกค้าสัมพันธ์ (CRM)"},
+    {"code":"ADMIN","name":"แอดมิน"},
+    {"code":"QC","name":"QC Chat & Back Office"},
+    {"code":"FIN","name":"การเงิน"},
+    {"code":"BO","name":"Back Office Management"}
+  ],
+  "roles": [
+    {"level":"L0","key":"admin","name":"ผู้ดูแลระบบ"},
+    {"level":"L1","key":"staff","name":"พนักงาน"},
+    {"level":"L2","key":"lead","name":"หัวหน้างาน"},
+    {"level":"L3","key":"exec","name":"ผู้บริหาร"}
+  ],
+  "taskStatuses": ["todo","doing","review","block","done"],
+  "priorities": ["high","mid","low"],
+  "kpiExample": {
+    "CRM": [
+      {"name":"สายโทรออก/คน/วัน","target":"≥80","period":"daily","weight":0.3},
+      {"name":"อัตราลูกค้ากลับมา (Retention)","target":"≥45%","period":"monthly","weight":0.4},
+      {"name":"เวลาตอบลูกค้า","target":"≤5น.","period":"daily","weight":0.3}
+    ],
+    "GRAPHIC": [
+      {"name":"ชิ้นงานเสร็จ/คน/วัน","target":"≥6","period":"daily","weight":0.35},
+      {"name":"ส่งงานตรงเวลา","target":"≥90%","period":"weekly","weight":0.4},
+      {"name":"รอบแก้ไขเฉลี่ย","target":"≤2","period":"weekly","weight":0.25}
+    ]
+  },
+  "sopTemplate": [
+    "หน้าที่และความรับผิดชอบหลัก",
+    "ขั้นตอนการทำงานทั้งหมด (Workflow)",
+    "งานที่ดำเนินการเป็นประจำ (วัน/สัปดาห์/เดือน)",
+    "ระบบหรือเครื่องมือที่ใช้",
+    "จุดที่ยังต้องตรวจสอบด้วยคน",
+    "จุดที่มักเกิดความผิดพลาด / ปัญหาที่พบ",
+    "งานที่ AI / Automation ช่วยได้",
+    "งานที่ AI ช่วยวิเคราะห์ แต่คนอนุมัติ",
+    "แนวทาง / ข้อเสนอแนะในการพัฒนาระบบ"
+  ]
+}
