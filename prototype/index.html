@@ -359,11 +359,13 @@ const DEPTS = [
   {code:'FIN',   name:'การเงิน',             color:'#0b7a75'},
   {code:'BO',    name:'Back Office (BC)',     color:'#67769a'},
   {code:'HR',    name:'ทรัพยากรบุคคล (HR)',  color:'#c2557a'},
+  {code:'AUD123',name:'ออดิทระบบ 123',       color:'#c77d3a'},
+  {code:'AUDXB', name:'ออดิทระบบ XB',        color:'#5b7a3a'},
 ];
 const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
 const deptName  = c => (DEPTS.find(d=>d.code===c)||{}).name || c;
 /* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
-const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04'};
+const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04'};
 const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
 const deptGroup=c=>DEPT_GROUP[c]||'01';
 const userLevel=id=>(String(id).startsWith('lead')||id==='boss')?'head':'staff';
@@ -378,6 +380,8 @@ const USERS = {
   lead_fin:{n:'ตาล (หัวหน้าการเงิน)',s:'ต',c:'#0b7a75'},
   lead_bc:{n:'ก้อง (หัวหน้า Back Office)',s:'ก',c:'#67769a'},
   hr1:{n:'แนน',s:'แ',c:'#c2557a'}, bc1:{n:'พล',s:'พ',c:'#67769a'},
+  lead_a123:{n:'บิว (หัวหน้าออดิท 123)',s:'บ',c:'#c77d3a'}, a123s:{n:'ปอ',s:'ป',c:'#c77d3a'},
+  lead_axb:{n:'มาย (หัวหน้าออดิท XB)',s:'ม',c:'#5b7a3a'}, axbs:{n:'กิ๊ฟ',s:'ก',c:'#5b7a3a'},
   a:{n:'ฟ้า',s:'ฟ',c:'#2f6fe0'}, b:{n:'ต้น',s:'ต',c:'#e8971b'},
   c:{n:'มิ้น',s:'ม',c:'#7a53e0'}, d:{n:'โบ๊ท',s:'บ',c:'#0b7a75'},
   e:{n:'จู',s:'จ',c:'#e2445c'}, f:{n:'เก่ง',s:'ก',c:'#2f8fe6'},
@@ -393,7 +397,9 @@ let GROUPS=[
   {id:'g_qc', name:'ทีม QC Chat',        dept:'QC',      members:['e','d']},
   {id:'g_hr', name:'ทีม HR',             dept:'HR',      members:['lead_hr','hr1']},
   {id:'g_bo', name:'ทีม Back Office (BC)',dept:'BO',      members:['lead_bc','bc1','d']},
-  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin','lead_bc']},
+  {id:'g_a123',name:'ทีมออดิท 123',      dept:'AUD123',  members:['lead_a123','a123s']},
+  {id:'g_axb',name:'ทีมออดิท XB',        dept:'AUDXB',   members:['lead_axb','axbs']},
+  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin','lead_bc','lead_a123','lead_axb']},
 ];
 const groupById=id=>GROUPS.find(g=>g.id===id);
 
@@ -430,6 +436,10 @@ const TASKS = [
   {id:'T-1104',dept:'BO',title:'ติดตามบัญชีมีปัญหา + ประสานนายหน้า',creator:'lead_bc',assignee:'bc1',status:'block',prio:'high',start:'08-04',due:'08-07',spent:4,ontime:false,tags:['บัญชี','นายหน้า'],sop:'SOP-BC',desc:'ติดตามเคสบัญชีติดปัญหาให้ได้ความคืบหน้า — ติดที่นายหน้ายังไม่ตอบกลับ',sub:[]},
   {id:'T-1105',dept:'BO',title:'ตรวจรับบัญชีใหม่ก่อนส่งส่วนกลาง (รอบสัปดาห์)',creator:'lead_bc',assignee:'d',status:'done',prio:'mid',start:'08-04',due:'08-05',spent:2,ontime:true,tags:['บัญชีใหม่'],sop:'SOP-BC',
     desc:'ตรวจข้อมูลบัญชีใหม่ให้ครบก่อนส่ง',solution:'ทำเช็กลิสต์ 6 จุดก่อนรับบัญชีใหม่ (ชื่อ/เลขบัญชี/สถานะ/เอกสาร/ผู้ดูแล/เว็บ) ลดบัญชีตีกลับจากส่วนกลางเหลือ 0',sub:[]},
+  {id:'T-1110',dept:'AUD123',title:'ตรวจเทียบ STM กับรายงานระบบ 123 (รอบวัน)',creator:'boss',assignee:'lead_a123',status:'doing',prio:'high',start:'08-07',due:'08-08',spent:3,ontime:true,tags:['STM','Reconcile'],sop:'SOP-A123',desc:'ตรวจฝาก-ถอนธนาคารปกติ/PM เทียบ STM กับรายงานระบบ 123/BO ให้ครบ',sub:[{t:'จัดเรียงไฟล์ STM',who:'a123s',st:'done'},{t:'เทียบยอด/เวลา/ธนาคาร',who:'lead_a123',st:'doing'}]},
+  {id:'T-1111',dept:'AUD123',title:'ติดตามไฟล์ชี้แจงยอดผิดปกติ + ลงความเสียหาย',creator:'lead_a123',assignee:'a123s',status:'todo',prio:'mid',start:'08-08',due:'08-11',spent:0,ontime:true,tags:['Exception','ความเสียหาย'],sop:'SOP-A123',desc:'ส่งเคสยอดไม่ตรงให้ชี้แจง ตรวจหลักฐาน และบันทึกความเสียหายเข้ารายงานเดือน',sub:[]},
+  {id:'T-1112',dept:'AUDXB',title:'ตรวจเทียบ STM กับ BO/หน้าหลังบ้านระบบ XB (รอบวัน)',creator:'boss',assignee:'lead_axb',status:'doing',prio:'high',start:'08-07',due:'08-08',spent:2.5,ontime:true,tags:['STM','Reconcile'],sop:'SOP-AXB',desc:'ตรวจฝาก-ถอนเทียบ STM กับ BO/หน้าหลังบ้าน XB ให้ถูกต้องครบถ้วน',sub:[]},
+  {id:'T-1113',dept:'AUDXB',title:'สรุปยอดความเสียหายประจำเดือน (ระบบ XB)',creator:'boss',assignee:'lead_axb',status:'review',prio:'mid',start:'08-05',due:'08-07',spent:4,ontime:true,tags:['รายงานเดือน'],sop:'SOP-AXB',desc:'รวบรวมรายการความเสียหายที่ตรวจพบ จัดหมวด และสรุปเข้ารายงานประจำเดือน',sub:[]},
 ];
 
 /* KPI ทีม — ตัวชี้วัดจริงจากไฟล์ KPI 2026 ของแต่ละทีม
@@ -474,11 +484,11 @@ const KPI = {
     {n:'บันทึกผลการติดต่อครบถ้วน',tg:'≥98%',tgt:98,w:0.15,ac:97},
     {n:'ติดตามลูกค้าหายกลับ (Win-back) ตามแผน',tg:'≥85%',tgt:85,w:0.20,ac:80}],
   MKT:[
-    {n:'โพสต์คอนเทนต์ตามแผน',tg:'≥95%',tgt:95,w:0.20,ac:96},
-    {n:'คอนเทนต์/อาร์ตเวิร์กผ่านตรวจก่อนโพสต์',tg:'≥98%',tgt:98,w:0.20,ac:97},
-    {n:'Engagement ถึงเป้า',tg:'≥90%',tgt:90,w:0.20,ac:85},
-    {n:'ตอบคอมเมนต์/Inbox ตาม SLA',tg:'≥95%',tgt:95,w:0.20,ac:93},
-    {n:'รายงานวิเคราะห์ส่งตรงเวลา',tg:'100%',tgt:100,w:0.20,ac:100}],
+    {n:'งานคอนเทนต์/สื่อเสร็จตามแผน (Content Execution)',tg:'≥95%',tgt:95,w:0.20,ac:96},
+    {n:'ดำเนินแคมเปญ/Optimize ตามรอบ (Campaign)',tg:'≥95%',tgt:95,w:0.20,ac:94},
+    {n:'สรุป/วิเคราะห์ข้อมูลตรงเวลา (Data Analysis)',tg:'≥95%',tgt:95,w:0.20,ac:95},
+    {n:'ดูแล Social Media ตามแผน (X/VK/Telegram)',tg:'≥90%',tgt:90,w:0.20,ac:92},
+    {n:'นำ AI/Automation มาใช้ (AI Adoption)',tg:'≥80%',tgt:80,w:0.20,ac:70}],
   ADMIN:[
     {n:'ตอบแชทภายในเวลา (SLA)',tg:'≥95%',tgt:95,w:0.25,ac:94},
     {n:'ปิดเคสได้ตามเป้ารายวัน',tg:'≥95%',tgt:95,w:0.20,ac:96},
@@ -486,11 +496,23 @@ const KPI = {
     {n:'ความถูกต้องการบันทึกเคส',tg:'≥98%',tgt:98,w:0.15,ac:98},
     {n:'ส่งต่อ/ประสานงานเคสครบ',tg:'≥95%',tgt:95,w:0.20,ac:93}],
   KPI:[
-    {n:'ตรวจ Dashboard/KPI รายวันครบ',tg:'100%',tgt:100,w:0.20,ac:98},
-    {n:'ออกแบบ/ปรับ KPI ตามรอบ',tg:'≥95%',tgt:95,w:0.20,ac:95},
-    {n:'ติดตามผลและงานเกินกำหนด',tg:'≥95%',tgt:95,w:0.20,ac:92},
-    {n:'วิเคราะห์ปัญหา/Root Cause ตามเคส',tg:'≥90%',tgt:90,w:0.20,ac:88},
-    {n:'รายงานผู้บริหารตรงเวลา',tg:'100%',tgt:100,w:0.20,ac:100}],
+    {n:'ออกแบบ/อนุมัติ KPI ครบตามแผน (Design & Approval)',tg:'≥95%',tgt:95,w:0.20,ac:96},
+    {n:'ติดตาม/รายงาน KPI ตรงรอบ (Monitoring & Reporting)',tg:'≥95%',tgt:95,w:0.20,ac:95},
+    {n:'ความถูกต้องข้อมูล/Dashboard (Data Accuracy)',tg:'≥99%',tgt:99,w:0.20,ac:99},
+    {n:'ติดตาม Action Plan/SOP จนจบงาน',tg:'≥95%',tgt:95,w:0.20,ac:93},
+    {n:'พัฒนาระบบ KPI/AI & Automation',tg:'≥80%',tgt:80,w:0.20,ac:72}],
+  AUD123:[
+    {n:'ตรวจบัญชีฝาก-ถอนครบตามแผน (Account Verification)',tg:'≥95%',tgt:95,w:0.20,ac:94},
+    {n:'ความถูกต้องการเทียบ STM (Reconciliation)',tg:'≥99%',tgt:99,w:0.20,ac:98},
+    {n:'ติดตามยอดผิดปกติ/ไฟล์ชี้แจงตรงเวลา (Exception)',tg:'≥95%',tgt:95,w:0.20,ac:90},
+    {n:'บันทึกความเสียหาย/รายงานเดือนถูกต้อง (Damage & Report)',tg:'≥99%',tgt:99,w:0.20,ac:99},
+    {n:'วิเคราะห์ความเสี่ยง/AI (Risk Analysis)',tg:'≥80%',tgt:80,w:0.20,ac:74}],
+  AUDXB:[
+    {n:'ตรวจบัญชีฝาก-ถอนครบตามแผน (Account Verification)',tg:'≥95%',tgt:95,w:0.20,ac:92},
+    {n:'ความถูกต้องการเทียบ STM (Reconciliation)',tg:'≥99%',tgt:99,w:0.20,ac:97},
+    {n:'ติดตามยอดผิดปกติ/ไฟล์ชี้แจงตรงเวลา (Exception)',tg:'≥95%',tgt:95,w:0.20,ac:93},
+    {n:'บันทึกความเสียหาย/รายงานเดือนถูกต้อง (Damage & Report)',tg:'≥99%',tgt:99,w:0.20,ac:98},
+    {n:'วิเคราะห์ความเสี่ยง/AI (Risk Analysis)',tg:'≥80%',tgt:80,w:0.20,ac:70}],
 };
 /* ===== KPI: คำนวณ Achievement จาก Actual/Target แล้วเก็บใน k.pct ===== */
 function kpiAch(k){ return k.tgt!=null ? Math.round(k.ac / k.tgt * 100) : k.pct; }
@@ -522,6 +544,8 @@ const SOPS = [
   {id:'SOP-ADMIN',dept:'ADMIN',title:'Workflow แอดมิน',v:'1.0',steps:['รับแชท/เคสลูกค้า','ตอบและแก้ปัญหาเบื้องต้น','ส่งต่อทีมที่เกี่ยวข้อง','ติดตามจนปิดเคส','สรุปเคสค้างประจำวัน']},
   {id:'SOP-HR',dept:'HR',title:'Workflow ทรัพยากรบุคคล (HR)',v:'1.0',steps:['วางแผนอัตรากำลัง + ประกาศรับสมัคร','คัดกรอง/สัมภาษณ์/จ้างงาน','ดูแลเงินเดือน/วันลา/สวัสดิการ','สื่อสารภายในองค์กร','ประเมินผลพนักงานตามรอบ','ดูแล/พัฒนาการใช้งานระบบ OMBOG']},
   {id:'SOP-BC',dept:'BO',title:'Workflow Back Office (BC)',v:'1.0',steps:['รีเช็คสถานะบัญชีให้เป็นปัจจุบัน','ติดตามเคสบัญชีมีปัญหา','ประสานนายหน้าแก้ไข','ตรวจรับบัญชีใหม่ก่อนส่งส่วนกลาง','ตรวจซ้ำก่อนรับบัญชีกลับเข้าระบบ','งานประจำเดือน (รีเช็ค/เติมเงินเบอร์/เบิก)']},
+  {id:'SOP-A123',dept:'AUD123',title:'Workflow ออดิทระบบ 123',v:'1.0',steps:['ดึง/จัดเรียงไฟล์ STM และรายงานระบบ 123/BO','ตรวจฝาก-ถอนธนาคารปกติและ PM','เทียบยอด/เวลา/ธนาคารให้ถูกต้อง','ส่งเคสยอดผิดปกติให้ชี้แจง + ตรวจหลักฐาน','บันทึกความเสียหายให้ถูกวันที่/ประเภท','สรุปยอด + รายงานประจำเดือน (มี AI ช่วยวิเคราะห์ความเสี่ยง)']},
+  {id:'SOP-AXB',dept:'AUDXB',title:'Workflow ออดิทระบบ XB',v:'1.0',steps:['ดึง/จัดเรียงไฟล์ STM และ BO/หน้าหลังบ้าน XB','ตรวจฝาก-ถอนธนาคารปกติและ PM','เทียบยอด/เวลา/ธนาคาร/ประเภทให้ถูกต้อง','ส่งเคสยอดผิดปกติให้หัวหน้าแอดมินชี้แจง','บันทึกความเสียหายให้ครบถ้วน','สรุปยอด + รายงานประจำเดือน (มี AI ช่วยวิเคราะห์ความเสี่ยง)']},
 ];
 
 /* เอกสารกลาง / ระเบียบ */
