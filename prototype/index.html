@@ -124,6 +124,9 @@ button{cursor:pointer}
 .kpi-name{font-size:13px;font-weight:500;line-height:1.35}
 .kpi-val{font-size:12px}
 .kpi-val b{font-size:14px}
+.kpi-edit{margin-top:6px;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kpi-edit input{width:66px;padding:4px 7px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;text-align:right}
+.kpi-edit input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
 
 /* Horizontal magnitude bars (charts) */
 .hbar{display:grid;grid-template-columns:130px 1fr 46px;gap:10px;align-items:center;padding:5px 0;font-size:12px}
@@ -352,14 +355,15 @@ const DEPTS = [
   {code:'GRAPHIC',name:'กราฟิก',             color:'#2f8fe6'},
   {code:'CRM',   name:'ลูกค้าสัมพันธ์ (CRM)', color:'#00a878'},
   {code:'ADMIN', name:'แอดมิน',              color:'#e8971b'},
-  {code:'QC',    name:'QC & Back Office',     color:'#2158c8'},
+  {code:'QC',    name:'QC Chat',              color:'#2158c8'},
   {code:'FIN',   name:'การเงิน',             color:'#0b7a75'},
-  {code:'BO',    name:'Back Office Mgmt',     color:'#67769a'},
+  {code:'BO',    name:'Back Office (BC)',     color:'#67769a'},
+  {code:'HR',    name:'ทรัพยากรบุคคล (HR)',  color:'#c2557a'},
 ];
 const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
 const deptName  = c => (DEPTS.find(d=>d.code===c)||{}).name || c;
 /* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
-const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04'};
+const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04'};
 const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
 const deptGroup=c=>DEPT_GROUP[c]||'01';
 const userLevel=id=>(String(id).startsWith('lead')||id==='boss')?'head':'staff';
@@ -370,6 +374,8 @@ const USERS = {
   lead_gr:{n:'พิมพ์ (หัวหน้ากราฟิก)',s:'พ',c:'#2f8fe6'},
   lead_crm:{n:'วีร์ (หัวหน้า CRM)',s:'ว',c:'#00a878'},
   lead_mkt:{n:'นัท (หัวหน้าการตลาด)',s:'น',c:'#e2445c'},
+  lead_hr:{n:'อร (หัวหน้า HR)',s:'อ',c:'#c2557a'},
+  lead_fin:{n:'ตาล (หัวหน้าการเงิน)',s:'ต',c:'#0b7a75'},
   a:{n:'ฟ้า',s:'ฟ',c:'#2f6fe0'}, b:{n:'ต้น',s:'ต',c:'#e8971b'},
   c:{n:'มิ้น',s:'ม',c:'#7a53e0'}, d:{n:'โบ๊ท',s:'บ',c:'#0b7a75'},
   e:{n:'จู',s:'จ',c:'#e2445c'}, f:{n:'เก่ง',s:'ก',c:'#2f8fe6'},
@@ -382,8 +388,9 @@ let GROUPS=[
   {id:'g_crm',name:'ทีม CRM',            dept:'CRM',     members:['lead_crm','b','e']},
   {id:'g_mkt',name:'ทีมการตลาด',         dept:'MKT',     members:['lead_mkt','c']},
   {id:'g_fin',name:'ทีมการเงิน',         dept:'FIN',     members:['d']},
-  {id:'g_qc', name:'ทีม QC & Back Office',dept:'QC',     members:['e','d']},
-  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt']},
+  {id:'g_qc', name:'ทีม QC Chat',        dept:'QC',      members:['e','d']},
+  {id:'g_hr', name:'ทีม HR',             dept:'HR',      members:['lead_hr']},
+  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin']},
 ];
 const groupById=id=>GROUPS.find(g=>g.id===id);
 
@@ -416,23 +423,62 @@ const TASKS = [
   {id:'T-1018',dept:'MKT',title:'ปล่อยแคมเปญโบนัสวันหยุด',creator:'lead_mkt',assignee:'c',status:'done',prio:'mid',start:'08-02',due:'08-04',spent:6,ontime:false,tags:['แคมเปญ'],sop:'SOP-MKT',desc:'จัดแคมเปญโบนัส',sub:[]},
 ];
 
+/* KPI ทีม — ตัวชี้วัดจริงจากไฟล์ KPI 2026 ของแต่ละทีม
+   ประเภท A (มี tgt/w): กรอก Actual (%) รายเดือน → คำนวณ Achievement/คะแนน/ระดับอัตโนมัติ
+     tgt = เป้าหมาย (%), w = น้ำหนัก, ac = ผลจริง (%) [ค่าตัวอย่าง แก้ได้]
+   ประเภท B (ตัวอย่างเดิม CRM/MKT/ADMIN): ยังไม่มีไฟล์จริง ใช้ค่าตัวอย่าง */
 const KPI = {
+  FIN:[
+    {n:'ความถูกต้องการเบิกจ่าย/โอนเงิน',tg:'≥99%',tgt:99,w:0.25,ac:98},
+    {n:'ความถูกต้องข้อมูลกระแสเงินสด',tg:'≥99%',tgt:99,w:0.25,ac:99},
+    {n:'จัดทำสรุปเดือนตรงเวลา',tg:'100%',tgt:100,w:0.20,ac:100},
+    {n:'ติดตามชำระบิลค่าระบบตรงเวลา',tg:'≥98%',tgt:98,w:0.15,ac:95},
+    {n:'วิเคราะห์ข้อมูลย้อนหลัง 3 เดือน',tg:'100%',tgt:100,w:0.15,ac:100}],
+  GRAPHIC:[
+    {n:'ส่งงานตรงเวลา (On-time Delivery)',tg:'≥95%',tgt:95,w:0.20,ac:92},
+    {n:'ความถูกต้องชิ้นงาน (Artwork Accuracy)',tg:'≥98%',tgt:98,w:0.20,ac:96},
+    {n:'อนุมัติภายใน 2 รอบแก้ (First Approval)',tg:'≥90%',tgt:90,w:0.20,ac:85},
+    {n:'ไฟล์ส่งออกถูกสเปก (Export Compliance)',tg:'≥98%',tgt:98,w:0.20,ac:99},
+    {n:'จัดเก็บไฟล์ครบ (File Archive)',tg:'100%',tgt:100,w:0.20,ac:100}],
+  HR:[
+    {n:'งานรับสมัคร/สัมภาษณ์ตามแผน (Recruitment)',tg:'≥90%',tgt:90,w:0.20,ac:88},
+    {n:'ความถูกต้องเงินเดือน/สวัสดิการ (Payroll)',tg:'≥99%',tgt:99,w:0.20,ac:99},
+    {n:'งาน HR เสร็จตรงเวลา (On-time)',tg:'≥95%',tgt:95,w:0.20,ac:90},
+    {n:'ประเมินพนักงานครบรอบ (Evaluation)',tg:'100%',tgt:100,w:0.20,ac:100},
+    {n:'การใช้งาน/ถูกต้องระบบ OMBOG',tg:'≥80%',tgt:80,w:0.20,ac:72}],
+  QC:[
+    {n:'ความครบถ้วนการตรวจแชท (9 เว็บ)',tg:'100%',tgt:100,w:0.25,ac:96},
+    {n:'ความถูกต้องของผลตรวจ QC',tg:'≥98%',tgt:98,w:0.25,ac:97},
+    {n:'ความถูกต้องการบันทึกข้อมูล',tg:'≥98%',tgt:98,w:0.20,ac:98},
+    {n:'ติดตาม/ประสานเคสผิดปกติ',tg:'≥95%',tgt:95,w:0.15,ac:90},
+    {n:'สรุปและอัปเดตผลตามกำหนด',tg:'≥95%',tgt:95,w:0.15,ac:93}],
+  BO:[
+    {n:'สถานะบัญชีถูกต้อง/เป็นปัจจุบัน',tg:'≥98%',tgt:98,w:0.25,ac:94},
+    {n:'ติดตามเคสบัญชีมีปัญหา',tg:'≥95%',tgt:95,w:0.25,ac:88},
+    {n:'ความถูกต้องตรวจรับบัญชีใหม่',tg:'100%',tgt:100,w:0.20,ac:98},
+    {n:'ตรวจซ้ำก่อนรับบัญชีกลับ',tg:'100%',tgt:100,w:0.15,ac:97},
+    {n:'งานประจำเดือน/งานสนับสนุน',tg:'≥95%',tgt:95,w:0.15,ac:92}],
   CRM:[{n:'สายโทรออก/คน/วัน',tg:'≥80',ac:76,pct:95},{n:'อัตราลูกค้ากลับมา (Retention)',tg:'≥45%',ac:48,pct:107},{n:'เวลาตอบลูกค้า',tg:'≤5น.',ac:4,pct:110}],
-  GRAPHIC:[{n:'ชิ้นงานเสร็จ/คน/วัน',tg:'≥6',ac:6.4,pct:107},{n:'ส่งงานตรงเวลา',tg:'≥90%',ac:84,pct:93},{n:'รอบแก้ไขเฉลี่ย',tg:'≤2',ac:2.4,pct:80}],
   MKT:[{n:'โพสต์คอนเทนต์/วัน',tg:'≥8',ac:9,pct:112},{n:'Engagement Rate',tg:'≥5%',ac:4.6,pct:92},{n:'แคมเปญตามแผน',tg:'≥95%',ac:96,pct:101}],
-  FIN:[{n:'เวลาอนุมัติเบิกจ่าย',tg:'≤30น.',ac:26,pct:110},{n:'ความถูกต้องสรุปเดือน',tg:'100%',ac:97,pct:97},{n:'รายการค้างสิ้นวัน',tg:'0',ac:2,pct:70}],
-  QC:[{n:'แชทที่ตรวจ/วัน',tg:'≥300',ac:312,pct:104},{n:'อัตราตอบแชทล่าช้า',tg:'≤3%',ac:3.4,pct:88},{n:'คะแนนคุณภาพบริการ',tg:'≥90',ac:91,pct:101}],
   ADMIN:[{n:'เวลาตอบแชทเฉลี่ย',tg:'≤1น.',ac:1.1,pct:91},{n:'เคสที่ปิด/วัน',tg:'≥120',ac:131,pct:109},{n:'เคสค้างข้ามวัน',tg:'≤5',ac:4,pct:108}],
 };
-/* คะแนนรวมแผนก: แต่ละตัวชี้วัดนับได้สูงสุด 100% (ทำเกินเป้าไม่บวกเพิ่ม) → คะแนนรวมเต็ม 100 พอดี */
-const deptScore = code => { const a=KPI[code]; if(!a)return null; return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100),0)/a.length); };
-const scoreColor = s => s>=90?'var(--green)':s>=75?'var(--amber)':'var(--red)';
-const scoreLabel = s => s>=90?'ดีมาก':s>=75?'ตามเป้า':'ต้องปรับปรุง';
+/* ===== KPI: คำนวณ Achievement จาก Actual/Target แล้วเก็บใน k.pct ===== */
+function kpiAch(k){ return k.tgt!=null ? Math.round(k.ac / k.tgt * 100) : k.pct; }
+function recalcKPI(){ Object.keys(KPI).forEach(c=>KPI[c].forEach(k=>{ if(k.tgt!=null) k.pct=kpiAch(k); })); }
+/* ค่าที่แสดง (Actual) — ตัวชี้วัดจริงแสดงเป็น % */
+const acDisp = k => k.tgt!=null ? k.ac+'%' : k.ac;
+/* คะแนนรวมแผนก 0–100: มีน้ำหนัก → ถ่วงน้ำหนัก (Achievement เกิน 100 นับที่ 100) ; ไม่มีน้ำหนัก → เฉลี่ยเท่ากัน */
+const deptScore = code => { const a=KPI[code]; if(!a)return null;
+  if(a.every(k=>k.w!=null)) return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100)*k.w,0));
+  return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100),0)/a.length); };
+/* เกณฑ์ 5 ระดับ (เทียบ Target): ดีเยี่ยม ≥100 · ดีมาก 95–99.9 · ดี 90–94.9 · พอใช้ 80–89.9 · ต้องปรับปรุง <80 */
+const scoreColor = s => s>=95?'var(--green)':s>=80?'var(--amber)':'var(--red)';
+const scoreLabel = s => s>=100?'ดีเยี่ยม':s>=95?'ดีมาก':s>=90?'ดี':s>=80?'พอใช้':'ต้องปรับปรุง';
 function kpiLegend(){return `<div class="legend" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2)">
-  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--green)">✓</span> ผ่านเป้า</span>
-  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--amber)">≈</span> เกือบถึง (85–99%)</span>
-  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--red)">!</span> ต่ำกว่าเป้า</span>
-  <span class="muted" style="font-size:11px">คะแนนรวมแผนกเต็ม 100</span></div>`;}
+  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--green)">✓</span> ดีเยี่ยม ≥100% · ดีมาก 95–99%</span>
+  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--amber)">≈</span> ดี 90–94% · พอใช้ 80–89%</span>
+  <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--red)">!</span> ต้องปรับปรุง &lt;80%</span>
+  <span class="muted" style="font-size:11px">เทียบ Achievement กับ Target · คะแนนรวมถ่วงน้ำหนักเต็ม 100</span></div>`;}
 const KPI_TREND = {label:'คะแนน KPI รวมบริษัท (5 สัปดาห์)',pts:[92,90,94,95,99],weeks:['W27','W28','W29','W30','W31']};
 const BIZ = {customers:[980,1040,1010,1180,1284], revenue:[620,680,590,740,842], completed:[9,11,10,13,15]};
 
@@ -1030,7 +1076,7 @@ function leadDash(){
   </div>
   <div class="grid" style="grid-template-columns:1.5fr 1fr">
     <div><div class="card"><div class="card-h"><h3>🗂️ งานทีมล่าสุด</h3><span class="act">${dt.length} งาน</span></div>${boardTableInner(dt.slice(0,6))}</div></div>
-    <div class="card"><div class="card-h"><h3>🎯 KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept)}${kpiLegend()}</div></div>
+    <div class="card"><div class="card-h"><h3>🎯 KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept,true)}${kpiLegend()}</div></div>
   </div>`;
 }
 
@@ -1109,26 +1155,29 @@ RENDER.timeline=function(){
 RENDER.kpi=function(){
   const codes=Object.keys(KPI);
   main.innerHTML=`${crumb('หน้าแรก','KPI แดชบอร์ด')}
-  <div class="page-h"><div><h1>KPI แดชบอร์ด</h1><p>ตัวชี้วัดรายแผนก · เทียบเป้าหมาย · คะแนนเต็ม 100</p></div></div>
+  <div class="page-h"><div><h1>KPI แดชบอร์ด</h1><p>ตัวชี้วัดจริงรายทีม · เทียบ Target · คะแนนถ่วงน้ำหนักเต็ม 100 · เกณฑ์ 5 ระดับ · <b style="color:var(--accent)">กรอก Actual รายเดือนในการ์ดแต่ละทีมได้เลย</b></p></div></div>
   <div class="card pad" style="margin-bottom:14px;padding-top:10px;padding-bottom:10px">${kpiLegend().replace('margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2)','')}</div>
   <div class="stats" style="margin-bottom:14px">
     ${codes.slice(0,4).map(c=>{const s=deptScore(c);return `<div class="stat"><div class="lbl">${deptName(c)}</div><div class="val" style="color:${scoreColor(s)}">${s}<span style="font-size:14px;color:var(--muted)">/100</span></div><div style="font-size:11px;color:${scoreColor(s)};margin-top:1px">${scoreLabel(s)}</div><div class="bar" style="margin-top:8px"><i style="width:${s}%;background:${scoreColor(s)}"></i></div></div>`;}).join('')}
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-    ${codes.map(c=>{const s=deptScore(c);return `<div class="card"><div class="card-h"><h3><span class="dot" style="background:${deptColor(c)}"></span> ${deptName(c)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(c)}</div></div>`;}).join('')}
+    ${codes.map(c=>{const s=deptScore(c);return `<div class="card"><div class="card-h"><h3><span class="dot" style="background:${deptColor(c)}"></span> ${deptName(c)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(c,true)}</div></div>`;}).join('')}
   </div>`;
 };
-function kpiStatus(pct){return pct>=100?{t:'ผ่านเป้า',c:'var(--green)',ic:'✓'}:pct>=85?{t:'เกือบถึง',c:'var(--amber)',ic:'≈'}:{t:'ต่ำกว่าเป้า',c:'var(--red)',ic:'!'};}
-function kpiList(c){return KPI[c].map(k=>{const st=kpiStatus(k.pct);const over=k.pct>100;return `
+function kpiStatus(pct){return pct>=100?{t:'ดีเยี่ยม',c:'var(--green)',ic:'✓'}:pct>=95?{t:'ดีมาก',c:'var(--green)',ic:'✓'}:pct>=90?{t:'ดี',c:'var(--amber)',ic:'≈'}:pct>=80?{t:'พอใช้',c:'var(--amber)',ic:'≈'}:{t:'ต้องปรับปรุง',c:'var(--red)',ic:'!'};}
+function kpiList(c,editable){return KPI[c].map((k,i)=>{const st=kpiStatus(k.pct);const over=k.pct>100;const real=k.tgt!=null;return `
   <div class="kpi-item">
     <span class="kpi-icn" style="background:${st.c}" title="${st.t}">${st.ic}</span>
     <div style="flex:1;min-width:0">
       <div class="kpi-name">${k.n}</div>
       <div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(k.pct,100)}%;background:${st.c}"></i></div>
-      <div class="kpi-val muted">ทำได้ <b style="color:var(--ink)">${k.ac}</b> · เป้า ${k.tg}</div>
+      <div class="kpi-val muted">ทำได้ <b style="color:var(--ink)">${acDisp(k)}</b> · เป้า ${k.tg}${real?` · น้ำหนัก ${Math.round(k.w*100)}% · Achievement <b style="color:${st.c}">${k.pct}%</b>`:''}</div>
+      ${real&&editable?`<div class="kpi-edit">Actual รายเดือน <input type="number" min="0" max="100" step="0.1" value="${k.ac}" onchange="setKpiActual('${c}',${i},this.value)"> % <span class="muted">แก้แล้วคำนวณคะแนนใหม่ให้อัตโนมัติ</span></div>`:''}
     </div>
-    <span class="pill" style="background:${st.c};margin-top:2px">${over?'เกินเป้า ▲':st.t}</span>
+    <span class="pill" style="background:${st.c};margin-top:2px">${st.t}${over?' ▲':''}</span>
   </div>`;}).join('');}
+/* แก้ค่า Actual รายเดือน → คำนวณใหม่ + บันทึก */
+function setKpiActual(c,i,v){let n=parseFloat(v);if(isNaN(n))return;n=Math.max(0,Math.min(100,n));KPI[c][i].ac=n;KPI[c][i].pct=kpiAch(KPI[c][i]);saveState();refresh();toast('อัปเดต '+deptName(c)+' — คำนวณคะแนนใหม่แล้ว');}
 
 /* ===== REPORTS (new) ===== */
 let REP_PERIOD='week';
@@ -1226,8 +1275,8 @@ function monthlyData(){
 const gyrScore=s=>{const g=s>=90?['Green','var(--green)']:s>=75?['Yellow','var(--amber)']:['Red','var(--red)'];return '<span class="gyr" style="background:'+g[1]+'">'+g[0]+'</span>';};
 const gyrKpi=pc=>{const g=pc>=100?['Green','var(--green)']:pc>=85?['Yellow','var(--amber)']:['Red','var(--red)'];return '<span class="gyr" style="background:'+g[1]+'">'+g[0]+'</span>';};
 function mKpiRows(d,exp){return d.company
-  ? d.codes.map(c=>{const s=deptScore(c);const g=s>=90?'Green':s>=75?'Yellow':'Red';return `<tr><td>${deptName(c)}</td><td>—</td><td>${s}/100</td><td>${exp?g:gyrScore(s)}</td><td>${scoreLabel(s)}</td></tr>`;}).join('')
-  : (KPI[d.dept]?KPI[d.dept].map(k=>{const g=k.pct>=100?'Green':k.pct>=85?'Yellow':'Red';return `<tr><td>${k.n}</td><td>${k.tg}</td><td>${k.ac}</td><td>${exp?g:gyrKpi(k.pct)}</td><td>${k.pct>100?'เกินเป้า':k.pct>=85?'ใกล้เป้า':'ต่ำกว่าเป้า'}</td></tr>`;}).join(''):'<tr><td colspan="5">—</td></tr>');}
+  ? d.codes.map(c=>{const s=deptScore(c);const g=s>=95?'Green':s>=80?'Yellow':'Red';return `<tr><td>${deptName(c)}</td><td>—</td><td>${s}/100</td><td>${exp?g:gyrScore(s)}</td><td>${scoreLabel(s)}</td></tr>`;}).join('')
+  : (KPI[d.dept]?KPI[d.dept].map(k=>{const g=k.pct>=95?'Green':k.pct>=80?'Yellow':'Red';return `<tr><td>${k.n}</td><td>${k.tg}</td><td>${acDisp(k)}</td><td>${exp?g:gyrKpi(k.pct)}</td><td>${kpiStatus(k.pct).t}</td></tr>`;}).join(''):'<tr><td colspan="5">—</td></tr>');}
 function mMile(d){return d.done.length?d.done.map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${t.solution?t.solution.slice(0,70):'สำเร็จตามเป้า'}</td><td>เสร็จ</td></tr>`).join(''):'<tr><td colspan="4">—</td></tr>';}
 function mProb(d){const rows=[...d.blocked,...d.overdue.filter(t=>t.status!=='block')];return rows.length?rows.map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${t.desc?t.desc.slice(0,55):'อยู่ระหว่างวิเคราะห์'}</td><td>${t.prio==='high'?'สูง':'ปานกลาง'}</td><td>${t.status==='block'?'Red':'Yellow'}</td></tr>`).join(''):'<tr><td colspan="5">ไม่มี</td></tr>';}
 function mAct(d){return d.open.length?d.open.slice(0,10).map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${assigneesOf(t).map(shortName).join(', ')}</td><td>${fmtDate(t.due)}</td><td>${STATUS[t.status].t}</td></tr>`).join(''):'<tr><td colspan="5">—</td></tr>';}
@@ -1317,7 +1366,7 @@ function exportMonthlyExcel(){
   const d=monthlyData();const rows=[['รายงานผลการดำเนินงานประจำเดือน'],['เดือน',d.monthLabel],['หน่วยงาน',d.unit],['ผู้รายงาน',shortName(ROLE_META[ROLE].u)],[]];
   rows.push(['[ KPI / Target vs Actual ]']);
   if(d.company){rows.push(['แผนก','คะแนน','สถานะ']);d.codes.forEach(c=>rows.push([deptName(c),deptScore(c)+'/100',scoreLabel(deptScore(c))]));}
-  else if(KPI[d.dept]){rows.push(['KPI','Target','Actual','สถานะ']);KPI[d.dept].forEach(k=>rows.push([k.n,k.tg,k.ac,(k.pct>100?'เกินเป้า':k.pct>=85?'ใกล้เป้า':'ต่ำกว่าเป้า')]));}
+  else if(KPI[d.dept]){rows.push(['KPI','Target','Actual','Achievement','ระดับผล']);KPI[d.dept].forEach(k=>rows.push([k.n,k.tg,acDisp(k),k.pct+'%',kpiStatus(k.pct).t]));}
   rows.push([],['[ Action Plan (งานที่ยังไม่เสร็จ) ]'],['Action','Owner','Due','Status']);
   d.open.forEach(t=>rows.push([t.title,assigneesOf(t).map(shortName).join(' | '),fmtDate(t.due),STATUS[t.status].t]));
   rows.push([],['[ Milestones ]'],['งาน','ผลลัพธ์']);
@@ -1578,11 +1627,15 @@ function submitCompose(){
 
 /* ===== Persistence (localStorage) ===== */
 const LS_KEY='companyhub_state_v1';
-function saveState(){try{localStorage.setItem(LS_KEY,JSON.stringify({TASKS,KB,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED}));}catch(e){}}
+/* KPI Actual รายเดือน (เฉพาะทีมที่มี Target) */
+function kpiActuals(){const o={};Object.keys(KPI).forEach(c=>{if(KPI[c].some(k=>k.tgt!=null))o[c]=KPI[c].map(k=>k.tgt!=null?k.ac:null);});return o;}
+function applyKpiActuals(o){if(!o)return;Object.keys(o).forEach(c=>{if(KPI[c])o[c].forEach((v,i)=>{if(v!=null&&KPI[c][i]&&KPI[c][i].tgt!=null)KPI[c][i].ac=v;});});}
+function saveState(){try{localStorage.setItem(LS_KEY,JSON.stringify({TASKS,KB,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED,KPI_ACT:kpiActuals()}));}catch(e){}}
 function loadState(){try{const s=JSON.parse(localStorage.getItem(LS_KEY)||'null');if(!s)return;
   if(s.TASKS){TASKS.length=0;TASKS.push(...s.TASKS);}if(s.KB){KB.length=0;KB.push(...s.KB);}
   if(s.ANN){ANN.length=0;ANN.push(...s.ANN);}if(s.GROUPS){GROUPS.length=0;GROUPS.push(...s.GROUPS);}
-  if(typeof s.ANN_SEQ==='number')ANN_SEQ=s.ANN_SEQ;if(s.REPORT_EDITS)REPORT_EDITS=s.REPORT_EDITS;if(Array.isArray(s.CARRIED))CARRIED=s.CARRIED;}catch(e){}}
+  if(typeof s.ANN_SEQ==='number')ANN_SEQ=s.ANN_SEQ;if(s.REPORT_EDITS)REPORT_EDITS=s.REPORT_EDITS;if(Array.isArray(s.CARRIED))CARRIED=s.CARRIED;
+  applyKpiActuals(s.KPI_ACT);}catch(e){}}
 function resetDemo(){try{localStorage.removeItem(LS_KEY);}catch(e){}location.reload();}
 
 /* ===== Theme ===== */
@@ -1591,6 +1644,7 @@ function toggleTheme(){const d=!document.body.classList.contains('dark');applyTh
 
 /* ===== INIT ===== */
 loadState();
+recalcKPI();
 try{applyTheme(localStorage.getItem('ch_theme')==='dark');}catch(e){}
 setRole('lead');
 document.querySelectorAll('#roleSwitch button').forEach(b=>b.onclick=()=>setRole(b.dataset.role));
