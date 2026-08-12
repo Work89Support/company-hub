@@ -66,7 +66,8 @@ button{cursor:pointer}
 .navitem{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;color:#dfe8fb;font-size:13px;font-weight:300;margin-bottom:2px;border:0;background:transparent;width:100%;text-align:left}
 .navitem:hover{background:rgba(255,255,255,.09)}
 .navitem.active{background:var(--primary);color:#fff;font-weight:400}
-.navitem .ic{width:19px;text-align:center;font-size:14px}
+.navitem .ic{width:19px;text-align:center;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+.navitem .ic .svic{width:18px;height:18px;stroke-width:1.7}
 .navitem .badge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;padding:1px 7px;border-radius:20px}
 
 /* Header + breadcrumb */
@@ -96,6 +97,13 @@ button{cursor:pointer}
 .stat .val{font-size:26px;font-weight:600;margin-top:3px;letter-spacing:-.5px}
 .stat .sub{font-size:11px;margin-top:2px}
 .stat .icn{position:absolute;right:13px;top:13px;font-size:19px;opacity:.22}
+.stat .icn .svic{width:26px;height:26px;stroke-width:1.6}
+/* ===== SVG line-icon system (monochrome, inherits color) ===== */
+.svic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3.5px;flex:0 0 auto}
+.card-h h3 .svic{width:17px;height:17px;color:var(--accent)}
+.sect-title .svic{width:16px;height:16px;vertical-align:-3px;color:var(--accent)}
+.tbtn .svic{width:15px;height:15px;vertical-align:-2.5px}
+#roleSwitch .svic{width:15px;height:15px;vertical-align:-2.5px}
 .up{color:var(--green)} .down{color:var(--red)}
 .stat.accent{background:linear-gradient(150deg,var(--blue-700),var(--blue-500));color:#fff;border:0}
 .stat.accent .lbl,.stat.accent .sub{color:rgba(255,255,255,.85)}
@@ -303,6 +311,46 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 </style>
 </head>
 <body data-palette="#2f8fe6,#e8971b,#e2445c,#00a878,#7a53e0">
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+<symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12.5l2.5 2.5 5-5.5"/></symbol>
+<symbol id="i-board" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></symbol>
+<symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></symbol>
+<symbol id="i-report" viewBox="0 0 24 24"><path d="M3 21h18"/><rect x="5" y="11" width="3.4" height="7"/><rect x="10.3" y="6" width="3.4" height="12"/><rect x="15.6" y="13" width="3.4" height="5"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 2.5h8l4 4V21.5H6z"/><path d="M14 2.5v4h4"/><path d="M9 12h6M9 16h6"/></symbol>
+<symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="18" rx="2"/><path d="M9 4V2.2h6V4"/><path d="M9 10h6M9 14h6M9 18h4"/></symbol>
+<symbol id="i-org" viewBox="0 0 24 24"><rect x="9" y="2.5" width="6" height="4.2" rx="1"/><rect x="3" y="17.3" width="6" height="4.2" rx="1"/><rect x="15" y="17.3" width="6" height="4.2" rx="1"/><path d="M12 6.7v4.3M6 17.3v-2.3h12v2.3M12 15v-4"/></symbol>
+<symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4.5A2.5 2.5 0 0 1 7.5 2H19v16H7.5A2.5 2.5 0 0 0 5 20.5z"/><path d="M5 20.5A2.5 2.5 0 0 1 7.5 18H19"/></symbol>
+<symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.8 10.6c.8.7 1.3 1.5 1.3 2.4h5c0-.9.5-1.7 1.3-2.4A6 6 0 0 0 12 3z"/></symbol>
+<symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 10.5v3a1 1 0 0 0 1 1h2.5l4 3.5V6l-4 3.5H4a1 1 0 0 0-1 1z"/><path d="M14 6.5c1.8 1 3 2.9 3 5.5s-1.2 4.5-3 5.5"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 12a7 7 0 0 1-7 7H8l-4 3v-4.5A7 7 0 0 1 4 12a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7z"/><path d="M9 11h.5M12 11h.5M15 11h.5"/></symbol>
+<symbol id="i-pie" viewBox="0 0 24 24"><path d="M12 3.5v8.5h8.5"/><circle cx="12" cy="12" r="8.5"/></symbol>
+<symbol id="i-line" viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M4 15l5-5 4 3 7-7.5"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 2.5h6v5l2 3.5H7l2-3.5z"/><path d="M12 11v10"/></symbol>
+<symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.5l9 16H3z"/><path d="M12 9.5v5M12 17.5v.5"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 20c0-3.3 3-5.2 6-5.2s6 1.9 6 5.2"/><path d="M16.5 5.5a3.3 3.3 0 0 1 0 6.4M17 20c0-2.4-1-4-2.8-5"/></symbol>
+<symbol id="i-money" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8h3a2 2 0 0 1 0 4h-3zM10 12h3.3a2 2 0 0 1 0 4H10zM10 7.5v9M12.5 6v1.5M12.5 16.5V18"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5L4.5 14H10l-1 7.5L19.5 10H13z"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 4h8v4.5a4 4 0 0 1-8 0z"/><path d="M8 5.2H5v1.8a3 3 0 0 0 3 3M16 5.2h3v1.8a3 3 0 0 1-3 3"/><path d="M12 12.5V16M9 20.5h6M10.2 20.5c0-1.5.8-2.5 1.8-2.5s1.8 1 1.8 2.5"/></symbol>
+<symbol id="i-block" viewBox="0 0 24 24"><path d="M8.2 3h7.6l5.2 5.2v7.6L15.8 21H8.2L3 15.8V8.2z"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.8 1.8H4.2z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8l1.8-1.8M18 6l1.8-1.8"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+<symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11.5a6 6 0 0 0 12 0M12 17.5v3.5M9 21h6"/></symbol>
+<symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M11 3l1.7 4.6L17 9l-4.3 1.4L11 15l-1.7-4.6L5 9l4.3-1.4z"/><path d="M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4 3.5-6 7.5-6s7.5 2 7.5 6"/></symbol>
+<symbol id="i-usertie" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.4"/><path d="M6 21c0-4 3-6 6-6s6 2 6 6"/><path d="M12 10.5l-1.6 3.2h3.2z"/></symbol>
+<symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.2A2 2 0 0 1 10 3h4a2 2 0 0 1 2 2.2V7M3 12.5h18"/></symbol>
+<symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15.5V4M8 8l4-4 4 4"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+<symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10.5 13.5M21 3l-6.5 18-4-8.5-8.5-4z"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4.5l2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+</svg>
 <div class="app">
   <div class="brandbar">
     <div class="logo">CH</div>
@@ -310,17 +358,17 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
   </div>
 
   <div class="topbar">
-    <button class="tbtn" id="hamb" title="เมนู" onclick="document.body.classList.toggle('nav-open')">☰</button>
+    <button class="tbtn" id="hamb" title="เมนู" onclick="document.body.classList.toggle('nav-open')"><svg class="svic"><use href="#i-menu"></use></svg></button>
     <div class="search"><input placeholder="ค้นหางาน / รหัส / แท็ก แล้วกด Enter" onkeydown="if(event.key==='Enter'){F.q=this.value;go('board');this.value=''}" /></div>
     <div class="roleswitch" id="roleSwitch">
-      <button data-role="staff">👤 พนักงาน</button>
-      <button data-role="lead" class="active">🧑‍💼 หัวหน้างาน</button>
-      <button data-role="exec">👔 ผู้บริหาร</button>
+      <button data-role="staff"><svg class="svic"><use href="#i-user"></use></svg> พนักงาน</button>
+      <button data-role="lead" class="active"><svg class="svic"><use href="#i-usertie"></use></svg> หัวหน้างาน</button>
+      <button data-role="exec"><svg class="svic"><use href="#i-briefcase"></use></svg> ผู้บริหาร</button>
     </div>
-    <button class="tbtn" id="micBtn" title="สั่งการด้วยเสียง (พูดภาษาไทย)" onclick="voiceCommand()">🎤 พูดสั่ง</button>
-    <button class="tbtn primary" onclick="openCompose()">✨ สร้างงาน (AI)</button>
-    <button class="tbtn" id="bell" title="ประกาศที่ต้องรับทราบ" onclick="showAckPopup(true)">🔔</button>
-    <button class="tbtn" id="themeBtn" title="สลับโหมดกลางวัน/กลางคืน" onclick="toggleTheme()">🌙</button>
+    <button class="tbtn" id="micBtn" title="สั่งการด้วยเสียง (พูดภาษาไทย)" onclick="voiceCommand()"><svg class="svic"><use href="#i-mic"></use></svg> พูดสั่ง</button>
+    <button class="tbtn primary" onclick="openCompose()"><svg class="svic"><use href="#i-sparkle"></use></svg> สร้างงาน (AI)</button>
+    <button class="tbtn" id="bell" title="ประกาศที่ต้องรับทราบ" onclick="showAckPopup(true)"><svg class="svic"><use href="#i-bell"></use></svg></button>
+    <button class="tbtn" id="themeBtn" title="สลับโหมดกลางวัน/กลางคืน" onclick="toggleTheme()"><svg class="svic"><use href="#i-moon"></use></svg></button>
     <div class="avatar" id="topAvatar">ธ</div>
   </div>
 
@@ -623,10 +671,12 @@ const ROLE_META={
   exec :{u:'boss',dept:null,label:'ผู้บริหาร',home:'dash'},
 };
 const NAV = {
-  dash:{ic:'📊',t:'แดชบอร์ด'}, myTasks:{ic:'✅',t:'งานของฉัน'}, board:{ic:'🗂️',t:'บอร์ดงาน'},
-  timeline:{ic:'📅',t:'ไทม์ไลน์'}, kpi:{ic:'🎯',t:'KPI แดชบอร์ด'}, reports:{ic:'📈',t:'รายงานสรุป'}, monthly:{ic:'📄',t:'รายงานประจำเดือน'}, tracker:{ic:'🧾',t:'Action Tracker'},
-  org:{ic:'🏢',t:'แผนผังองค์กร'}, sop:{ic:'📘',t:'คลัง SOP / คู่มือ'}, kb:{ic:'💡',t:'คลังความรู้'}, ann:{ic:'📢',t:'ประกาศ & อัปเดต'}, talk:{ic:'🤖',t:'Talk to Data'},
+  dash:{ic:'i-dash',t:'แดชบอร์ด'}, myTasks:{ic:'i-check',t:'งานของฉัน'}, board:{ic:'i-board',t:'บอร์ดงาน'},
+  timeline:{ic:'i-calendar',t:'ไทม์ไลน์'}, kpi:{ic:'i-target',t:'KPI แดชบอร์ด'}, reports:{ic:'i-report',t:'รายงานสรุป'}, monthly:{ic:'i-doc',t:'รายงานประจำเดือน'}, tracker:{ic:'i-clipboard',t:'Action Tracker'},
+  org:{ic:'i-org',t:'แผนผังองค์กร'}, sop:{ic:'i-book',t:'คลัง SOP / คู่มือ'}, kb:{ic:'i-bulb',t:'คลังความรู้'}, ann:{ic:'i-megaphone',t:'ประกาศ & อัปเดต'}, talk:{ic:'i-chat',t:'Talk to Data'},
 };
+/* helper: SVG line icon */
+function sic(id){return `<svg class="svic"><use href="#${id}"></use></svg>`;}
 // Filter state
 let F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
 let REPORT_EDITS={};      // แก้ไขข้อความรายงาน (persisted)
@@ -667,7 +717,7 @@ const me=()=>ROLE_META[ROLE].u;
 const annAudienceIds=a=>(a.audienceIds&&a.audienceIds.length)?a.audienceIds:ASSIGNABLE;
 const nextAnnId=()=>'A'+(++ANN_SEQ);
 function pendingAcks(){return ANN.filter(a=>annStatus(a).t!=='หมดอายุ'&&annAudienceIds(a).includes(me())&&!(a.acks||[]).includes(me()));}
-function updateBell(){const el=document.getElementById('bell');if(!el)return;const n=pendingAcks().length;el.innerHTML='🔔'+(n?` <span style="background:var(--red);color:#fff;border-radius:20px;padding:0 6px;font-size:10px">${n}</span>`:'');}
+function updateBell(){const el=document.getElementById('bell');if(!el)return;const n=pendingAcks().length;el.innerHTML='<svg class="svic"><use href="#i-bell"></use></svg>'+(n?` <span style="background:var(--red);color:#fff;border-radius:20px;padding:0 6px;font-size:10px">${n}</span>`:'');}
 function ackAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;a.acks=a.acks||[];
   if(!a.acks.includes(me())){a.acks.push(me());logFeed('✅','#e6f7f1',`<b>${shortName(me())}</b> รับทราบประกาศ: ${a.title}`);toast('รับทราบประกาศแล้ว');}
   updateBell();saveState();
@@ -678,7 +728,7 @@ function ackAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;a.acks=a.acks||[
 function showAckPopup(manual){
   const list=pendingAcks();
   if(!list.length){ if(manual)toast('ไม่มีประกาศที่ต้องรับทราบ 🎉'); return; }
-  showModal(`<div class="modal-h"><div><h3>🔔 ประกาศที่ต้องรับทราบ (${list.length})</h3><div class="muted" style="font-size:11.5px">กรุณากดรับทราบ เพื่อให้ผู้ประกาศทราบ</div></div><button class="x" onclick="closeModal()">×</button></div>
+  showModal(`<div class="modal-h"><div><h3>${sic('i-bell')} ประกาศที่ต้องรับทราบ (${list.length})</h3><div class="muted" style="font-size:11.5px">กรุณากดรับทราบ เพื่อให้ผู้ประกาศทราบ</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad" id="ackpop">${list.map(a=>`<div class="feed-item" style="align-items:flex-start;border-bottom:1px solid var(--line-2);padding-bottom:10px"><span class="fi" style="background:${u(a.who).c};color:#fff">${u(a.who).s}</span>
     <div style="flex:1"><b style="font-weight:500">${a.pin?'📌 ':''}${a.title}</b><div class="muted" style="font-size:11px">${shortName(a.who)} · ${a.time}</div><div style="font-size:12.5px;margin-top:3px">${a.body}</div>
     <div style="margin-top:7px;display:flex;gap:6px"><button class="tbtn sm primary" onclick="ackAnn('${a.id}')">✓ รับทราบ</button><button class="tbtn sm" onclick="openAnn('${a.id}')">เปิดอ่าน / ตอบกลับ</button></div></div></div>`).join('')}</div>`);
@@ -763,16 +813,16 @@ function assigneeOptions(sel){return ASSIGNABLE.map(a=>`<option value="${a}" ${s
 function deptOptions(sel){return DEPTS.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
 
 /* Announcements */
-function openAnnForm(){PICK=new Set();showModal(`<div class="modal-h"><div><h3>📢 ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
+function openAnnForm(){PICK=new Set();showModal(`<div class="modal-h"><div><h3>${sic('i-megaphone')} ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>หัวข้อ</label><input class="fin" id="annT" placeholder="เช่น ปรับเป้าหมายทีมสัปดาห์นี้"></div>
     <div class="field"><label>รายละเอียด (พิมพ์หรือพูด)</label><textarea class="fin" id="annB" rows="3" placeholder="เนื้อหาประกาศ"></textarea>
-      <button class="tbtn sm" style="margin-top:6px" onclick="voiceDictate('annB')">🎤 พูดใส่</button></div>
+      <button class="tbtn sm" style="margin-top:6px" onclick="voiceDictate('annB')">${sic('i-mic')} พูดใส่</button></div>
     <div class="two"><div class="field"><label>มีผลตั้งแต่</label><input type="date" class="fin" id="annFrom" value="2026-08-07"></div>
       <div class="field"><label>ถึงวันที่ (เว้นว่าง = ไม่มีกำหนดสิ้นสุด)</label><input type="date" class="fin" id="annUntil"></div></div>
     <label class="checkbox" style="margin-bottom:12px"><input type="checkbox" id="annPin"> 📌 ปักหมุดไว้ด้านบน</label>
     <div class="field"><label>ส่งถึง (เลือกกลุ่ม/หลายคน — ไม่เลือก = ทั้งบริษัท)</label><div id="pickerBox"></div></div>
-    <button class="tbtn primary" onclick="postAnn()">📢 โพสต์ & แจ้งเตือน</button></div>`);renderPicker();}
+    <button class="tbtn primary" onclick="postAnn()">${sic('i-megaphone')} โพสต์ & แจ้งเตือน</button></div>`);renderPicker();}
 function postAnn(){const t=normSp(val('annT'));
   if(!t){toast('กรุณาใส่หัวข้อประกาศ','info');return;}
   const sel=[...PICK];const all=(!sel.length||sel.length>=ASSIGNABLE.length);
@@ -866,7 +916,7 @@ function renderPicker(){
       ${sel.length?avStack(sel):'<span class="muted" style="font-size:12px">ยังไม่เลือก</span>'}
       ${sel.length?`<button class="tbtn sm" style="margin-left:auto" onclick="PICK.clear();renderPicker()">ล้าง</button>`:''}</div>
     <div style="margin-bottom:6px">${GROUPS.map(g=>`<button class="chip" onclick="pickGroup('${g.id}')">＋ ${g.name} (${g.members.length})</button>`).join('')}<button class="chip" onclick="pickAllPeople()">＋ ทั้งบริษัท</button></div>
-    <div style="display:flex;gap:6px;margin:6px 0 8px"><input class="fin" id="grpName" placeholder="ตั้งชื่อกลุ่มจากคนที่เลือก" style="flex:1;padding:6px 10px"><button class="tbtn sm" onclick="saveGroupFromPick()">💾 บันทึกกลุ่ม</button></div>
+    <div style="display:flex;gap:6px;margin:6px 0 8px"><input class="fin" id="grpName" placeholder="ตั้งชื่อกลุ่มจากคนที่เลือก" style="flex:1;padding:6px 10px"><button class="tbtn sm" onclick="saveGroupFromPick()">${sic('i-save')} บันทึกกลุ่ม</button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
       ${ASSIGNABLE.map(a=>`<label class="checkbox" style="font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;${PICK.has(a)?'background:var(--blue-50);border-color:var(--blue-400)':''}"><input type="checkbox" ${PICK.has(a)?'checked':''} onchange="pickToggle('${a}')"> <span class="mini" style="background:${u(a).c}">${u(a).s}</span> ${shortName(a)}</label>`).join('')}
     </div>`;
@@ -929,7 +979,7 @@ function buildNav(){
   if(ROLE==='exec')  items=['dash','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'];
   nav.innerHTML=items.map(k=>{
     const badge=k==='myTasks'?`<span class="badge">${myTasks().filter(t=>t.status!=='done').length}</span>`:'';
-    return `<button class="navitem ${k===VIEW?'active':''}" onclick="navGo('${k}')"><span class="ic">${NAV[k].ic}</span>${NAV[k].t}${badge}</button>`;
+    return `<button class="navitem ${k===VIEW?'active':''}" onclick="navGo('${k}')"><span class="ic">${sic(NAV[k].ic)}</span>${NAV[k].t}${badge}</button>`;
   }).join('');
   deptNav.innerHTML=DEPTS.map(d=>`<button class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
@@ -1040,7 +1090,7 @@ function filterBar(lockDept){
     <div class="fsel"><label>ช่วง</label><select onchange="setF('period',this.value)">${opt(F.period,'','ทั้งหมด')}${opt(F.period,'today','วันนี้')}${opt(F.period,'active','ยังไม่เสร็จ')}${opt(F.period,'overdue','เกินกำหนด')}</select></div>
     <div class="fsel"><label>ตั้งแต่</label><input type="date" class="fdate" value="${F.dateFrom}" onchange="F.dateFrom=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
     <div class="fsel"><label>ถึง</label><input type="date" class="fdate" value="${F.dateTo}" onchange="F.dateTo=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
-    <button class="tbtn sm" onclick="exportCurrent()">📤 ส่งออก</button>
+    <button class="tbtn sm" onclick="exportCurrent()">${sic('i-export')} ส่งออก</button>
     <div class="fdiv"></div>
     <div class="fsel"><label>จัดกลุ่ม</label><select onchange="setF('group',this.value)">${opt(F.group,'dept','ตามแผนก')}${opt(F.group,'status','ตามสถานะ')}${opt(F.group,'assignee','ตามผู้รับผิดชอบ')}${opt(F.group,'none','ไม่จัดกลุ่ม')}</select></div>
     <div class="fsel"><label>เรียง</label><select onchange="setF('sort',this.value)">${opt(F.sort,'due','กำหนดส่ง')}${opt(F.sort,'prio','ความสำคัญ')}${opt(F.sort,'status','สถานะ')}${opt(F.sort,'spent','เวลาที่ใช้')}</select></div>
@@ -1071,24 +1121,24 @@ function execDash(){
   main.innerHTML=`
   ${crumb('หน้าแรก','ภาพรวมองค์กร')}
   <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">📈 รายงานสรุป</button><button class="tbtn primary" onclick="go('talk')">🤖 ถามข้อมูล</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานสรุป</button><button class="tbtn primary" onclick="go('talk')">🤖 ถามข้อมูล</button></div></div>
   <div class="stats" style="margin-bottom:14px">
-    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall}<span style="font-size:14px">/100</span></div><div class="sub">▲ +4 จากสัปดาห์ก่อน</div><div class="icn">🎯</div><span class="go">ดู KPI →</span></div>
-    <div class="stat click" onclick="goBoardFiltered()"><div class="lbl">งานทั้งหมด</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${Math.round(done/all.length*100)}%)</div><div class="icn">🗂️</div><span class="go">ดูบอร์ด →</span></div>
-    <div class="stat click" onclick="goBoardFiltered({status:'block'})"><div class="lbl">งานติดปัญหา</div><div class="val" style="color:var(--red)">${block}</div><div class="sub down">ต้องเข้าดูด่วน</div><div class="icn">⛔</div><span class="go">ดูงาน →</span></div>
-    <div class="stat click" onclick="goBoardFiltered({period:'overdue'})"><div class="lbl">งานเกินกำหนด</div><div class="val" style="color:var(--amber)">${overdue}</div><div class="sub muted">ข้ามแผนก</div><div class="icn">⏰</div><span class="go">ดูงาน →</span></div>
+    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall}<span style="font-size:14px">/100</span></div><div class="sub">▲ +4 จากสัปดาห์ก่อน</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
+    <div class="stat click" onclick="goBoardFiltered()"><div class="lbl">งานทั้งหมด</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${Math.round(done/all.length*100)}%)</div><div class="icn">${sic('i-board')}</div><span class="go">ดูบอร์ด →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({status:'block'})"><div class="lbl">งานติดปัญหา</div><div class="val" style="color:var(--red)">${block}</div><div class="sub down">ต้องเข้าดูด่วน</div><div class="icn">${sic('i-block')}</div><span class="go">ดูงาน →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({period:'overdue'})"><div class="lbl">งานเกินกำหนด</div><div class="val" style="color:var(--amber)">${overdue}</div><div class="sub muted">ข้ามแผนก</div><div class="icn">${sic('i-clock')}</div><span class="go">ดูงาน →</span></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:14px">
-    <div class="card"><div class="card-h"><h3>📊 สัดส่วนสถานะงาน</h3></div><div class="pad">${statusDonutBlock(all)}</div></div>
-    <div class="card"><div class="card-h"><h3>🗂️ งานตามแผนก</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byDept)}</div></div>
-    <div class="card"><div class="card-h"><h3>📈 แนวโน้ม KPI รวม</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(KPI_TREND.pts)}
+    <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงาน</h3></div><div class="pad">${statusDonutBlock(all)}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-board')} งานตามแผนก</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byDept)}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-line')} แนวโน้ม KPI รวม</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(KPI_TREND.pts)}
       <div class="legend"><span><span class="dot" style="background:#2158c8"></span>คะแนน KPI รวม (ล่าสุด ${KPI_TREND.pts.slice(-1)}/100)</span></div></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1.4fr 1fr">
-    <div class="card"><div class="card-h"><h3>🎯 คะแนน KPI รายแผนก</h3><span class="act">คะแนนเต็ม 100</span></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-target')} คะแนน KPI รายแผนก</h3><span class="act">คะแนนเต็ม 100</span></div><div class="pad">
       ${Object.keys(KPI).map(c=>{const s=deptScore(c);return `<div class="kpirow"><div class="nm">${deptName(c)}<small>${KPI[c].length} ตัวชี้วัด · <span style="color:${scoreColor(s)}">${scoreLabel(s)}</span></small></div>
       <div class="bar"><i style="width:${s}%;background:${scoreColor(s)}"></i></div><div class="score" style="color:${scoreColor(s)}">${s}/100</div></div>`;}).join('')}${kpiLegend()}</div></div>
-    <div class="card"><div class="card-h"><h3>📌 ทุกวันต้องรู้ (Back Office)</h3></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-pin')} ทุกวันต้องรู้ (Back Office)</h3></div><div class="pad">
       <div>${[
         ['ลูกค้าเข้าวันนี้',nf(1284)+' ราย ▲12%','var(--green)',"goBoardFiltered({dept:'CRM'})"],
         ['เงินเข้า - ออก','+฿ '+nf(842000),'var(--ink)',"goBoardFiltered({dept:'FIN'})"],
@@ -1096,20 +1146,20 @@ function execDash(){
         ['หน้างานติดปัญหา','การเงิน: ยอดไม่ตรง','var(--red)',"goBoardFiltered({dept:'FIN',status:'block'})"],
         ['ลูกค้ากลับมา (สัปดาห์)','48%','var(--green)',"goBoardFiltered({dept:'CRM'})"],
       ].map(r=>`<div class="legrow" onclick="${r[3]}" style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:12.5px">${r[0]}</span><b style="color:${r[2]};font-size:12.5px">${r[1]} ›</b></div>`).join('')}</div>
-      <div class="ai-note" style="margin-top:12px"><b>🤖 AI สรุป:</b> เคสค้างเพิ่มจากปัญหาสลิปไม่ชัด (วิธีแก้ใน KB-08) และการเงินติดยอดไม่ตรง 2 รายการใน T-1066 แนะนำติดตามด่วน</div></div></div>
+      <div class="ai-note" style="margin-top:12px"><b>${sic('i-chat')} AI สรุป:</b> เคสค้างเพิ่มจากปัญหาสลิปไม่ชัด (วิธีแก้ใน KB-08) และการเงินติดยอดไม่ตรง 2 รายการใน T-1066 แนะนำติดตามด่วน</div></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1.5fr 1fr;margin-top:16px">
-    <div class="card"><div class="card-h"><h3>🚨 ต้องดำเนินการ / ตัดสินใจ</h3><span class="act">${action.length} รายการ</span></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-warning')} ต้องดำเนินการ / ตัดสินใจ</h3><span class="act">${action.length} รายการ</span></div><div class="pad">
       ${action.length?action.map(a=>`<div class="feed-item" style="cursor:pointer" onclick="openTask('${a.t.id}')"><span class="fi" style="background:${a.bg}">${a.ic}</span><div style="flex:1"><b style="font-weight:500">${a.t.title}</b><div class="muted" style="font-size:11px">${a.t.id} · ${deptName(a.t.dept)} · ${a.reason} · กำหนด ${fmtDate(a.t.due)}</div></div><span class="pill" style="background:${a.color}">${a.tag}</span></div>`).join(''):'<div class="muted" style="padding:8px 0">ไม่มีงานที่ต้องดำเนินการด่วน 🎉</div>'}
     </div></div>
-    <div class="card"><div class="card-h"><h3>⚠️ แผนกที่ต้องจับตา</h3><span class="act">เรียงตามความเสี่ยง</span></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-warning')} แผนกที่ต้องจับตา</h3><span class="act">เรียงตามความเสี่ยง</span></div><div class="pad">
       ${risk.map((r,i)=>`<div class="kpirow" style="grid-template-columns:1fr 72px;cursor:pointer" onclick="goBoardFiltered({dept:'${r.code}'})"><div class="nm">${i+1}. ${deptName(r.code)}<small>${r.reason}</small></div><div class="score" style="color:${scoreColor(r.score)}">${r.score}/100</div></div>`).join('')}
     </div></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
-    <div class="card"><div class="card-h"><h3>👥 ลูกค้าเข้ารายสัปดาห์</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(BIZ.customers)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ${nf(BIZ.customers.slice(-1)[0])} ราย ▲ ${Math.round((BIZ.customers.slice(-1)[0]/BIZ.customers.slice(-2)[0]-1)*100)}%</span></div></div></div>
-    <div class="card"><div class="card-h"><h3>💰 รายได้สุทธิ</h3><span class="act">พันบาท/สัปดาห์</span></div><div class="pad">${sparkline(BIZ.revenue)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ฿${nf(BIZ.revenue.slice(-1)[0]*1000)}</span></div></div></div>
-    <div class="card"><div class="card-h"><h3>⚡ ผลิตภาพ: งานเสร็จ/สัปดาห์</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(BIZ.completed)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ${BIZ.completed.slice(-1)[0]} งาน · ตรงเวลา ${ontimeRate}%</span></div></div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-users')} ลูกค้าเข้ารายสัปดาห์</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(BIZ.customers)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ${nf(BIZ.customers.slice(-1)[0])} ราย ▲ ${Math.round((BIZ.customers.slice(-1)[0]/BIZ.customers.slice(-2)[0]-1)*100)}%</span></div></div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-money')} รายได้สุทธิ</h3><span class="act">พันบาท/สัปดาห์</span></div><div class="pad">${sparkline(BIZ.revenue)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ฿${nf(BIZ.revenue.slice(-1)[0]*1000)}</span></div></div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-bolt')} ผลิตภาพ: งานเสร็จ/สัปดาห์</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(BIZ.completed)}<div class="legend"><span><span class="dot" style="background:#2158c8"></span>ล่าสุด ${BIZ.completed.slice(-1)[0]} งาน · ตรงเวลา ${ontimeRate}%</span></div></div></div>
   </div>`;
 }
 
@@ -1119,20 +1169,20 @@ function leadDash(){
   main.innerHTML=`
   ${crumb('หน้าแรก','แดชบอร์ดหัวหน้า',deptName(dept))}
   <div class="page-h"><div><h1>แดชบอร์ดหัวหน้า — ${deptName(dept)}</h1><p>ภาพรวมงานทีม · อนุมัติ · KPI แผนก</p></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">📈 รายงานทีม</button><button class="tbtn primary" onclick="openCompose()">✨ สั่งงานใหม่</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานทีม</button><button class="tbtn primary" onclick="openCompose()">${sic('i-sparkle')} สั่งงานใหม่</button></div></div>
   <div class="stats" style="margin-bottom:14px">
-    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI แผนก</div><div class="val">${s}/100</div><div class="sub">เกณฑ์: ${scoreLabel(s)}</div><div class="icn">🎯</div><span class="go">ดู KPI →</span></div>
-    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}'})"><div class="lbl">งานในทีม</div><div class="val">${dt.length}</div><div class="sub up">กำลังทำ ${dt.filter(t=>t.status==='doing').length}</div><div class="icn">🗂️</div><span class="go">ดูบอร์ด →</span></div>
-    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'review'})"><div class="lbl">รอฉันอนุมัติ</div><div class="val" style="color:var(--amber)">${dt.filter(t=>t.status==='review').length}</div><div class="sub muted">คลิกเพื่อตรวจ</div><div class="icn">👀</div><span class="go">ตรวจงาน →</span></div>
-    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'block'})"><div class="lbl">ติดปัญหา</div><div class="val" style="color:var(--red)">${dt.filter(t=>t.status==='block').length}</div><div class="sub down">ช่วยปลดล็อก</div><div class="icn">⛔</div><span class="go">ดูงาน →</span></div>
+    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI แผนก</div><div class="val">${s}/100</div><div class="sub">เกณฑ์: ${scoreLabel(s)}</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}'})"><div class="lbl">งานในทีม</div><div class="val">${dt.length}</div><div class="sub up">กำลังทำ ${dt.filter(t=>t.status==='doing').length}</div><div class="icn">${sic('i-board')}</div><span class="go">ดูบอร์ด →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'review'})"><div class="lbl">รอฉันอนุมัติ</div><div class="val" style="color:var(--amber)">${dt.filter(t=>t.status==='review').length}</div><div class="sub muted">คลิกเพื่อตรวจ</div><div class="icn">${sic('i-eye')}</div><span class="go">ตรวจงาน →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'block'})"><div class="lbl">ติดปัญหา</div><div class="val" style="color:var(--red)">${dt.filter(t=>t.status==='block').length}</div><div class="sub down">ช่วยปลดล็อก</div><div class="icn">${sic('i-block')}</div><span class="go">ดูงาน →</span></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
-    <div class="card"><div class="card-h"><h3>📊 สัดส่วนสถานะงานทีม</h3></div><div class="pad">${statusDonutBlock(dt)}</div></div>
-    <div class="card"><div class="card-h"><h3>👥 ภาระงานรายคน</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byAssignee)}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงานทีม</h3></div><div class="pad">${statusDonutBlock(dt)}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-users')} ภาระงานรายคน</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byAssignee)}</div></div>
   </div>
   <div class="grid" style="grid-template-columns:1.5fr 1fr">
-    <div><div class="card"><div class="card-h"><h3>🗂️ งานทีมล่าสุด</h3><span class="act">${dt.length} งาน</span></div>${boardTableInner(dt.slice(0,6))}</div></div>
-    <div class="card"><div class="card-h"><h3>🎯 KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept,true)}${kpiLegend()}</div></div>
+    <div><div class="card"><div class="card-h"><h3>${sic('i-board')} งานทีมล่าสุด</h3><span class="act">${dt.length} งาน</span></div>${boardTableInner(dt.slice(0,6))}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-target')} KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept,true)}${kpiLegend()}</div></div>
   </div>`;
 }
 
@@ -1140,7 +1190,7 @@ RENDER.myTasks=function(){
   const base=myTasks(),list=applyFilters(base);
   main.innerHTML=`${crumb('หน้าแรก','งานของฉัน')}
   <div class="page-h"><div><h1>งานของฉัน</h1><p>งานที่ได้รับมอบหมายและงานที่ฉันสั่ง</p></div>
-    <button class="tbtn primary" onclick="openCompose()">✨ สร้างงาน (AI)</button></div>
+    <button class="tbtn primary" onclick="openCompose()">${sic('i-sparkle')} สร้างงาน (AI)</button></div>
   ${filterBar(false)}${activeFilterChips()}
   <div class="resultline">แสดง ${list.length} จาก ${base.length} งาน</div>
   ${groupedBoards(list)}`;
@@ -1152,7 +1202,7 @@ RENDER.board=function(deptFilter){
   main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',deptFilter?deptName(deptFilter):'ทุกแผนก')}
   <div class="page-h"><div><h1>บอร์ดงาน ${deptFilter?'— '+deptName(deptFilter):''}</h1>
     <p>มุมมองตารางสไตล์ Monday · กรอง จัดกลุ่ม เรียงลำดับ · คลิกงานเพื่อดูรายละเอียด</p></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">📅 ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">${sic('i-calendar')} ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
   ${filterBar(!!deptFilter)}${activeFilterChips()}
   <div class="resultline">แสดง ${list.length} จาก ${base.length} งาน · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
   ${groupedBoards(list)}`;
@@ -1258,9 +1308,9 @@ RENDER.reports=function(){
   <div class="rep-head">
     <div class="seg">${['today','week','month','quarter'].map(p=>`<button class="${REP_PERIOD===p?'active':''}" onclick="REP_PERIOD='${p}';RENDER.reports()">${{today:'วันนี้',week:'สัปดาห์',month:'เดือน',quarter:'ไตรมาส'}[p]}</button>`).join('')}</div>
     <div style="display:flex;gap:8px">
-      <button class="tbtn sm" onclick="printReport()">📄 PDF</button>
-      <button class="tbtn sm" onclick="exportReportExcel()">📊 Excel</button>
-      <button class="tbtn sm primary" onclick="sendAuto()">✉️ ส่งอัตโนมัติ</button></div>
+      <button class="tbtn sm" onclick="printReport()">${sic('i-doc')} PDF</button>
+      <button class="tbtn sm" onclick="exportReportExcel()">${sic('i-grid')} Excel</button>
+      <button class="tbtn sm primary" onclick="sendAuto()">${sic('i-send')} ส่งอัตโนมัติ</button></div>
   </div>
   <div class="filterbar" style="margin-bottom:14px">
     <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="REP_GROUP=this.value;REP_DEPT='';RENDER.reports()">${opt(REP_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(REP_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
@@ -1269,7 +1319,7 @@ RENDER.reports=function(){
     <span style="margin-left:auto;font-size:12px" class="muted">กำลังสรุป: <b style="color:var(--blue-700)">${unit}</b></span>
   </div>
   <div class="exec-summary" style="margin-bottom:14px">
-    <b>🤖 บทสรุป (AI):</b> ${pname} · <b>${unit}</b> ทำคะแนน KPI รวม <b>${overall}/100</b> (เกณฑ์: ${scoreLabel(overall)}).
+    <b>${sic('i-chat')} บทสรุป (AI):</b> ${pname} · <b>${unit}</b> ทำคะแนน KPI รวม <b>${overall}/100</b> (เกณฑ์: ${scoreLabel(overall)}).
     ปิดงานได้ <b>${done.length}</b> จาก ${scope.length} งาน · อัตราส่งตรงเวลา <b>${done.length?Math.round(ontime/done.length*100):0}%</b>.
     จุดที่ต้องติดตาม: ${blocked.length?blocked.map(t=>t.title).join(' · '):'ไม่มีงานติดปัญหา/เกินกำหนด'}.
     องค์ความรู้ที่บันทึก ${kbList.length} เรื่อง.
@@ -1281,11 +1331,11 @@ RENDER.reports=function(){
     <div class="stat click" onclick="go('kb')"><div class="lbl">องค์ความรู้ใหม่</div><div class="val">${kbList.length}</div><div class="sub muted">บทความเข้า KB</div><span class="go">ดูคลัง →</span></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
-    <div class="card"><div class="card-h"><h3>📊 สัดส่วนสถานะงาน</h3><span class="act">${unit}</span></div><div class="pad">${statusDonutBlock(scope)}</div></div>
-    <div class="card"><div class="card-h"><h3>📈 แนวโน้มคะแนน KPI</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(KPI_TREND.pts)}
+    <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงาน</h3><span class="act">${unit}</span></div><div class="pad">${statusDonutBlock(scope)}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-line')} แนวโน้มคะแนน KPI</h3><span class="act">5 สัปดาห์</span></div><div class="pad">${sparkline(KPI_TREND.pts)}
       <div class="legend"><span><span class="dot" style="background:#2158c8"></span>คะแนน KPI รวม</span></div></div></div>
   </div>
-  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>🏆 Scorecard ${depts.length>1?'รายแผนก':deptName(depts[0])}</h3><span class="act">${unit} · ${pname}</span></div>
+  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>${sic('i-trophy')} Scorecard ${depts.length>1?'รายแผนก':deptName(depts[0])}</h3><span class="act">${unit} · ${pname}</span></div>
     <table><thead><tr><th>แผนก</th><th>คะแนน KPI</th><th>งานทั้งหมด</th><th>เสร็จ</th><th>ติดปัญหา</th><th>ส่งตรงเวลา</th><th>สถานะ</th></tr></thead>
     <tbody>${codes.map(c=>{const dt=TASKS.filter(t=>t.dept===c);const dn=dt.filter(t=>t.status==='done');const ot=dn.filter(t=>t.ontime).length;const s=deptScore(c);
       return `<tr onclick="go('board','${c}')"><td><b style="font-weight:500">${deptName(c)}</b></td>
@@ -1295,9 +1345,9 @@ RENDER.reports=function(){
       <td><span class="pill" style="background:${scoreColor(s)}">${scoreLabel(s)}</span></td></tr>`;}).join('')}
     </tbody></table></div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-    <div class="card"><div class="card-h"><h3>⛔ ปัญหาที่ต้องติดตาม (${unit})</h3></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-block')} ปัญหาที่ต้องติดตาม (${unit})</h3></div><div class="pad">
       ${blocked.map(t=>`<div class="feed-item" style="cursor:pointer" onclick="openTask('${t.id}')"><span class="fi" style="background:#fde7ea">⚠</span><div style="flex:1"><b style="font-weight:500">${t.title}</b><div class="muted" style="font-size:11px">${t.id} · ${deptName(t.dept)} · ${STATUS[t.status].t}</div></div></div>`).join('')||'<div class="muted">ไม่มี</div>'}</div></div>
-    <div class="card"><div class="card-h"><h3>💡 องค์ความรู้ (${unit})</h3></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-bulb')} องค์ความรู้ (${unit})</h3></div><div class="pad">
       ${kbList.map(k=>`<div class="feed-item" style="cursor:pointer" onclick="openKB('${k.id}')"><span class="fi" style="background:#e6f7f1">💡</span><div style="flex:1"><b style="font-weight:500">${k.title}</b><div class="muted" style="font-size:11px">${k.id} · ${deptName(k.dept)} · จาก ${k.from}</div></div></div>`).join('')||'<div class="muted">ยังไม่มี</div>'}</div></div>
   </div>`;
 };
@@ -1350,7 +1400,7 @@ RENDER.monthly=function(){
   main.innerHTML=`${crumb('หน้าแรก','รายงานประจำเดือน')}
   <div class="rep-head">
     <div><b style="font-size:14px">แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน</b><div class="muted" style="font-size:11.5px">🔄 ดึงข้อมูลอัตโนมัติ · แก้ไขข้อความได้ · ${d.unit} · ${d.monthLabel}</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn sm" onclick="printReport()">📄 PDF</button><button class="tbtn sm" onclick="exportMonthlyWord()">📝 Word</button><button class="tbtn sm" onclick="exportMonthlyExcel()">📊 Excel</button><button class="tbtn sm primary" onclick="toast('สาธิต: ส่งรายงานเข้าที่ประชุม/อีเมลอัตโนมัติ')">✉️ ส่งเข้าประชุม</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn sm" onclick="printReport()">${sic('i-doc')} PDF</button><button class="tbtn sm" onclick="exportMonthlyWord()">${sic('i-doc')} Word</button><button class="tbtn sm" onclick="exportMonthlyExcel()">${sic('i-grid')} Excel</button><button class="tbtn sm primary" onclick="toast('สาธิต: ส่งรายงานเข้าที่ประชุม/อีเมลอัตโนมัติ')">✉️ ส่งเข้าประชุม</button></div>
   </div>
   ${repFilterBar()}
   <div class="rpt">
@@ -1443,7 +1493,7 @@ RENDER.tracker=function(){
   const mLabel=month==='08'?'สิงหาคม 2569':'กันยายน 2569';
   main.innerHTML=`${crumb('หน้าแรก','Action Tracker')}
   <div class="page-h"><div><h1>Action Tracker</h1><p>ทะเบียนติดตาม Action · แยกดูตามเดือน / กลุ่มงาน / แผนก / ระดับตำแหน่ง</p></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="carryOver()">↪ ยกงานค้าง → ก.ย.</button><button class="tbtn" onclick="exportTrackerExcel()">📊 Excel</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="carryOver()">↪ ยกงานค้าง → ก.ย.</button><button class="tbtn" onclick="exportTrackerExcel()">${sic('i-grid')} Excel</button></div></div>
   <div class="filterbar">
     <div class="fsel"><label>เดือน</label><select onchange="TRACK_MONTH=this.value;RENDER.tracker()">${opt(month,'08','สิงหาคม 2569')}${opt(month,'09','กันยายน 2569 (งานยกมา)')}</select></div>
     <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="TRACK_GROUP=this.value;TRACK_DEPT='';RENDER.tracker()">${opt(TRACK_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(TRACK_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
@@ -1487,13 +1537,13 @@ RENDER.sop=function(){
   const list=SOPS.filter(s=>(!F.dept||s.dept===F.dept)&&(!q||s.title.toLowerCase().includes(q)||deptName(s.dept).toLowerCase().includes(q)));
   main.innerHTML=`${crumb('หน้าแรก','คลัง SOP')}
   <div class="page-h"><div><h1>คลัง SOP / คู่มือ & เอกสารกลาง</h1><p>ระเบียบ · แบบฟอร์ม · คู่มือปฏิบัติงานของทุกแผนก</p></div></div>
-  <div class="sect-title" style="margin-top:2px">📕 เอกสารกลาง / ระเบียบ & แบบฟอร์ม</div>
+  <div class="sect-title" style="margin-top:2px">${sic('i-folder')} เอกสารกลาง / ระเบียบ & แบบฟอร์ม</div>
   <div class="tiles" style="margin-bottom:18px">
     ${DOCS.map(doc=>`<div class="tile" onclick="openDoc('${doc.id}')"><span class="pill" style="background:var(--blue-800);margin-bottom:8px">ระเบียบ · ${doc.rev}</span><h4>${doc.title}</h4><div class="meta">${doc.en} · ${doc.owner}</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดอ่าน →</div></div>`).join('')}
     <div class="tile" onclick="go('monthly')"><span class="pill" style="background:var(--green);margin-bottom:8px">แบบฟอร์ม</span><h4>แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน</h4><div class="meta">กรอกอัตโนมัติ · Export Word/Excel/PDF</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดฟอร์ม →</div></div>
     <div class="tile" onclick="go('tracker')"><span class="pill" style="background:var(--sky);margin-bottom:8px">ทะเบียน</span><h4>Action Tracker (ทะเบียนติดตาม Action)</h4><div class="meta">สะสมข้ามเดือน · แยกกลุ่ม/แผนก/ระดับ</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดทะเบียน →</div></div>
   </div>
-  <div class="sect-title">📘 คู่มือปฏิบัติงาน (SOP)</div>
+  <div class="sect-title">${sic('i-book')} คู่มือปฏิบัติงาน (SOP)</div>
   ${filterBarLite('ค้นหาคู่มือ SOP')}
   <div class="resultline">แสดง ${list.length} จาก ${SOPS.length} คู่มือ</div>
   ${list.length?`<div class="tiles">${list.map(s=>`<div class="tile" onclick="openSOP('${s.id}')">
@@ -1507,7 +1557,7 @@ RENDER.kb=function(){
   main.innerHTML=`${crumb('หน้าแรก','คลังความรู้')}
   <div class="page-h"><div><h1>คลังความรู้ (Knowledge Base)</h1><p>วิธีแก้ปัญหาที่ระบบเก็บอัตโนมัติจากการปิดงาน · ค้นหาและใช้ซ้ำได้</p></div></div>
   ${filterBarLite('ค้นหาปัญหา / วิธีแก้ / แท็ก')}
-  <div class="ai-note" style="margin-bottom:12px">💡 บทความเหล่านี้ถูกสร้างอัตโนมัติจากช่อง "วิธีแก้ปัญหา" ตอนปิดงาน แล้ว AI ช่วยสรุปให้อ่านง่าย</div>
+  <div class="ai-note" style="margin-bottom:12px">${sic('i-bulb')} บทความเหล่านี้ถูกสร้างอัตโนมัติจากช่อง "วิธีแก้ปัญหา" ตอนปิดงาน แล้ว AI ช่วยสรุปให้อ่านง่าย</div>
   <div class="resultline">แสดง ${list.length} จาก ${KB.length} บทความ</div>
   ${list.length?`<div class="tiles">${list.map(k=>`<div class="tile" onclick="openKB('${k.id}')">
     <span class="pill" style="background:${deptColor(k.dept)};margin-bottom:8px">${deptName(k.dept)}</span>
@@ -1520,18 +1570,18 @@ RENDER.ann=function(){
   <div class="page-h"><div><h1>ประกาศ & บอร์ดอัปเดต</h1><p>บอร์ดกลางของบริษัท — ประกาศจากผู้บริหาร/หัวหน้า และความเคลื่อนไหวงาน</p></div>
     ${ROLE!=='staff'?'<button class="tbtn primary" onclick="openAnnForm()">+ ประกาศใหม่</button>':''}</div>
   <div class="grid" style="grid-template-columns:1.4fr 1fr">
-    <div class="card"><div class="card-h"><h3>📢 ประกาศ</h3></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-megaphone')} ประกาศ</h3></div><div class="pad">
       ${ANN.map(a=>{const st=annStatus(a);const aud=annAudienceIds(a);const ack=(a.acks||[]).length;const meNeed=aud.includes(me())&&!(a.acks||[]).includes(me())&&st.t!=='หมดอายุ';return `<div class="ann ${a.pin?'pin':''}" style="cursor:pointer" onclick="openAnn('${a.id}')"><div class="who" style="background:${u(a.who).c}">${u(a.who).s}</div>
         <div style="flex:1"><h4>${a.pin?'📌 ':''}${a.title} <span class="pill" style="background:${st.c};font-size:10px">${st.t}</span></h4><div class="body">${a.body}</div>
         <div class="time">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 ${fmtDate(a.from)}${a.until?('–'+fmtDate(a.until)):''}`:''}</div>
         <div style="margin-top:6px;font-size:11.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="color:var(--green)">✓ รับทราบ ${ack}/${aud.length}</span><span class="muted">💬 ตอบกลับ ${(a.comments||[]).length}</span>${meNeed?'<span class="pill" style="background:var(--amber);font-size:10px">คุณยังไม่รับทราบ — คลิกเพื่อรับทราบ</span>':''}</div></div></div>`;}).join('')}</div></div>
-    <div class="card"><div class="card-h"><h3>🔔 ฟีดงานรวม</h3></div><div class="pad">
+    <div class="card"><div class="card-h"><h3>${sic('i-bell')} ฟีดงานรวม</h3></div><div class="pad">
       ${FEED.map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')}</div></div>
   </div>`;
 };
 RENDER.talk=function(){
   main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}
-  <div class="page-h"><div><h1>Talk to Data 🤖</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p></div></div>
+  <div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p></div></div>
   <div class="card pad chat">
     <div class="chat-body" id="chatBody">
       <div class="msg a">สวัสดีค่ะ 👋 ถามข้อมูลงาน/KPI/ลูกค้าได้เลย ระบบจะดึงเฉพาะจากฐานข้อมูลภายในของเรา<br>
@@ -1615,7 +1665,7 @@ function openTask(id){
     ${t.solution?`<div class="field"><label>✅ วิธีแก้ปัญหา (บันทึกลงคลังความรู้แล้ว)</label><div class="ai-note">${t.solution}</div></div>`:
       `<div class="field"><label>วิธีแก้ปัญหา / ผลการดำเนินงาน</label><textarea id="solIn" rows="2" placeholder="พิมพ์วิธีแก้ แล้วกด 'อนุมัติ/ปิดงาน' → ระบบเก็บเข้าคลังความรู้อัตโนมัติ"></textarea></div>`}
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
-      ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">💾 บันทึกวิธีแก้</button>`:''}
+      ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">${sic('i-save')} บันทึกวิธีแก้</button>`:''}
       ${ROLE!=='staff'&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button>`:''}
       ${t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
 
@@ -1627,14 +1677,14 @@ function openTask(id){
 function openDoc(id){const d=DOCS.find(x=>x.id===id);if(!d)return;
   showModal(`<div class="modal-h"><div><span class="pill" style="background:var(--blue-800)">ระเบียบ · ${d.rev}</span><h3 style="margin-top:6px">${d.title}</h3><div class="muted" style="font-size:11.5px">${d.en} · หน่วยงานเจ้าของ: ${d.owner}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">${d.sections.map(s=>`<div class="field"><label style="font-size:12.5px;color:var(--blue-700);font-weight:500">${s.h}</label>${s.items.map(it=>`<div class="step"><span style="color:var(--blue-500);font-weight:700">•</span><div style="flex:1">${it}</div></div>`).join('')}</div>`).join('')}
-  <div class="ai-note">📎 เอกสารต้นฉบับ: <b>ระเบียบการประชุมติดตามผลประจำเดือน.pdf</b> — เก็บใน โฟลเดอร์ บริษัท/รายงานเพิ่มเติม/08.08.2026</div></div>`);}
+  <div class="ai-note">${sic('i-doc')} เอกสารต้นฉบับ: <b>ระเบียบการประชุมติดตามผลประจำเดือน.pdf</b> — เก็บใน โฟลเดอร์ บริษัท/รายงานเพิ่มเติม/08.08.2026</div></div>`);}
 function openSOP(id){
   const s=SOPS.find(x=>x.id===id);if(!s)return;
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(s.dept)}</div><h3>${s.title}</h3>
     <div class="muted" style="font-size:11.5px">เวอร์ชัน ${s.v} · อนุมัติแล้ว</div></div><button class="x" onclick="closeModal()">×</button></div>
     <div class="pad"><div class="field"><label>ขั้นตอนการทำงาน (Workflow)</label>
     ${s.steps.map((st,i)=>`<div class="step"><span class="n">${i+1}</span>${st}</div>`).join('')}</div>
-    <div class="ai-note">🤖 <b>AI:</b> ผูก SOP นี้กับงานอัตโนมัติได้ เมื่อเปิดงานในแผนก ${deptName(s.dept)} ระบบจะแสดงขั้นตอนนี้ และนับการปฏิบัติตาม SOP เป็นส่วนหนึ่งของ KPI</div></div>`);
+    <div class="ai-note">${sic('i-chat')} <b>AI:</b> ผูก SOP นี้กับงานอัตโนมัติได้ เมื่อเปิดงานในแผนก ${deptName(s.dept)} ระบบจะแสดงขั้นตอนนี้ และนับการปฏิบัติตาม SOP เป็นส่วนหนึ่งของ KPI</div></div>`);
 }
 function openKB(id){
   const k=KB.find(x=>x.id===id);if(!k)return;
@@ -1646,10 +1696,10 @@ function openKB(id){
 }
 function openCompose(){
   const defDept=ROLE==='exec'?'GRAPHIC':ROLE_META[ROLE].dept;
-  showModal(`<div class="modal-h"><div><h3>✨ สร้างงานด้วย AI</h3><div class="muted" style="font-size:11.5px">พิมพ์สั้น ๆ AI จะจัดรูปให้อ่านง่าย แล้วกดสร้าง</div></div><button class="x" onclick="closeModal()">×</button></div>
+  showModal(`<div class="modal-h"><div><h3>${sic('i-sparkle')} สร้างงานด้วย AI</h3><div class="muted" style="font-size:11.5px">พิมพ์สั้น ๆ AI จะจัดรูปให้อ่านง่าย แล้วกดสร้าง</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>สั่งงานแบบสั้น (พิมพ์หรือพูดก็ได้)</label><textarea id="cmpIn" rows="2">ทำแบนเนอร์โปรฯ ฝากครั้งแรกให้ 3XBET ส่งศุกร์นี้</textarea></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="voiceDictate('cmpIn')">🎤 พูดใส่</button><button class="tbtn primary" onclick="aiCompose('${defDept}')">🤖 ให้ AI จัดรูปงาน</button></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="voiceDictate('cmpIn')">${sic('i-mic')} พูดใส่</button><button class="tbtn primary" onclick="aiCompose('${defDept}')">🤖 ให้ AI จัดรูปงาน</button></div>
     <div id="cmpOut" style="margin-top:14px"></div></div>`);
 }
 function aiCompose(defDept){
@@ -1657,7 +1707,7 @@ function aiCompose(defDept){
   const a=analyzeCommand(raw); if(defDept&&!/แบนเนอร์|ออกแบบ|โทร|คอนเทนต์|เบิก|แชท|ตรวจ/.test(raw.toLowerCase()))a.dept=defDept;
   PICK=new Set([a.assignee]);
   document.getElementById('cmpOut').innerHTML=`
-    <div class="ai-note"><b>🤖 AI วิเคราะห์ให้แล้ว:</b> แผนก <b>${deptName(a.dept)}</b> · ความสำคัญ <b>${PRIO[a.prio].t}</b> · กำหนดส่ง <b>${fmtDate(a.due)}</b> · แนะนำ <b>${shortName(a.assignee)}</b> (ว่างสุดในทีม)</div>
+    <div class="ai-note"><b>${sic('i-chat')} AI วิเคราะห์ให้แล้ว:</b> แผนก <b>${deptName(a.dept)}</b> · ความสำคัญ <b>${PRIO[a.prio].t}</b> · กำหนดส่ง <b>${fmtDate(a.due)}</b> · แนะนำ <b>${shortName(a.assignee)}</b> (ว่างสุดในทีม)</div>
     <div class="two" style="margin-top:12px">
       <div class="field"><label>หัวข้องาน</label><input class="fin" id="f_title" value="${a.title}"></div>
       <div class="field"><label>แผนก</label><select class="fin" id="f_dept">${deptOptions(a.dept)}</select></div></div>
@@ -1668,7 +1718,7 @@ function aiCompose(defDept){
     <div class="field"><label>ระยะเวลาดำเนินการ (SLA) — ต้องเสร็จภายใน</label><div style="display:flex;gap:6px"><input type="number" min="1" class="fin" id="f_sla_n" value="${a.sla.n}" style="max-width:90px"><select class="fin" id="f_sla_u" style="max-width:120px"><option value="day">วัน</option><option value="hr">ชั่วโมง</option></select></div></div>
     <div class="field"><label>ผู้รับผิดชอบ — เลือกได้หลายคน หรือกดทั้งกลุ่ม</label><div id="pickerBox"></div></div>
     <div class="field"><label>Checklist (AI แตกจาก SOP ${deptName(a.dept)})</label>${a.checklist.map((c,i)=>`<div class="step"><span class="n">${i+1}</span>${c}</div>`).join('')}</div>
-    ${a.kb?`<div class="ai-note">🔗 เกี่ยวข้อง: SOP ${deptName(a.dept)} · บทความ ${a.kb.id} (${a.kb.title})</div>`:''}
+    ${a.kb?`<div class="ai-note">${sic('i-chat')} เกี่ยวข้อง: SOP ${deptName(a.dept)} · บทความ ${a.kb.id} (${a.kb.title})</div>`:''}
     <button class="tbtn primary" style="margin-top:12px" onclick="submitCompose()">✓ สร้างงานนี้</button>`;
   renderPicker();
 }
@@ -1695,7 +1745,7 @@ function loadState(){try{const s=JSON.parse(localStorage.getItem(LS_KEY)||'null'
 function resetDemo(){try{localStorage.removeItem(LS_KEY);}catch(e){}location.reload();}
 
 /* ===== Theme ===== */
-function applyTheme(d){document.body.classList.toggle('dark',d);const b=document.getElementById('themeBtn');if(b)b.textContent=d?'☀️':'🌙';}
+function applyTheme(d){document.body.classList.toggle('dark',d);const b=document.getElementById('themeBtn');if(b)b.innerHTML=`<svg class="svic"><use href="#${d?'i-sun':'i-moon'}"></use></svg>`;}
 function toggleTheme(){const d=!document.body.classList.contains('dark');applyTheme(d);try{localStorage.setItem('ch_theme',d?'dark':'light');}catch(e){}}
 
 /* ===== INIT ===== */
