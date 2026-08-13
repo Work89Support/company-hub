@@ -334,6 +334,10 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 .help-cap{font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
 @media(max-width:680px){.help-win{width:96vw;left:2vw}.help-nav{flex-basis:150px}.help-nav button span:last-child{display:none}.help-nav .num{display:none}}
 
+.navitem.simpletgl{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);font-size:12px;margin-bottom:8px;color:#eaf1ff}
+.navitem.simpletgl:hover{background:rgba(255,255,255,.20)}
+.sidebar .navgroup{margin-top:12px}
+body.simple #deptNav,body.simple #deptLabel{display:none}
 </style>
 </head>
 <body data-palette="#2f8fe6,#e8971b,#e2445c,#00a878,#7a53e0">
@@ -407,7 +411,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
     </div>
     <div class="navgroup">เมนูหลัก</div>
     <nav id="nav"></nav>
-    <div class="navgroup">แผนก</div>
+    <div class="navgroup" id="deptLabel">แผนก</div>
     <div id="deptNav" style="font-size:12px"></div>
     <button class="navitem" style="margin-top:14px;opacity:.75;font-size:12px" onclick="resetDemo()"><span class="ic">↺</span>รีเซ็ตข้อมูลตัวอย่าง</button>
   </div>
@@ -1000,15 +1004,40 @@ function setRole(r){
   buildNav(); go(m.home); updateBell();
   setTimeout(()=>showAckPopup(false),400);
 }
+/* ===== Navigation groups + Simple mode ===== */
+const NAVGROUPS=[
+ {label:'งาน', items:['dash','myTasks','board','timeline']},
+ {label:'วัดผล & รายงาน', items:['kpi','reports','monthly','tracker']},
+ {label:'องค์กร & ความรู้', items:['org','sop','kb','ann','talk']},
+];
+const ROLE_ALLOW={
+ staff:['myTasks','board','org','sop','kb','ann','talk'],
+ lead:['dash','myTasks','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'],
+ exec:['dash','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'],
+};
+const SIMPLE_ALLOW={
+ staff:['myTasks','board','ann'],
+ lead:['dash','board','kpi','reports','ann'],
+ exec:['dash','board','kpi','reports','ann'],
+};
+let SIMPLE=false;
+function toggleSimple(){SIMPLE=!SIMPLE;try{localStorage.setItem('ch_simple',SIMPLE?'1':'0')}catch(e){}document.body.classList.toggle('simple',SIMPLE);
+  const allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||[];
+  if(!allow.includes(VIEW)){go(allow.includes('dash')?'dash':(allow[0]||'board'));}else{buildNav();}
+  toast(SIMPLE?'เปิดโหมดง่าย — แสดงเฉพาะเมนูหลัก':'แสดงทุกเมนูแล้ว');}
 function buildNav(){
-  let items=Object.keys(NAV);
-  if(ROLE==='staff') items=['myTasks','board','org','sop','kb','ann','talk'];
-  if(ROLE==='lead')  items=['dash','myTasks','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'];
-  if(ROLE==='exec')  items=['dash','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'];
-  nav.innerHTML=items.map(k=>{
-    const badge=k==='myTasks'?`<span class="badge">${myTasks().filter(t=>t.status!=='done').length}</span>`:'';
-    return `<button class="navitem ${k===VIEW?'active':''}" onclick="navGo('${k}')"><span class="ic">${sic(NAV[k].ic)}</span>${NAV[k].t}${badge}</button>`;
-  }).join('');
+  const allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||Object.keys(NAV);
+  let html=`<button class="navitem simpletgl" onclick="toggleSimple()"><span class="ic">${sic(SIMPLE?'i-grid':'i-check')}</span>${SIMPLE?'โหมดครบ (ทุกเมนู)':'โหมดง่าย (เมนูหลัก)'}</button>`;
+  NAVGROUPS.forEach(g=>{
+    const its=g.items.filter(k=>allow.includes(k));
+    if(!its.length)return;
+    if(!SIMPLE) html+=`<div class="navgroup">${g.label}</div>`;
+    html+=its.map(k=>{
+      const badge=k==='myTasks'?`<span class="badge">${myTasks().filter(t=>t.status!=='done').length}</span>`:'';
+      return `<button class="navitem ${k===VIEW?'active':''}" onclick="navGo('${k}')"><span class="ic">${sic(NAV[k].ic)}</span>${NAV[k].t}${badge}</button>`;
+    }).join('');
+  });
+  nav.innerHTML=html;
   deptNav.innerHTML=DEPTS.map(d=>`<button class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
 function go(v,arg){VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
@@ -1780,6 +1809,7 @@ function toggleTheme(){const d=!document.body.classList.contains('dark');applyTh
 loadState();
 recalcKPI();
 try{applyTheme(localStorage.getItem('ch_theme')==='dark');}catch(e){}
+try{SIMPLE=localStorage.getItem('ch_simple')==='1';}catch(e){}document.body.classList.toggle('simple',SIMPLE);
 setRole('lead');
 document.querySelectorAll('#roleSwitch button').forEach(b=>b.onclick=()=>setRole(b.dataset.role));
 
