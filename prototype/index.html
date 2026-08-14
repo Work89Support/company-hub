@@ -1830,6 +1830,7 @@ async function sbInit(){
   if(!cloudEnabled()){return;}                 /* ไม่มีเน็ต/SDK -> ใช้ localStorage ต่อไป */
   try{
     SB=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+    showLogin();  /* แสดงหน้าล็อกอินทันที กันไม่ให้เข้าถึงระบบก่อนยืนยันตัวตน */
     SB.auth.onAuthStateChange(function(_e,sess){ if(sess&&sess.user) onLoggedIn(sess); });
     var r=await SB.auth.getSession();
     if(r&&r.data&&r.data.session){ onLoggedIn(r.data.session); } else { showLogin(); }
