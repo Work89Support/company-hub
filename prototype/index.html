@@ -454,11 +454,13 @@ const DEPTS = [
   {code:'HR',    name:'ทรัพยากรบุคคล (HR)',  color:'#c2557a'},
   {code:'AUD123',name:'ออดิทระบบ 123',       color:'#c77d3a'},
   {code:'AUDXB', name:'ออดิทระบบ XB',        color:'#5b7a3a'},
+  {code:'BOM',   name:'Back Office Mgmt',     color:'#6d4c9f'},
+  {code:'SECRET',name:'เลขานุการ (Secret)',   color:'#3a6ea5'},
 ];
 const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
 const deptName  = c => (DEPTS.find(d=>d.code===c)||{}).name || c;
 /* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
-const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04'};
+const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',SECRET:'01'};
 const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
 const deptGroup=c=>DEPT_GROUP[c]||'01';
 const userLevel=id=>(String(id).startsWith('lead')||id==='boss')?'head':'staff';
@@ -472,6 +474,7 @@ const USERS = {
   lead_hr:{n:'อร (หัวหน้า HR)',s:'อ',c:'#c2557a'},
   lead_fin:{n:'ตาล (หัวหน้าการเงิน)',s:'ต',c:'#0b7a75'},
   lead_bc:{n:'ก้อง (หัวหน้า Back Office)',s:'ก',c:'#67769a'},
+  lead_bom:{n:'เจน (หัวหน้า BO Mgmt)',s:'จ',c:'#6d4c9f'}, lead_sec:{n:'ใบเฟิร์น (หัวหน้าเลขาฯ)',s:'บ',c:'#3a6ea5'},
   hr1:{n:'แนน',s:'แ',c:'#c2557a'}, bc1:{n:'พล',s:'พ',c:'#67769a'},
   lead_a123:{n:'บิว (หัวหน้าออดิท 123)',s:'บ',c:'#c77d3a'}, a123s:{n:'ปอ',s:'ป',c:'#c77d3a'},
   lead_axb:{n:'มาย (หัวหน้าออดิท XB)',s:'ม',c:'#5b7a3a'}, axbs:{n:'กิ๊ฟ',s:'ก',c:'#5b7a3a'},
@@ -492,7 +495,9 @@ let GROUPS=[
   {id:'g_bo', name:'ทีม Back Office (BC)',dept:'BO',      members:['lead_bc','bc1','d']},
   {id:'g_a123',name:'ทีมออดิท 123',      dept:'AUD123',  members:['lead_a123','a123s']},
   {id:'g_axb',name:'ทีมออดิท XB',        dept:'AUDXB',   members:['lead_axb','axbs']},
-  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin','lead_bc','lead_a123','lead_axb']},
+  {id:'g_bomgt',name:'ทีม Back Office Mgmt',dept:'BOM',   members:['lead_bom']},
+  {id:'g_sec',name:'ทีมเลขานุการ',        dept:'SECRET', members:['lead_sec']},
+  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin','lead_bc','lead_a123','lead_axb','lead_bom','lead_sec']},
 ];
 const groupById=id=>GROUPS.find(g=>g.id===id);
 
@@ -571,11 +576,11 @@ const KPI = {
     {n:'ตรวจซ้ำก่อนรับบัญชีกลับ',tg:'100%',tgt:100,w:0.15,ac:97},
     {n:'งานประจำเดือน/งานสนับสนุน',tg:'≥95%',tgt:95,w:0.15,ac:92}],
   CRM:[
-    {n:'โทร/ดูแลลูกค้าครบตามลิสต์รายวัน',tg:'≥95%',tgt:95,w:0.20,ac:93},
-    {n:'อัตราลูกค้ากลับมาเล่นตามเป้า (Retention)',tg:'≥90%',tgt:90,w:0.25,ac:88},
-    {n:'ตอบ/ติดต่อลูกค้าภายในเวลา (SLA)',tg:'≥95%',tgt:95,w:0.20,ac:94},
-    {n:'บันทึกผลการติดต่อครบถ้วน',tg:'≥98%',tgt:98,w:0.15,ac:97},
-    {n:'ติดตามลูกค้าหายกลับ (Win-back) ตามแผน',tg:'≥85%',tgt:85,w:0.20,ac:80}],
+    {n:'ติดต่อลูกค้าใหม่ครบ (Realtime Contact)',tg:'≥95%',tgt:95,w:0.20,ac:93},
+    {n:'ฝากครั้งแรก (First Deposit Conversion)',tg:'≥12%',tgt:12,w:0.20,ac:11},
+    {n:'ดึงลูกค้า Inactive กลับ (Reactivation)',tg:'≥10%',tgt:10,w:0.20,ac:9},
+    {n:'ติดตามครบรอบ D0/D3/D7/D30 (Follow-up)',tg:'≥95%',tgt:95,w:0.20,ac:94},
+    {n:'ข้อมูล/คุณภาพการโทร (Data & Call Quality)',tg:'≥90%',tgt:90,w:0.20,ac:88}],
   MKT:[
     {n:'งานคอนเทนต์/สื่อเสร็จตามแผน (Content Execution)',tg:'≥95%',tgt:95,w:0.20,ac:96},
     {n:'ดำเนินแคมเปญ/Optimize ตามรอบ (Campaign)',tg:'≥95%',tgt:95,w:0.20,ac:94},
@@ -583,11 +588,23 @@ const KPI = {
     {n:'ดูแล Social Media ตามแผน (X/VK/Telegram)',tg:'≥90%',tgt:90,w:0.20,ac:92},
     {n:'นำ AI/Automation มาใช้ (AI Adoption)',tg:'≥80%',tgt:80,w:0.20,ac:70}],
   ADMIN:[
-    {n:'ตอบแชทภายในเวลา (SLA)',tg:'≥95%',tgt:95,w:0.25,ac:94},
-    {n:'ปิดเคสได้ตามเป้ารายวัน',tg:'≥95%',tgt:95,w:0.20,ac:96},
-    {n:'เคสค้างข้ามวันไม่เกินเกณฑ์',tg:'≥90%',tgt:90,w:0.20,ac:88},
-    {n:'ความถูกต้องการบันทึกเคส',tg:'≥98%',tgt:98,w:0.15,ac:98},
-    {n:'ส่งต่อ/ประสานงานเคสครบ',tg:'≥95%',tgt:95,w:0.20,ac:93}],
+    {n:'คุณภาพบริการ/ตอบแชท (Service & Chat)',tg:'≥95%',tgt:95,w:0.20,ac:94},
+    {n:'ความถูกต้องฝาก-ถอน/บัญชี (Accuracy)',tg:'≥99%',tgt:99,w:0.20,ac:99},
+    {n:'งานรูทีน/ส่งต่อตรงเวลา (Routine & Handover)',tg:'≥95%',tgt:95,w:0.20,ac:93},
+    {n:'ความถูกต้อง Audit/รายงาน (Audit & Report)',tg:'≥98%',tgt:98,w:0.20,ac:97},
+    {n:'แจ้ง/ประสานเคสตาม SLA (Escalation)',tg:'≥95%',tgt:95,w:0.20,ac:92}],
+  BOM:[
+    {n:'ติดตามหน้างานประจำวันครบ (Daily Monitoring)',tg:'≥95%',tgt:95,w:0.20,ac:93},
+    {n:'รายงานถูกต้อง/ตรงเวลา (Report Accuracy)',tg:'≥98%',tgt:98,w:0.20,ac:96},
+    {n:'จัดการเคสเร่งด่วนตาม SLA (Critical Issue)',tg:'≥95%',tgt:95,w:0.20,ac:90},
+    {n:'ติดตาม/ส่งต่องานข้ามทีม (Cross-team)',tg:'≥95%',tgt:95,w:0.20,ac:92},
+    {n:'คุมคุณภาพงาน Admin (Quality & Control)',tg:'≥95%',tgt:95,w:0.20,ac:94}],
+  SECRET:[
+    {n:'ข้อมูล/รายงานปิดกะถูกต้อง (Daily Data & Report)',tg:'≥99%',tgt:99,w:0.20,ac:98},
+    {n:'ทำกราฟ/ปิดกะตรงเวลา (Shift Closing)',tg:'≥98%',tgt:98,w:0.20,ac:97},
+    {n:'สนับสนุนข้อมูลการตลาด (MKT Data Support)',tg:'≥95%',tgt:95,w:0.20,ac:93},
+    {n:'ความถูกต้องคอมมิชชั่น/เบิกจ่าย (Commission & Expense)',tg:'≥99%',tgt:99,w:0.20,ac:98},
+    {n:'ประสานงานออฟฟิศ/หอพัก (Office & Dorm)',tg:'≥95%',tgt:95,w:0.20,ac:92}],
   KPI:[
     {n:'ออกแบบ/อนุมัติ KPI ครบตามแผน (Design & Approval)',tg:'≥95%',tgt:95,w:0.20,ac:96},
     {n:'ติดตาม/รายงาน KPI ตรงรอบ (Monitoring & Reporting)',tg:'≥95%',tgt:95,w:0.20,ac:95},
@@ -639,6 +656,8 @@ const SOPS = [
   {id:'SOP-BC',dept:'BO',title:'Workflow Back Office (BC)',v:'1.0',steps:['รีเช็คสถานะบัญชีให้เป็นปัจจุบัน','ติดตามเคสบัญชีมีปัญหา','ประสานนายหน้าแก้ไข','ตรวจรับบัญชีใหม่ก่อนส่งส่วนกลาง','ตรวจซ้ำก่อนรับบัญชีกลับเข้าระบบ','งานประจำเดือน (รีเช็ค/เติมเงินเบอร์/เบิก)']},
   {id:'SOP-A123',dept:'AUD123',title:'Workflow ออดิทระบบ 123',v:'1.0',steps:['ดึง/จัดเรียงไฟล์ STM และรายงานระบบ 123/BO','ตรวจฝาก-ถอนธนาคารปกติและ PM','เทียบยอด/เวลา/ธนาคารให้ถูกต้อง','ส่งเคสยอดผิดปกติให้ชี้แจง + ตรวจหลักฐาน','บันทึกความเสียหายให้ถูกวันที่/ประเภท','สรุปยอด + รายงานประจำเดือน (มี AI ช่วยวิเคราะห์ความเสี่ยง)']},
   {id:'SOP-AXB',dept:'AUDXB',title:'Workflow ออดิทระบบ XB',v:'1.0',steps:['ดึง/จัดเรียงไฟล์ STM และ BO/หน้าหลังบ้าน XB','ตรวจฝาก-ถอนธนาคารปกติและ PM','เทียบยอด/เวลา/ธนาคาร/ประเภทให้ถูกต้อง','ส่งเคสยอดผิดปกติให้หัวหน้าแอดมินชี้แจง','บันทึกความเสียหายให้ครบถ้วน','สรุปยอด + รายงานประจำเดือน (มี AI ช่วยวิเคราะห์ความเสี่ยง)']},
+  {id:'SOP-BOM',dept:'BOM',title:'Workflow Back Office Management',v:'1.0',steps:['ติดตามภาพรวมหน้างานประจำวัน (Active/ฝาก-ถอน/เคสค้าง/ระบบ)','จัดลำดับความสำคัญเคสเร่งด่วน/เสี่ยง','ประสานงานและส่งต่อทีมที่เกี่ยวข้อง','ติดตามจนปิดงาน','จัดทำรายงานวัน/สัปดาห์/เดือน','ควบคุมคุณภาพงาน Admin']},
+  {id:'SOP-SECRET',dept:'SECRET',title:'Workflow เลขานุการ (Secret)',v:'1.0',steps:['ดึง/ตรวจข้อมูลประจำวัน + รายงานปิดกะ','ทำกราฟและปิดกะแต่ละเว็บตรงเวลา','สรุป/ส่งข้อมูลสนับสนุนทีมการตลาด','ตรวจค่าคอมมิชชั่น + งานเบิกจ่าย','ประสานงานออฟฟิศ/หอพัก/งานสนับสนุน']},
 ];
 
 /* เอกสารกลาง / ระเบียบ */
@@ -1803,10 +1822,11 @@ function submitCompose(){
 
 /* ===== Persistence (localStorage) ===== */
 const LS_KEY='companyhub_state_v1';
+const SEED_VERSION=2;
 /* KPI Actual รายเดือน (เฉพาะทีมที่มี Target) */
 function kpiActuals(){const o={};Object.keys(KPI).forEach(c=>{if(KPI[c].some(k=>k.tgt!=null))o[c]=KPI[c].map(k=>k.tgt!=null?k.ac:null);});return o;}
 function applyKpiActuals(o){if(!o)return;Object.keys(o).forEach(c=>{if(KPI[c])o[c].forEach((v,i)=>{if(v!=null&&KPI[c][i]&&KPI[c][i].tgt!=null)KPI[c][i].ac=v;});});}
-function stateBlob(){return {TASKS,KB,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED,KPI_ACT:kpiActuals()};}
+function stateBlob(){return {V:SEED_VERSION,TASKS,KB,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED,KPI_ACT:kpiActuals()};}
 function applyStateObject(s){if(!s)return;
   if(s.TASKS){TASKS.length=0;TASKS.push(...s.TASKS);}if(s.KB){KB.length=0;KB.push(...s.KB);}
   if(s.ANN){ANN.length=0;ANN.push(...s.ANN);}if(s.GROUPS){GROUPS.length=0;GROUPS.push(...s.GROUPS);}
@@ -1851,9 +1871,11 @@ async function cloudLoad(){
   try{
     var res=await SB.from('company_hub_state').select('data').eq('id','main').maybeSingle();
     if(res.error){console.warn('cloud load:',res.error.message);return;}
-    if(res.data&&res.data.data&&Object.keys(res.data.data).length){
-      _sbApplying=true; try{applyStateObject(res.data.data);}finally{_sbApplying=false;}
+    var d=res.data&&res.data.data;
+    if(d && d.V===SEED_VERSION && Object.keys(d).length>1){
+      _sbApplying=true; try{applyStateObject(d);}finally{_sbApplying=false;}
     }else{
+      /* ว่างหรือเวอร์ชันข้อมูลเก่า -> วางชุดข้อมูลใหม่จากโค้ด (มี KPI/แผนกครบล่าสุด) */
       await SB.from('company_hub_state').update({data:stateBlob(),updated_at:new Date().toISOString(),updated_by:SB_UID}).eq('id','main');
     }
   }catch(e){console.warn(e);}
