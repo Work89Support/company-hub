@@ -565,17 +565,17 @@ const KPI = {
     {n:'ประเมินพนักงานครบรอบ (Evaluation)',tg:'100%',tgt:100,w:0.20,ac:100},
     {n:'การใช้งาน/ถูกต้องระบบ OMBOG',tg:'≥80%',tgt:80,w:0.20,ac:72}],
   QC:[
-    {n:'ความครบถ้วนการตรวจแชท (9 เว็บ)',tg:'100%',tgt:100,w:0.25,ac:96},
+    {n:'ความครบถ้วนของการตรวจสอบแชท (9 เว็บ)',tg:'100%',tgt:100,w:0.25,ac:96},
     {n:'ความถูกต้องของผลตรวจ QC',tg:'≥98%',tgt:98,w:0.25,ac:97},
-    {n:'ความถูกต้องการบันทึกข้อมูล',tg:'≥98%',tgt:98,w:0.20,ac:98},
-    {n:'ติดตาม/ประสานเคสผิดปกติ',tg:'≥95%',tgt:95,w:0.15,ac:90},
-    {n:'สรุปและอัปเดตผลตามกำหนด',tg:'≥95%',tgt:95,w:0.15,ac:93}],
+    {n:'ความถูกต้องของการบันทึกข้อมูล',tg:'≥98%',tgt:98,w:0.20,ac:98},
+    {n:'การติดตามและประสานงานเคสผิดปกติ',tg:'≥95%',tgt:95,w:0.15,ac:90},
+    {n:'การสรุปและอัปเดตผลตามกำหนด',tg:'≥95%',tgt:95,w:0.15,ac:93}],
   BO:[
-    {n:'สถานะบัญชีถูกต้อง/เป็นปัจจุบัน',tg:'≥98%',tgt:98,w:0.25,ac:94},
-    {n:'ติดตามเคสบัญชีมีปัญหา',tg:'≥95%',tgt:95,w:0.25,ac:88},
-    {n:'ความถูกต้องตรวจรับบัญชีใหม่',tg:'100%',tgt:100,w:0.20,ac:98},
-    {n:'ตรวจซ้ำก่อนรับบัญชีกลับ',tg:'100%',tgt:100,w:0.15,ac:97},
-    {n:'งานประจำเดือน/งานสนับสนุน',tg:'≥95%',tgt:95,w:0.15,ac:92}],
+    {n:'ความถูกต้องและเป็นปัจจุบันของสถานะบัญชี',tg:'≥98%',tgt:98,w:0.25,ac:94},
+    {n:'อัตราการติดตามเคสบัญชีมีปัญหา',tg:'≥95%',tgt:95,w:0.25,ac:88},
+    {n:'ความถูกต้องของการตรวจรับบัญชีใหม่',tg:'100%',tgt:100,w:0.20,ac:98},
+    {n:'ความครบถ้วนก่อนรับบัญชีกลับเข้าระบบ',tg:'100%',tgt:100,w:0.15,ac:97},
+    {n:'งานประจำเดือนและงานสนับสนุนตรงเวลา',tg:'≥95%',tgt:95,w:0.15,ac:92}],
   CRM:[
     {n:'ติดต่อลูกค้าใหม่ครบ (Realtime Contact)',tg:'≥95%',tgt:95,w:0.20,ac:93},
     {n:'ฝากครั้งแรก (First Deposit Conversion)',tg:'≥12%',tgt:12,w:0.20,ac:11},
@@ -702,10 +702,10 @@ const ORG=[
     {name:'HR Team : Head + Staffs',th:'ทีม HR · หัวหน้า + พนักงาน'},
     {name:'KPI Team : Head + Staffs',th:'ทีม KPI · หัวหน้า + พนักงาน',dept:'KPI'},
     {name:'Secret Team : Head + Staffs',th:'ทีมซีเคร็ท · หัวหน้า + พนักงาน'},
-    {name:'Data Provider Team : Head + Staffs',th:'ทีมบัญชี/ข้อมูล · หัวหน้า + พนักงาน'},
+    {name:'Data Provider Team : Head + Staffs',th:'ทีมบัญชี/ข้อมูล · ใช้ KPI ร่วมกับ BC',dept:'BO'},
   ]},
   {code:'02',title:'BRAND, CONTENT & MARKETING',th:'งานคอนเทนต์และการตลาด',color:'#00a878',teams:[
-    {name:'Content Creative Team',th:'ทีมคอนเทนต์',dept:'GRAPHIC',roles:['Content Creative — พนักงานคิดคอนเทนต์','Graphic Design — พนักงานออกแบบกราฟฟิก']},
+    {name:'Content Creative Team',th:'ทีมคอนเทนต์',dept:'GRAPHIC',roles:['Content Creative — คิดคอนเทนต์ (นับ KPI ร่วมกับการตลาด/MKT)','Graphic Design — ออกแบบกราฟฟิก (KPI กราฟิก)']},
     {name:'Marketing Team',th:'ทีมการตลาด',dept:'MKT',roles:['Director — หัวหน้าผู้จัดการ','Manager (HR) — ผู้จัดการ','IT Support — ผู้ดูแลระบบ','SEO — หัวหน้า/พนักงาน','Social Media — หัวหน้า/พนักงาน']},
   ]},
   {code:'03',title:'TECHNOLOGY & CUSTOMER',th:'งานเทคโนโลยีและลูกค้าสัมพันธ์',color:'#e8971b',teams:[
@@ -714,7 +714,7 @@ const ORG=[
   ]},
   {code:'04',title:'OPERATIONS & QUALITY',th:'งานปฏิบัติการและคุณภาพ',color:'#7a53e0',teams:[
     {name:'Admin Team',th:'ทีมแอดมิน',dept:'ADMIN',roles:['Back Office Manager — ผู้จัดการออฟฟิศหลังบ้าน','Back Office Assistant — ผู้ช่วยออฟฟิศหลังบ้าน','Admin Head — หัวหน้าแอดมิน','Admin Staff — พนักงานแอดมิน','Career Levels — ระดับสายอาชีพ']},
-    {name:'Recheck Team : Head + Staffs',th:'ทีมรีเช็ค · หัวหน้า + พนักงาน'},
+    {name:'Recheck Team : Head + Staffs',th:'ทีมรีเช็ค · ใช้ KPI ร่วมกับ QC',dept:'QC'},
     {name:'QC Team : Head + Staffs',th:'ทีมตรวจสอบคุณภาพ · หัวหน้า + พนักงาน',dept:'QC'},
   ]},
 ];
