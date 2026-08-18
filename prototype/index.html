@@ -1075,9 +1075,6 @@ function analyzeCommand(raw){
   const slaN=Math.max(1,Math.round((DFROM(due)-DFROM(TODAY_MMDD))/86400000));
   return {title,dept,prio,due,assignee,checklist,desc,kb,sla:{n:slaN,unit:'day'}};
 }
-function printReport(){toast('เปิดหน้าต่างพิมพ์ / บันทึกเป็น PDF');setTimeout(()=>window.print(),200);}
-function sendAuto(){toast('ตั้งค่าส่งรายงานอัตโนมัติเข้าอีเมล/Telegram แล้ว (สาธิต)');}
-
 /* ============================================================
    SHELL
 ============================================================ */
@@ -1957,7 +1954,7 @@ function normalizedWorkspaceBlob(){return {
 };}
 function saveState(){var blob=stateBlob();
   try{localStorage.setItem(LS_KEY,JSON.stringify(blob));}catch(e){}
-  if(CLOUD&&SB&&!_sbApplying&&!DEMO_MODE){clearTimeout(_sbSaveT);_sbSaveT=setTimeout(async function(){
+  if(CLOUD&&SB&&NORMALIZED_READY&&!_sbApplying&&!DEMO_MODE){clearTimeout(_sbSaveT);_sbSaveT=setTimeout(async function(){
     const nextVersion=new Date().toISOString(),workspace=normalizedWorkspaceBlob();
     let cq=SB.from('company_hub_state').update({data:collaborationBlob(),updated_at:nextVersion,updated_by:SB_UID}).eq('id','main');
     if(SB_VERSION)cq=cq.eq('updated_at',SB_VERSION);
@@ -1972,7 +1969,7 @@ function loadState(){try{var s=JSON.parse(localStorage.getItem(LS_KEY)||'null');
 /* ===== Supabase (ฐานข้อมูลกลาง + ล็อกอิน) ===== */
 const SUPA_URL='https://mfvbggjwqgeaoezlgiqo.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mdmJnZ2p3cWdlYW9lemxnaXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2ODMxNDYsImV4cCI6MjEwMjI1OTE0Nn0.1Oo8hhqdxJ97j5N6bQBXNsdaeurnq7-QJv_atikNeYs';
-let SB=null,CLOUD=false,SB_UID=null,SB_VERSION=null,_sbSaveT=null,_sbApplying=false,_cloudStarted=false;
+let SB=null,CLOUD=false,SB_UID=null,SB_VERSION=null,_sbSaveT=null,_sbApplying=false,_cloudStarted=false,NORMALIZED_READY=false;
 function cloudEnabled(){return !!(SUPA_URL&&SUPA_KEY&&window.supabase&&window.supabase.createClient);}
 function showLogin(){var l=document.getElementById('loginBg');if(l)l.style.display='flex';}
 function hideLogin(){var l=document.getElementById('loginBg');if(l)l.style.display='none';}
@@ -2020,6 +2017,7 @@ async function onLoggedIn(session){
   toast('เชื่อมฐานข้อมูลกลางแล้ว · เข้าสู่ระบบ: '+SB_UID);
 }
 async function cloudLoadNormalized(allowBootstrap=true){
+  NORMALIZED_READY=false;
   const [tr,sr,kr,dr,rr]=await Promise.all([
     SB.from('tasks').select('id,legacy_key,department_code,prototype_payload,updated_at').order('updated_at'),
     SB.from('sops').select('id,legacy_key,department_code,prototype_payload').order('legacy_key'),
@@ -2027,11 +2025,25 @@ async function cloudLoadNormalized(allowBootstrap=true){
     SB.from('kpi_definitions').select('id,legacy_key,department_code,prototype_payload').eq('active',true).order('legacy_key'),
     SB.from('kpi_results').select('definition_id,actual,period_start,status').order('period_start',{ascending:true})
   ]);
-  const err=[tr,sr,kr,dr,rr].find(x=>x.error);if(err)throw err.error;
+  const err=[tr,sr,kr,dr,rr].find(x=>x.error);
+  if(err)throw new Error(err.error.message||'โหลดตารางข้อมูลจริงไม่สำเร็จ');
   if(allowBootstrap&&tr.data.length===0&&canAdminAccess()){
     const seed={sops:SOPS,kpi_definitions:kpiDefinitionSeed()};
     const boot=await SB.rpc('bootstrap_normalized_workspace',{seed});
-    if(boot.error)throw boot.error;
+    if(boot.error)throw new Error(boot.error.message||'ย้ายข้อมูลตั้งต้นไม่สำเร็จ');
+    if(!boot.data||!boot.data.tasks){
+      const fallback=await SB.rpc('sync_normalized_workspace',{workspace:{tasks:TASKS,knowledge:KB,sops:SOPS,kpi_definitions:kpiDefinitionSeed()}});
+      if(fallback.error)throw new Error(fallback.error.message||'เติมข้อมูลตั้งต้นไม่สำเร็จ');
+    }
+    return cloudLoadNormalized(false);
+  }
+  if(allowBootstrap&&canAdminAccess()&&(sr.data.length===0||kr.data.length===0||dr.data.length===0)){
+    const missing={};
+    if(sr.data.length===0)missing.sops=SOPS;
+    if(kr.data.length===0)missing.knowledge=KB;
+    if(dr.data.length===0)missing.kpi_definitions=kpiDefinitionSeed();
+    const fill=await SB.rpc('sync_normalized_workspace',{workspace:missing});
+    if(fill.error)throw new Error(fill.error.message||'เติมข้อมูลอ้างอิงไม่สำเร็จ');
     return cloudLoadNormalized(false);
   }
   _sbApplying=true;
@@ -2044,6 +2056,7 @@ async function cloudLoadNormalized(allowBootstrap=true){
     dr.data.forEach(row=>{const p=row.prototype_payload||{},dept=p.dept||row.department_code,index=Number(p.index)||0,item={...(p.item||{})};const actual=latest.get(row.id);if(actual)item.ac=Number(actual.actual);(KPI[dept]=KPI[dept]||[])[index]=item;});
     Object.keys(KPI).forEach(c=>KPI[c]=KPI[c].filter(Boolean));recalcKPI();
   }finally{_sbApplying=false;}
+  NORMALIZED_READY=true;
   if(!document.getElementById('loginBg')||document.getElementById('loginBg').style.display==='none'){
     _sbApplying=true;try{refresh();}finally{_sbApplying=false;}
   }
@@ -2056,7 +2069,7 @@ async function cloudLoad(){
     var d=res.data&&res.data.data;
     if(d){_sbApplying=true;try{applyCollaborationState(d);}finally{_sbApplying=false;}}
     await cloudLoadNormalized(true);
-  }catch(e){console.warn('normalized load:',e);toast('ยังโหลดตารางข้อมูลจริงไม่ได้ · กรุณาตรวจ migration 003','info');}
+  }catch(e){NORMALIZED_READY=false;console.warn('normalized load:',e&&e.message||e);toast('ยังโหลดตารางข้อมูลจริงไม่ได้ · '+(e&&e.message||'กรุณาตรวจฐานข้อมูล'),'info');}
 }
 async function sbLogin(){
   if(!SB){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้','info');return;}
