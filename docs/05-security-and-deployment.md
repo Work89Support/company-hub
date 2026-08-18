@@ -7,6 +7,12 @@
 2. Set each user's `app_metadata.company_role` to `staff`, `lead`, `exec`, or
    `admin`, and set `app_metadata.department` to a department code.
 3. Apply the migration and verify RLS with one account for every role.
+   Then apply `202608180002_department_visibility.sql` and promote the first
+   administrator in SQL before opening the access-management page:
+
+   ```sql
+   update public.profiles set role='admin' where email='YOUR_ADMIN_EMAIL';
+   ```
 4. Move frontend reads/writes from the legacy `company_hub_state` JSON row to
    the normalized tables. The migration intentionally makes the legacy blob
    read-only for staff.
@@ -20,9 +26,14 @@ The authenticated role now comes from Supabase user metadata. The role switch
 is hidden during normal use and is available only when the URL contains
 `?demo=1`. UI checks improve usability, while RLS remains the security boundary.
 
+After the visibility migration is applied, `profiles` becomes the primary role
+source. Executives/admins see **จัดการสิทธิ์ผู้ใช้** and can set a role,
+primary department, and any additional visible departments for existing Auth
+accounts. Executives/admins see all departments; other roles see only their
+primary and explicitly assigned departments.
+
 ## Data migration order
 
 Departments and profiles -> tasks and assignees -> comments/time/events -> SOP
 versions and knowledge -> KPI definitions/results. Keep the legacy JSON row as
 a read-only backup until row counts and totals have been reconciled.
-
