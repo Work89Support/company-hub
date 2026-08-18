@@ -882,7 +882,7 @@ function toast(msg,type='ok'){
   setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300);},2600);
 }
 function refresh(){RENDER[VIEW](BOARD_DEPT);if(typeof saveState==='function')saveState();}
-function nextTaskId(){return 'T-'+(Math.max(...TASKS.map(t=>+t.id.split('-')[1]))+1);}
+function nextTaskId(){return 'T-'+String(Date.now()).slice(-10);}
 function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'เมื่อสักครู่'});}
 
 function createTask(d){
@@ -1144,7 +1144,7 @@ function buildNav(){
   nav.innerHTML=html;
   deptNav.innerHTML=allowedDepts().map(d=>`<button class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
-function go(v,arg){if(v==='access'&&!canAdminAccess()){toast('เฉพาะผู้บริหารหรือผู้ดูแลระบบเข้าหน้านี้ได้','info');return;}VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
+function go(v,arg){if(v==='access'&&!canAdminAccess()){toast('เฉพาะผู้บริหารหรือผู้ดูแลระบบเข้าหน้านี้ได้','info');return;}VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);}
 function navGo(v){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
 function myTasks(){const m=ROLE_META[ROLE].u;if(ROLE==='exec')return visibleTasks();return visibleTasks().filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
 function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}
@@ -1932,7 +1932,7 @@ function submitCompose(){
   const due=(val('f_due')||'').slice(5)||'08-12';const assignees=[...PICK];
   const sla={n:Math.max(1,parseInt(val('f_sla_n'))||1),unit:val('f_sla_u')||'day'};
   const t=createTask({title,dept:val('f_dept'),assignees,prio:val('f_prio'),due,sla,desc:val('f_desc'),tags:['งานใหม่']});
-  closeModal();F.dept='';go('board');toast('สร้างงาน '+t.id+' ให้ '+assignees.length+' คน (ส่ง '+fmtDate(due)+')');
+  saveState();closeModal();F.dept='';go('board');toast('สร้างงาน '+t.id+' ให้ '+assignees.length+' คน (ส่ง '+fmtDate(due)+')');
 }
 
 /* ===== Persistence (localStorage) ===== */
@@ -1942,21 +1942,30 @@ const SEED_VERSION=2;
 function kpiActuals(){const o={};Object.keys(KPI).forEach(c=>{if(KPI[c].some(k=>k.tgt!=null))o[c]=KPI[c].map(k=>k.tgt!=null?k.ac:null);});return o;}
 function applyKpiActuals(o){if(!o)return;Object.keys(o).forEach(c=>{if(KPI[c])o[c].forEach((v,i)=>{if(v!=null&&KPI[c][i]&&KPI[c][i].tgt!=null)KPI[c][i].ac=v;});});}
 function stateBlob(){return {V:SEED_VERSION,TASKS,KB,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED,KPI_ACT:kpiActuals()};}
+function collaborationBlob(){return {V:SEED_VERSION,ANN,GROUPS,ANN_SEQ,REPORT_EDITS,CARRIED};}
+function applyCollaborationState(s){if(!s)return;
+  if(s.ANN){ANN.length=0;ANN.push(...s.ANN);}if(s.GROUPS){GROUPS.length=0;GROUPS.push(...s.GROUPS);}
+  if(typeof s.ANN_SEQ==='number')ANN_SEQ=s.ANN_SEQ;if(s.REPORT_EDITS)REPORT_EDITS=s.REPORT_EDITS;if(Array.isArray(s.CARRIED))CARRIED=s.CARRIED;}
 function applyStateObject(s){if(!s)return;
   if(s.TASKS){TASKS.length=0;TASKS.push(...s.TASKS);}if(s.KB){KB.length=0;KB.push(...s.KB);}
-  if(s.ANN){ANN.length=0;ANN.push(...s.ANN);}if(s.GROUPS){GROUPS.length=0;GROUPS.push(...s.GROUPS);}
-  if(typeof s.ANN_SEQ==='number')ANN_SEQ=s.ANN_SEQ;if(s.REPORT_EDITS)REPORT_EDITS=s.REPORT_EDITS;if(Array.isArray(s.CARRIED))CARRIED=s.CARRIED;
+  applyCollaborationState(s);
   applyKpiActuals(s.KPI_ACT);recalcKPI();}
+function kpiDefinitionSeed(){return Object.keys(KPI).flatMap(dept=>KPI[dept].map((item,index)=>({key:dept+':'+index,dept,index,item})));}
+function normalizedWorkspaceBlob(){return {
+  tasks:visibleTasks(),knowledge:KB.filter(k=>canViewDept(k.dept)),
+  kpi_actuals:Object.keys(KPI).filter(canViewDept).flatMap(dept=>KPI[dept].map((item,index)=>({key:dept+':'+index,actual:item.ac})).filter(x=>x.actual!=null))
+};}
 function saveState(){var blob=stateBlob();
   try{localStorage.setItem(LS_KEY,JSON.stringify(blob));}catch(e){}
   if(CLOUD&&SB&&!_sbApplying&&!DEMO_MODE){clearTimeout(_sbSaveT);_sbSaveT=setTimeout(async function(){
-    const nextVersion=new Date().toISOString();
-    let q=SB.from('company_hub_state').update({data:blob,updated_at:nextVersion,updated_by:SB_UID}).eq('id','main');
-    if(SB_VERSION)q=q.eq('updated_at',SB_VERSION);
-    const res=await q.select('updated_at').maybeSingle();
-    if(res.error){console.warn('cloud save:',res.error.message);toast('บันทึกขึ้นคลาวด์ไม่สำเร็จ','info');return;}
-    if(!res.data){toast('มีผู้ใช้อื่นแก้ข้อมูลพร้อมกัน · ระบบโหลดข้อมูลล่าสุดแล้ว','info');await cloudLoad();refresh();return;}
-    SB_VERSION=res.data.updated_at;
+    const nextVersion=new Date().toISOString(),workspace=normalizedWorkspaceBlob();
+    let cq=SB.from('company_hub_state').update({data:collaborationBlob(),updated_at:nextVersion,updated_by:SB_UID}).eq('id','main');
+    if(SB_VERSION)cq=cq.eq('updated_at',SB_VERSION);
+    const [rows,collab]=await Promise.all([SB.rpc('sync_normalized_workspace',{workspace}),cq.select('updated_at').maybeSingle()]);
+    if(rows.error){console.warn('normalized save:',rows.error.message);toast('บันทึกข้อมูลตารางจริงไม่สำเร็จ · '+rows.error.message,'info');return;}
+    if(collab.error){console.warn('collaboration save:',collab.error.message);toast('บันทึกประกาศ/การตั้งค่าไม่สำเร็จ','info');return;}
+    if(!collab.data){toast('มีผู้ใช้อื่นแก้ข้อมูลพร้อมกัน · ระบบโหลดข้อมูลล่าสุดแล้ว','info');await cloudLoad();return;}
+    SB_VERSION=collab.data.updated_at;
   },500);}}
 function loadState(){try{var s=JSON.parse(localStorage.getItem(LS_KEY)||'null');applyStateObject(s);}catch(e){}}
 
@@ -1999,15 +2008,45 @@ async function applyAuthenticatedRole(session){
 async function onLoggedIn(session){
   if(_cloudStarted)return; _cloudStarted=true;
   CLOUD=true; SB_UID=(session.user&&(session.user.email||session.user.id))||'user';
-  await applyAuthenticatedRole(session);hideLogin();
+  await applyAuthenticatedRole(session);
   var lo=document.getElementById('logoutBtn'); if(lo)lo.style.display='flex';
   await cloudLoad();
   try{ SB.channel('ch_state').on('postgres_changes',{event:'*',schema:'public',table:'company_hub_state',filter:'id=eq.main'},function(p){
     if(p&&p.new&&p.new.data){SB_VERSION=p.new.updated_at||SB_VERSION;}
-    if(p&&p.new&&p.new.data&&p.new.updated_by!==SB_UID){ _sbApplying=true; try{applyStateObject(p.new.data);refresh();}finally{_sbApplying=false;} }
+    if(p&&p.new&&p.new.data&&p.new.updated_by!==SB_UID){ _sbApplying=true; try{applyCollaborationState(p.new.data);refresh();}finally{_sbApplying=false;} }
   }).subscribe(); }catch(e){}
-  buildNav(); refresh();
+  try{let reloadT;SB.channel('ch_rows').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'knowledge_articles'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'kpi_results'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).subscribe();}catch(e){}
+  hideLogin();buildNav(); refresh();
   toast('เชื่อมฐานข้อมูลกลางแล้ว · เข้าสู่ระบบ: '+SB_UID);
+}
+async function cloudLoadNormalized(allowBootstrap=true){
+  const [tr,sr,kr,dr,rr]=await Promise.all([
+    SB.from('tasks').select('id,legacy_key,department_code,prototype_payload,updated_at').order('updated_at'),
+    SB.from('sops').select('id,legacy_key,department_code,prototype_payload').order('legacy_key'),
+    SB.from('knowledge_articles').select('id,legacy_key,department_code,prototype_payload,updated_at').order('updated_at',{ascending:false}),
+    SB.from('kpi_definitions').select('id,legacy_key,department_code,prototype_payload').eq('active',true).order('legacy_key'),
+    SB.from('kpi_results').select('definition_id,actual,period_start,status').order('period_start',{ascending:true})
+  ]);
+  const err=[tr,sr,kr,dr,rr].find(x=>x.error);if(err)throw err.error;
+  if(allowBootstrap&&tr.data.length===0&&canAdminAccess()){
+    const seed={sops:SOPS,kpi_definitions:kpiDefinitionSeed()};
+    const boot=await SB.rpc('bootstrap_normalized_workspace',{seed});
+    if(boot.error)throw boot.error;
+    return cloudLoadNormalized(false);
+  }
+  _sbApplying=true;
+  try{
+    TASKS.length=0;TASKS.push(...tr.data.map(x=>x.prototype_payload).filter(Boolean));
+    SOPS.length=0;SOPS.push(...sr.data.map(x=>x.prototype_payload).filter(Boolean));
+    KB.length=0;KB.push(...kr.data.map(x=>x.prototype_payload).filter(Boolean));
+    const latest=new Map();rr.data.forEach(x=>latest.set(x.definition_id,x));
+    Object.keys(KPI).forEach(k=>delete KPI[k]);
+    dr.data.forEach(row=>{const p=row.prototype_payload||{},dept=p.dept||row.department_code,index=Number(p.index)||0,item={...(p.item||{})};const actual=latest.get(row.id);if(actual)item.ac=Number(actual.actual);(KPI[dept]=KPI[dept]||[])[index]=item;});
+    Object.keys(KPI).forEach(c=>KPI[c]=KPI[c].filter(Boolean));recalcKPI();
+  }finally{_sbApplying=false;}
+  if(!document.getElementById('loginBg')||document.getElementById('loginBg').style.display==='none'){
+    _sbApplying=true;try{refresh();}finally{_sbApplying=false;}
+  }
 }
 async function cloudLoad(){
   try{
@@ -2015,13 +2054,9 @@ async function cloudLoad(){
     if(res.error){console.warn('cloud load:',res.error.message);return;}
     SB_VERSION=res.data&&res.data.updated_at||null;
     var d=res.data&&res.data.data;
-    if(d && d.V===SEED_VERSION && Object.keys(d).length>1){
-      _sbApplying=true; try{applyStateObject(d);}finally{_sbApplying=false;}
-    }else{
-      /* ว่างหรือเวอร์ชันข้อมูลเก่า -> วางชุดข้อมูลใหม่จากโค้ด (มี KPI/แผนกครบล่าสุด) */
-      await SB.from('company_hub_state').update({data:stateBlob(),updated_at:new Date().toISOString(),updated_by:SB_UID}).eq('id','main');
-    }
-  }catch(e){console.warn(e);}
+    if(d){_sbApplying=true;try{applyCollaborationState(d);}finally{_sbApplying=false;}}
+    await cloudLoadNormalized(true);
+  }catch(e){console.warn('normalized load:',e);toast('ยังโหลดตารางข้อมูลจริงไม่ได้ · กรุณาตรวจ migration 003','info');}
 }
 async function sbLogin(){
   if(!SB){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้','info');return;}
