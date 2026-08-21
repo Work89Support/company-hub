@@ -233,6 +233,17 @@ tfoot td{padding:9px 12px;font-size:11.5px;font-weight:500;background:var(--blue
 .chip:hover{background:var(--blue-100)}
 .chat-in{display:flex;gap:10px;margin-top:10px}
 .chat-in input{flex:1;padding:11px 15px;border:1px solid var(--line);border-radius:11px;font-size:13.5px}
+.talk-fab{position:fixed;right:22px;bottom:22px;z-index:45;border:0;border-radius:999px;padding:12px 17px;background:linear-gradient(135deg,var(--blue-700),var(--blue-500));color:#fff;box-shadow:0 10px 28px rgba(25,91,190,.35);display:flex;align-items:center;gap:8px;font-weight:500}
+.talk-fab:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(25,91,190,.42)}
+.talk-fab .svic{width:19px;height:19px}
+.talk-popup{max-width:760px}.talk-popup .chat{height:min(610px,72vh);min-height:430px}.talk-popup .chat-body{background:var(--blue-50);border-radius:12px;padding:12px}
+.problem-insights{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.insight-row{padding:9px 0;border-bottom:1px dashed var(--line-2)}.insight-row:last-child{border-bottom:0}
+.insight-row .head{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:5px}.insight-row .head b{font-weight:500}
+.flowline{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:14px 0}
+.flowstep{position:relative;background:var(--surface);border:1px solid var(--line);padding:13px 14px;min-height:70px}.flowstep:first-child{border-radius:12px 0 0 12px}.flowstep:last-child{border-radius:0 12px 12px 0}
+.flowstep:not(:last-child)::after{content:'›';position:absolute;right:-10px;top:22px;z-index:2;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;text-align:center;line-height:18px;font-size:20px}.flowstep b{display:block;font-size:12.5px}.flowstep span{font-size:11px;color:var(--muted)}
+.sop-ready{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px dashed var(--line-2)}.sop-ready:last-child{border-bottom:0}
 .datatable td,.datatable th{padding:5px 9px;font-size:11.5px;border-bottom:1px solid var(--line-2);text-align:left}
 
 /* Modal */
@@ -300,6 +311,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 @media(max-width:1100px){.orggrid{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.orggrid{grid-template-columns:1fr}}
 @media(max-width:1100px){.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:1100px){.problem-insights{grid-template-columns:1fr 1fr}.problem-insights .wide{grid-column:1/-1}}
 @media(max-width:960px){
   .app{grid-template-columns:1fr;grid-template-rows:58px 1fr;grid-template-areas:"top top" "main main"}
   .brandbar{display:none}
@@ -325,6 +337,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
   .board table{min-width:760px}
   .page-h{align-items:flex-start}
   .page-h h1{font-size:19px}
+  .problem-insights,.flowline{grid-template-columns:1fr}.problem-insights .wide{grid-column:auto}.flowstep{border-radius:10px!important}.flowstep:not(:last-child)::after{content:'↓';right:18px;top:auto;bottom:-11px}.talk-fab{right:14px;bottom:14px;padding:12px}.talk-fab span{display:none}.talk-popup .chat{height:68vh;min-height:380px}
 }
 
 /* ===== คู่มือการใช้งาน (หน้าต่างลากได้ + สารบัญซ้าย) ===== */
@@ -465,6 +478,10 @@ body.simple #deptNav,body.simple #deptLabel{display:none}
 
   <div class="main" id="main"></div>
 </div>
+
+<button class="talk-fab" id="talkFab" onclick="openTalkPopup()" aria-label="เปิด Talk to Data" title="ถามข้อมูลจากหน้านี้">
+  <svg class="svic"><use href="#i-chat"></use></svg><span>Talk to Data</span>
+</button>
 
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()" aria-hidden="true">
   <div class="modal" id="modal" role="dialog" aria-modal="true" tabindex="-1"></div>
@@ -1741,7 +1758,7 @@ RENDER.sop=function(){
   <div class="resultline">แสดง ${list.length} คู่มือตามสิทธิ์แผนก</div>
   ${list.length?`<div class="tiles">${list.map(s=>`<div class="tile" onclick="openSOP('${s.id}')">
     <span class="pill" style="background:${deptColor(s.dept)};margin-bottom:8px">${deptName(s.dept)}</span>
-    <h4>${s.title}</h4><div class="meta">เวอร์ชัน ${s.v} · ${s.steps.length} ขั้นตอน</div>
+    ${s.status&&s.status!=='published'?`<span class="tag" style="float:right;color:${s.status==='review'?'var(--amber)':'var(--muted)'}">${s.status==='review'?'รอตรวจ':'ฉบับร่าง'}</span>`:''}<h4>${s.title}</h4><div class="meta">เวอร์ชัน ${s.v} · ${s.steps.length} ขั้นตอน${s.sourceIssue?' · จากเคส '+esc(s.sourceIssue):''}</div>
     <div style="margin-top:10px;font-size:12px;color:var(--blue-700)">ดูขั้นตอน →</div></div>`).join('')}</div>`:'<div class="card pad" style="text-align:center;color:var(--muted);padding:36px">ไม่พบคู่มือที่ตรงกับตัวกรอง</div>'}`;
 };
 RENDER.kb=function(){
@@ -1785,9 +1802,41 @@ function probResT(m){if(m==null||m==='')return '-';if(Number(m)<60)return Math.r
 function probFiltered(){const q=PF.q.toLowerCase();return PROBLEMS.filter(p=>(!PF.project||p.project===PF.project)&&(!PF.cat||p.cat===PF.cat)&&(!PF.prio||p.prio===PF.prio)&&(!PF.status||p.status===PF.status)&&(!q||(p.problem+' '+p.solution+' '+p.reporter+' '+p.id).toLowerCase().includes(q)));}
 function probCounts(list,key){const o={};list.forEach(p=>{const k=p[key]||'(ไม่ระบุ)';o[k]=(o[k]||0)+1;});return Object.entries(o).sort((a,b)=>b[1]-a[1]);}
 function probAvgHrs(list){const r=list.filter(p=>Number.isFinite(Number(p.resmin))&&p.resmin!==null&&p.status==='Resolved');return r.length?r.reduce((s,p)=>s+Number(p.resmin),0)/r.length/60:0;}
+function probCause(p){
+  if(p.root)return p.root;
+  const s=((p.cat||'')+' '+(p.problem||'')).toLowerCase();
+  if(/ปิดปรับปรุง|ปิดให้บริการ|ยอดเต็ม|provider|ผู้ให้บริการ|ธนาคารปิด/.test(s))return 'ผู้ให้บริการ / ช่องทางปิด';
+  if(/ฝาก|ถอน|payment|callback|ออโต้|อัตโนมัติ|timeout|time out/.test(s))return 'ธุรกรรมไม่เข้าอัตโนมัติ';
+  if(/ยอดเงิน|ยอดหาย|เงินไม่เข้า|รายการลูกค้า|เดิมพัน/.test(s))return 'ยอดเงิน / รายการลูกค้า';
+  if(/network|เครือข่าย|โดเมน|domain|link|ลิงก์|เข้าเว็บ/.test(s))return 'เครือข่าย / เว็บไซต์';
+  if(/error|ผิดพลาด|ใช้งานไม่ได้|ทำรายการไม่ได้|ระบบล่ม/.test(s))return 'ระบบทำงานผิดพลาด';
+  return p.cat||'อื่น ๆ';
+}
+function probApproach(p){
+  const s=((p.solution||'')+' '+(p.preventive||'')).toLowerCase();
+  if(!s.trim())return 'ยังไม่มีแนวทางแก้';
+  if(/แจ้ง|ประสาน|provider|ผู้ให้บริการ|ธนาคาร/.test(s))return 'ประสานผู้ให้บริการ';
+  if(/manual|แมนนวล|ดำเนินการเอง|ปรับยอด/.test(s))return 'ดำเนินการ Manual';
+  if(/ตรวจ|monitor|เฝ้า|ติดตาม/.test(s))return 'ตรวจสอบและติดตาม';
+  if(/restart|รีสตาร์ต|clear|แก้ระบบ|developer|tech/.test(s))return 'แก้ไขทางเทคนิค';
+  return 'แก้ตามขั้นตอนหน้างาน';
+}
+function probGroup(list,fn){const o={};list.forEach(p=>{const k=fn(p);(o[k]||(o[k]=[])).push(p);});return Object.entries(o).sort((a,b)=>b[1].length-a[1].length);}
+function problemAnalysisHTML(all){
+  const causes=probGroup(all,probCause),approaches=probGroup(all,probApproach),max=Math.max(1,...causes.map(x=>x[1].length));
+  const solved=all.filter(p=>p.solution),noSolution=all.length-solved.length;
+  const ready=causes.filter(([,rows])=>rows.length>=2&&rows.some(p=>p.solution)).slice(0,6);
+  const existing=new Set(SOPS.filter(s=>s.sourceCause).map(s=>s.sourceCause));
+  return `<div class="flowline"><div class="flowstep"><b>1 · รับแจ้งปัญหา</b><span>${all.length} เคสจากหน้างาน</span></div><div class="flowstep"><b>2 · วิเคราะห์สาเหตุ</b><span>${causes.length} กลุ่มสาเหตุ</span></div><div class="flowstep"><b>3 · แก้ไขและป้องกันซ้ำ</b><span>${solved.length} เคสมีวิธีแก้</span></div><div class="flowstep"><b>4 · จัดทำ SOP</b><span>${ready.length} กลุ่มพร้อมทำคู่มือ</span></div></div>
+  <div class="problem-insights">
+    <div class="card"><div class="card-h"><h3>${sic('i-pie')} สาเหตุที่เกิดบ่อย</h3><span class="act">วิเคราะห์จากข้อมูลเคส</span></div><div class="pad">${causes.slice(0,6).map(([k,v])=>`<div class="insight-row"><div class="head"><b>${esc(k)}</b><span>${v.length} เคส</span></div><div class="bar"><i style="width:${Math.max(4,v.length/max*100)}%;background:var(--primary)"></i></div></div>`).join('')||'<span class="muted">ยังไม่มีข้อมูล</span>'}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-bulb')} แนวทางแก้ไข</h3></div><div class="pad">${approaches.slice(0,6).map(([k,v])=>`<div class="insight-row"><div class="head"><b>${esc(k)}</b><span>${v.length}</span></div></div>`).join('')}<div class="ai-note"><b>ความพร้อม:</b> มีวิธีแก้ ${solved.length} · ยังขาด ${noSolution}</div></div></div>
+    <div class="card wide"><div class="card-h"><h3>${sic('i-book')} เคสพร้อมจัดทำคู่มือ</h3><span class="act">เกิดซ้ำ ≥ 2 ครั้ง และมีวิธีแก้</span></div><div class="pad">${ready.map(([cause,rows])=>{const sample=rows.find(p=>p.solution)||rows[0],done=existing.has(cause);return `<div class="sop-ready"><div><b>${esc(cause)}</b><div class="muted" style="font-size:11px">${rows.length} เคส · แก้แล้ว ${rows.filter(p=>p.status==='Resolved').length} · ตัวอย่าง ${esc(sample.id)}</div></div>${done?'<span class="tag" style="color:var(--green)">มีร่างแล้ว</span>':canManageIssues()?`<button class="tbtn sm" data-cause="${esc(cause)}" onclick="openSopDraftForCause(this.dataset.cause)">สร้างร่าง SOP</button>`:''}</div>`;}).join('')||'<span class="muted">ยังไม่มีกลุ่มปัญหาที่พร้อมทำคู่มือ</span>'}</div></div>
+  </div>`;
+}
 function issueFromRow(row){
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:ORG_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(row.occurred_at)).reduce((o,p)=>(o[p.type]=p.value,o),{});
-  return {id:row.id,date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}:${parts.second}`,project:row.project_code,cat:row.category,problem:row.problem,prio:row.priority,reporter:row.reporter,status:row.status,owner:row.owner_team,solution:row.solution,resmin:row.resolution_minutes,source:row.source};
+  return {id:row.id,date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}:${parts.second}`,project:row.project_code,cat:row.category,problem:row.problem,prio:row.priority,reporter:row.reporter,status:row.status,owner:row.owner_team,solution:row.solution,root:row.root_cause,preventive:row.preventive_action,resmin:row.resolution_minutes,source:row.source};
 }
 RENDER.problems=function(){
   if(!canViewIssues()){main.innerHTML='<div class="card pad">คุณไม่มีสิทธิ์ดูข้อมูลแผนก Admin</div>';return;}
@@ -1796,7 +1845,7 @@ RENDER.problems=function(){
   const opt=(cur,v,label)=>`<option value="${esc(v)}" ${cur===v?'selected':''}>${esc(label)}</option>`;
   main.innerHTML=`${crumb('หน้าแรก','ศูนย์ปัญหาหน้างาน')}
   <div class="page-h"><div><h1>ศูนย์ปัญหาหน้างาน Admin</h1><p>ข้อมูลจาก Supabase · จำกัดการมองเห็นตามสิทธิ์แผนก ADMIN</p></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" onclick="go('talk')">${sic('i-chat')} ถามข้อมูลปัญหา</button><button class="tbtn primary" onclick="openProblemForm()">+ แจ้งปัญหา</button></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" onclick="openTalkPopup('สรุปปัญหาหน้างานและสาเหตุหลัก')">${sic('i-chat')} ถามข้อมูลปัญหา</button><button class="tbtn primary" onclick="openProblemForm()">+ แจ้งปัญหา</button></div></div>
   ${!ISSUES_READY?'<div class="ai-note" style="margin-bottom:14px">ยังไม่พบตาราง Operational Issues — กรุณารัน Migration 005 แล้วรีเฟรช</div>':''}
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="clearPF()"><div class="lbl">ปัญหาทั้งหมด</div><div class="val">${all.length}</div><div class="sub">ทุกโปรเจกต์</div></div>
@@ -1805,6 +1854,7 @@ RENDER.problems=function(){
     <div class="stat"><div class="lbl">วิกฤต + สูง</div><div class="val" style="color:var(--amber)">${crit}</div><div class="sub muted">ความสำคัญสูง</div></div>
     <div class="stat"><div class="lbl">เวลาแก้เฉลี่ย</div><div class="val">${probAvgHrs(all).toFixed(1)}<span style="font-size:14px"> ชม.</span></div><div class="sub muted">เฉพาะที่แก้แล้ว</div></div>
   </div>
+  ${problemAnalysisHTML(all)}
   <div class="card"><div class="card-h"><h3>${sic('i-warning')} รายการปัญหา</h3><span class="act">${list.length} / ${all.length} เคส</span></div>
     <div class="pad" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--line-2)">
       <div class="fsel"><label>โปรเจกต์</label><select onchange="PF.project=this.value;RENDER.problems()">${opt(PF.project,'','ทั้งหมด')}${projects.map(v=>opt(PF.project,v,v)).join('')}</select></div>
@@ -1838,19 +1888,48 @@ function openProblem(id){
   const manage=canManageIssues();
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag">${esc(p.project)}</span> ${probPrio(p.prio)} ${probStatus(p.status)}</div><h3>${esc(p.cat)} — ${esc(p.project)}</h3><div class="muted" style="font-size:11.5px">${esc(p.id)} · แจ้งโดย ${esc(p.reporter||'-')} · ${probDate(p.date)} ${esc((p.time||'').slice(0,5))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
     <div class="field"><label>รายละเอียดปัญหา</label><div class="v">${esc(p.problem||'-')}</div></div>
-    ${manage?`<div class="two"><div class="field"><label>สถานะ</label><select class="fin" id="peStatus">${Object.keys(PROB_ST).map(v=>`<option value="${v}" ${p.status===v?'selected':''}>${PROB_ST[v].t}</option>`).join('')}</select></div><div class="field"><label>ผู้รับผิดชอบ</label><input class="fin" id="peOwner" maxlength="120" value="${esc(p.owner||'')}"></div></div><div class="field"><label>วิธีแก้ / ผลดำเนินการ</label><textarea class="fin" id="peSolution" rows="3" maxlength="4000">${esc(p.solution||'')}</textarea></div><div class="field"><label>เวลาแก้ (นาที)</label><input type="number" min="0" step="1" class="fin" id="peMinutes" value="${p.resmin==null?'':esc(p.resmin)}"></div><button class="tbtn primary" id="peSave" data-id="${esc(p.id)}" onclick="saveProblemEdit(this.dataset.id)">บันทึกการติดตาม</button>`:`${p.solution?`<div class="field"><label>✅ วิธีแก้ / ผลดำเนินการ</label><div class="ai-note">${esc(p.solution)}</div></div>`:'<div class="muted">ยังไม่มีบันทึกวิธีแก้</div>'}<div class="two"><div class="field"><label>ผู้รับผิดชอบ</label><div class="v">${esc(p.owner||'-')}</div></div><div class="field"><label>เวลาแก้</label><div class="v">${probResT(p.resmin)}</div></div></div>`}
+    ${manage?`<div class="two"><div class="field"><label>สถานะ</label><select class="fin" id="peStatus">${Object.keys(PROB_ST).map(v=>`<option value="${v}" ${p.status===v?'selected':''}>${PROB_ST[v].t}</option>`).join('')}</select></div><div class="field"><label>ผู้รับผิดชอบ</label><input class="fin" id="peOwner" maxlength="120" value="${esc(p.owner||'')}"></div></div><div class="field"><label>สาเหตุราก (Root cause)</label><input class="fin" id="peRoot" maxlength="500" value="${esc(p.root||probCause(p))}" placeholder="สาเหตุที่ทำให้เกิดปัญหา"></div><div class="field"><label>วิธีแก้ / ผลดำเนินการ</label><textarea class="fin" id="peSolution" rows="3" maxlength="4000">${esc(p.solution||'')}</textarea></div><div class="field"><label>แนวทางป้องกันไม่ให้เกิดซ้ำ</label><textarea class="fin" id="pePreventive" rows="2" maxlength="4000">${esc(p.preventive||'')}</textarea></div><div class="field"><label>เวลาแก้ (นาที)</label><input type="number" min="0" step="1" class="fin" id="peMinutes" value="${p.resmin==null?'':esc(p.resmin)}"></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn primary" id="peSave" data-id="${esc(p.id)}" onclick="saveProblemEdit(this.dataset.id)">บันทึกการติดตาม</button>${p.solution?`<button class="tbtn" data-id="${esc(p.id)}" onclick="openSopDraftForIssue(this.dataset.id)">${sic('i-book')} เตรียมร่าง SOP</button>`:''}</div>`:`<div class="field"><label>สาเหตุ</label><div class="v">${esc(p.root||probCause(p))}</div></div>${p.solution?`<div class="field"><label>✅ วิธีแก้ / ผลดำเนินการ</label><div class="ai-note">${esc(p.solution)}</div></div>`:'<div class="muted">ยังไม่มีบันทึกวิธีแก้</div>'}${p.preventive?`<div class="field"><label>แนวทางป้องกันซ้ำ</label><div class="v">${esc(p.preventive)}</div></div>`:''}<div class="two"><div class="field"><label>ผู้รับผิดชอบ</label><div class="v">${esc(p.owner||'-')}</div></div><div class="field"><label>เวลาแก้</label><div class="v">${probResT(p.resmin)}</div></div></div>`}
   </div>`);
 }
 async function saveProblemEdit(id){
   if(!canManageIssues()){toast('เฉพาะหัวหน้า Admin หรือผู้บริหารแก้ไขได้','info');return;}
-  const mins=val('peMinutes'),patch={status:val('peStatus'),owner_team:normSp(val('peOwner')),solution:normSp(val('peSolution')),resolution_minutes:mins===''?null:Number(mins)};
+  const mins=val('peMinutes'),patch={status:val('peStatus'),owner_team:normSp(val('peOwner')),root_cause:normSp(val('peRoot')),solution:normSp(val('peSolution')),preventive_action:normSp(val('pePreventive')),resolution_minutes:mins===''?null:Number(mins)};
   const btn=document.getElementById('peSave');if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
   try{const r=await SB.from('operational_issues').update(patch).eq('id',id).select().single();if(r.error)throw r.error;const i=PROBLEMS.findIndex(x=>x.id===id);if(i>=0)PROBLEMS[i]=issueFromRow(r.data);closeModal();RENDER.problems();toast('อัปเดต '+id+' แล้ว');}
   catch(e){if(btn){btn.disabled=false;btn.textContent='บันทึกการติดตาม';}toast('อัปเดตไม่สำเร็จ · '+(e.message||'ตรวจสิทธิ์แผนก'),'info');}
 }
+function sopDraftData(issue,cause,rows){
+  const sourceRows=rows&&rows.length?rows:[issue],solutions=[...new Set(sourceRows.map(p=>p.solution).filter(Boolean))];
+  return {id:'SOP-ISSUE-'+issue.id,dept:'ADMIN',title:'การรับมือ: '+cause,v:'ร่าง 0.1',status:'draft',sourceIssue:issue.id,sourceCause:cause,issueIds:sourceRows.map(p=>p.id),goal:'แก้ไขปัญหา '+cause+' อย่างเป็นระบบ ลดเวลาแก้ และป้องกันการเกิดซ้ำ',duties:['ตรวจสอบผลกระทบและยืนยันขอบเขตปัญหา','บันทึกผู้รับผิดชอบ เวลาเริ่ม และหลักฐาน'],steps:['รับแจ้งและตรวจสอบข้อมูลเคส','จำแนกสาเหตุ: '+cause,...(solutions.slice(0,2).map(x=>'ดำเนินการแก้ไข: '+x)),issue.preventive?'ดำเนินการป้องกันซ้ำ: '+issue.preventive:'กำหนดมาตรการป้องกันและติดตามผล','บันทึกผล เวลาแก้ และปิดเคส'],tools:['Company Hub · ศูนย์ปัญหาหน้างาน','ช่องทางประสานทีม/ผู้ให้บริการ'],issues:sourceRows.slice(0,3).map(p=>p.problem+' → '+(p.solution||'รอวิธีแก้')),ai:['Talk to Data สรุปเคสซ้ำและตรวจแนวโน้ม','แจ้งเตือนเมื่อเกิดสาเหตุเดิมซ้ำ']};
+}
+function openSopDraftForCause(cause){const rows=PROBLEMS.filter(p=>probCause(p)===cause),issue=rows.find(p=>p.solution)||rows[0];if(issue)openSopDraft(issue,cause,rows);}
+function openSopDraftForIssue(id){const issue=PROBLEMS.find(p=>p.id===id);if(issue)openSopDraft(issue,probCause(issue),[issue]);}
+function openSopDraft(issue,cause,rows){
+  if(!canManageIssues()){toast('เฉพาะหัวหน้า Admin หรือผู้บริหารสร้างร่าง SOP ได้','info');return;}
+  const d=sopDraftData(issue,cause,rows);
+  showModal(`<div class="modal-h"><div><h3>${sic('i-book')} เตรียมคู่มือจากปัญหาหน้างาน</h3><div class="muted" style="font-size:11.5px">อ้างอิง ${d.issueIds.length} เคส · บันทึกเป็นร่างก่อนเผยแพร่</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
+    <div class="field"><label>ชื่อคู่มือ</label><input class="fin" id="sdTitle" maxlength="300" value="${esc(d.title)}"></div>
+    <div class="field"><label>เป้าหมาย</label><textarea class="fin" id="sdGoal" rows="2" maxlength="2000">${esc(d.goal)}</textarea></div>
+    <div class="field"><label>ขั้นตอน (1 บรรทัดต่อ 1 ขั้นตอน)</label><textarea class="fin" id="sdSteps" rows="8" maxlength="8000">${esc(d.steps.join('\n'))}</textarea></div>
+    <div class="ai-note"><b>ก่อนส่งตรวจ:</b> ตรวจชื่อผู้รับผิดชอบ จุดควบคุม และหลักฐานที่ต้องเก็บทุกครั้ง</div>
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap"><button class="tbtn" id="sdSave" data-issue="${esc(issue.id)}" data-cause="${esc(cause)}" onclick="submitSopDraft(this.dataset.issue,this.dataset.cause,false)">บันทึกร่าง</button><button class="tbtn primary" data-issue="${esc(issue.id)}" data-cause="${esc(cause)}" onclick="submitSopDraft(this.dataset.issue,this.dataset.cause,true)">บันทึกและส่งตรวจ</button></div></div>`);
+}
+async function submitSopDraft(issueId,cause,review){
+  const issue=PROBLEMS.find(p=>p.id===issueId);if(!issue)return;const rows=PROBLEMS.filter(p=>probCause(p)===cause),d=sopDraftData(issue,cause,rows);
+  d.title=normSp(val('sdTitle'));d.goal=normSp(val('sdGoal'));d.steps=(val('sdSteps')||'').split('\n').map(normSp).filter(Boolean);d.status=review?'review':'draft';d.v=review?'รอตรวจ 0.1':'ร่าง 0.1';
+  if(!d.title||d.steps.length<2){toast('กรุณาระบุชื่อและอย่างน้อย 2 ขั้นตอน','info');return;}
+  const buttons=modal.querySelectorAll('button');buttons.forEach(b=>b.disabled=true);
+  try{const r=await SB.rpc('save_issue_sop_draft',{target_issue:issueId,draft_payload:d,submit_review:review});if(r.error)throw r.error;const saved=(r.data&&r.data.payload)||d,idx=SOPS.findIndex(s=>s.id===saved.id);if(idx>=0)SOPS[idx]=saved;else SOPS.unshift(saved);closeModal();RENDER.problems();toast(review?'สร้างร่างและส่งตรวจแล้ว':'บันทึกร่าง SOP แล้ว');}
+  catch(e){buttons.forEach(b=>b.disabled=false);toast('บันทึกร่างไม่สำเร็จ · '+(e.message||'ตรวจ Migration 006'),'info');}
+}
 function probAnswer(q){
   let list=PROBLEMS.slice();const s=q.toLowerCase(),proj=[...new Set(PROBLEMS.map(p=>p.project))].find(v=>s.includes(v.toLowerCase()));if(proj)list=list.filter(p=>p.project===proj);if(/ยังไม่แก้|ค้าง|open/.test(s))list=list.filter(p=>p.status!=='Resolved');if(/payment|ฝาก|ถอน/.test(s))list=list.filter(p=>p.cat==='Payment');
-  const open=list.filter(p=>p.status!=='Resolved').length,byProj=probCounts(list,'project').slice(0,5);return `<b>สรุปปัญหาหน้างาน: ${list.length} เคส</b> · ยังไม่แก้ ${open} · แก้แล้ว ${list.length-open}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>โปรเจกต์</th><th>เคส</th></tr>${byProj.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table>`;
+  const open=list.filter(p=>p.status!=='Resolved').length,byCause=probGroup(list,probCause).slice(0,5),byApproach=probGroup(list,probApproach).slice(0,4);return `<b>สรุปปัญหาหน้างาน: ${list.length} เคส</b> · ยังไม่แก้ ${open} · แก้แล้ว ${list.length-open}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>สาเหตุหลัก</th><th>เคส</th></tr>${byCause.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.length}</td></tr>`).join('')}</table><div style="margin-top:8px"><b>แนวทางแก้ที่ใช้:</b> ${byApproach.map(([k,v])=>esc(k)+' '+v.length+' เคส').join(' · ')||'ยังไม่มีข้อมูล'}</div>`;
+}
+function talkContextQuestions(){const common=['สรุปข้อมูลสำคัญของหน้านี้','มีอะไรต้องติดตามเร่งด่วน'];if(VIEW==='problems')return ['สาเหตุปัญหาหลักคืออะไร','แนวทางแก้ที่ใช้บ่อย','กลุ่มไหนพร้อมทำ SOP'];if(VIEW==='kpi')return ['KPI แผนกไหนต่ำกว่าเป้า','สรุป KPI เดือนนี้'];if(VIEW==='board'||VIEW==='myTasks')return ['งานติดปัญหาตอนนี้มีอะไรบ้าง','งานใกล้เกินกำหนดมีอะไรบ้าง'];return common;}
+function openTalkPopup(prefill){
+  const qs=talkContextQuestions();showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามได้จากทุกหน้า · คำตอบจำกัดตามสิทธิ์ของคุณ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill||'')}" placeholder="พิมพ์คำถาม..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('talkPopInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
+  if(prefill)setTimeout(()=>ask(prefill,'talkPopBody','talkPopInput'),80);
 }
 RENDER.talk=function(){
   main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}
@@ -1863,12 +1942,12 @@ RENDER.talk=function(){
     <div class="chat-in"><input id="chatInput" placeholder="พิมพ์คำถาม... หรือกดไมค์เพื่อพูด" onkeydown="if(event.key==='Enter')ask(this.value)"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('chatInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('chatInput').value)">ส่ง</button></div>
   </div>`;
 };
-function ask(q){
+function ask(q,bodyId='chatBody',inputId='chatInput'){
   if(!q||!q.trim())return;
-  const body=document.getElementById('chatBody'),inp=document.getElementById('chatInput');if(inp)inp.value='';
+  const body=document.getElementById(bodyId),inp=document.getElementById(inputId);if(!body)return;if(inp)inp.value='';
   body.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
   let ans='';
-  if(canViewIssues()&&/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน/.test(q)){
+  if(canViewIssues()&&/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน|สาเหตุปัญหา|แนวทางแก้|ทำ sop|พร้อมทำ sop/.test(q.toLowerCase())){
     ans=probAnswer(q);
   }else if(/kpi|เท่าไหร่|แผนก/.test(q)){
     ans=`<b>คะแนน KPI รายแผนก (เดือนนี้)</b><span class="q">SELECT dept, AVG(score) FROM kpi_records WHERE month='${CURRENT_YEAR}-${_todayParts.month}' GROUP BY dept</span>
@@ -1962,7 +2041,7 @@ function openSOP(id){
   if(!canViewDept(s.dept)){toast('คุณไม่มีสิทธิ์ดู SOP ของแผนกนี้','info');return;}
   const sec=(label,ic,arr)=>arr&&arr.length?`<div class="field"><label>${sic(ic)} ${label}</label>${arr.map(x=>`<div class="step2">${x}</div>`).join('')}</div>`:'';
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(s.dept)}</div><h3>${s.title}</h3>
-    <div class="muted" style="font-size:11.5px">เวอร์ชัน ${s.v} · อนุมัติแล้ว · สรุปจากเอกสาร SOP ฉบับจริง</div></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="muted" style="font-size:11.5px">เวอร์ชัน ${s.v} · ${s.status==='review'?'รอตรวจสอบ':s.status==='draft'?'ฉบับร่าง — ยังไม่ควรนำไปใช้':'อนุมัติแล้ว'}${s.sourceIssue?' · จากปัญหา '+esc(s.sourceIssue):''}</div></div><button class="x" onclick="closeModal()">×</button></div>
     <div class="pad">
     ${s.goal?`<div class="ai-note" style="margin-bottom:12px">${sic('i-target')} <b>เป้าหมาย:</b> ${s.goal}</div>`:''}
     ${sec('หน้าที่หลัก','i-clipboard',s.duties)}
@@ -2100,7 +2179,7 @@ async function onLoggedIn(session){
     if(p&&p.new&&p.new.data){SB_VERSION=p.new.updated_at||SB_VERSION;}
     if(p&&p.new&&p.new.data&&p.new.updated_by!==SB_UID){ _sbApplying=true; try{applyCollaborationState(p.new.data);refresh();}finally{_sbApplying=false;} }
   }).subscribe(); }catch(e){}
-  try{let reloadT;SB.channel('ch_rows').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'knowledge_articles'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'kpi_results'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'operational_issues'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadIssues(),350);}).subscribe();}catch(e){}
+  try{let reloadT;SB.channel('ch_rows').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'sops'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'knowledge_articles'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'kpi_results'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'operational_issues'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadIssues(),350);}).subscribe();}catch(e){}
   hideLogin();buildNav(); refresh();
   toast('เชื่อมฐานข้อมูลกลางแล้ว · เข้าสู่ระบบ: '+SB_UID);
 }
@@ -2108,7 +2187,7 @@ async function cloudLoadNormalized(allowBootstrap=true){
   NORMALIZED_READY=false;
   const [tr,sr,kr,dr,rr]=await Promise.all([
     SB.from('tasks').select('id,legacy_key,department_code,prototype_payload,updated_at').order('updated_at'),
-    SB.from('sops').select('id,legacy_key,department_code,prototype_payload').order('legacy_key'),
+    SB.from('sops').select('id,legacy_key,department_code,status,source_issue_id,prototype_payload').order('legacy_key'),
     SB.from('knowledge_articles').select('id,legacy_key,department_code,prototype_payload,updated_at').order('updated_at',{ascending:false}),
     SB.from('kpi_definitions').select('id,legacy_key,department_code,prototype_payload').eq('active',true).order('legacy_key'),
     SB.from('kpi_results').select('definition_id,actual,period_start,status').order('period_start',{ascending:true})
@@ -2137,7 +2216,7 @@ async function cloudLoadNormalized(allowBootstrap=true){
   _sbApplying=true;
   try{
     TASKS.length=0;TASKS.push(...tr.data.map(x=>x.prototype_payload).filter(Boolean));
-    SOPS.length=0;SOPS.push(...sr.data.map(x=>x.prototype_payload).filter(Boolean));
+    SOPS.length=0;SOPS.push(...sr.data.map(x=>x.prototype_payload?({...x.prototype_payload,status:x.status,sourceIssue:x.source_issue_id||x.prototype_payload.sourceIssue,dbId:x.id}):null).filter(Boolean));
     KB.length=0;KB.push(...kr.data.map(x=>x.prototype_payload).filter(Boolean));
     const latest=new Map();rr.data.forEach(x=>latest.set(x.definition_id,x));
     Object.keys(KPI).forEach(k=>delete KPI[k]);
@@ -2151,7 +2230,7 @@ async function cloudLoadNormalized(allowBootstrap=true){
 }
 async function cloudLoadIssues(){
   if(!canViewIssues()){PROBLEMS.length=0;ISSUES_READY=false;return;}
-  const r=await SB.from('operational_issues').select('id,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,source').order('occurred_at',{ascending:false}).limit(500);
+  const r=await SB.from('operational_issues').select('id,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,root_cause,preventive_action,resolution_minutes,source').order('occurred_at',{ascending:false}).limit(500);
   if(r.error){ISSUES_READY=false;console.warn('operational issues:',r.error.message);return;}
   PROBLEMS.length=0;PROBLEMS.push(...r.data.map(issueFromRow));ISSUES_READY=true;
   if(VIEW==='problems')RENDER.problems();
