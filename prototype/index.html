@@ -785,6 +785,7 @@ const ROLE_META={
 const NAV = {
   dash:{ic:'i-dash',t:'แดชบอร์ด'}, myTasks:{ic:'i-check',t:'งานของฉัน'}, board:{ic:'i-board',t:'บอร์ดงาน'},
   timeline:{ic:'i-calendar',t:'ไทม์ไลน์'}, kpi:{ic:'i-target',t:'KPI แดชบอร์ด'}, reports:{ic:'i-report',t:'รายงานสรุป'}, monthly:{ic:'i-doc',t:'รายงานประจำเดือน'}, tracker:{ic:'i-clipboard',t:'Action Tracker'},
+  problems:{ic:'i-warning',t:'ศูนย์ปัญหาหน้างาน'},
   org:{ic:'i-org',t:'แผนผังองค์กร'}, sop:{ic:'i-book',t:'คลัง SOP / คู่มือ'}, kb:{ic:'i-bulb',t:'คลังความรู้'}, ann:{ic:'i-megaphone',t:'ประกาศ & อัปเดต'}, talk:{ic:'i-chat',t:'Talk to Data'},
   access:{ic:'i-user',t:'จัดการสิทธิ์ผู้ใช้'},
 };
@@ -792,6 +793,8 @@ const NAV = {
 function sic(id){return `<svg class="svic"><use href="#${id}"></use></svg>`;}
 // Filter state
 let F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+let PROBLEMS=[], ISSUES_READY=false, MANAGE_DEPTS=[];
+let PF={project:'',cat:'',prio:'',status:'',q:''};
 let REPORT_EDITS={};      // แก้ไขข้อความรายงาน (persisted)
 let CARRIED=[];           // taskId ที่ยกไปเดือนถัดไป (persisted)
 let TRACK_MONTH='08', TRACK_GROUP='', TRACK_DEPT='', TRACK_LEVEL='';  // ตัวกรอง Action Tracker
@@ -1102,23 +1105,25 @@ function allowedDeptCodes(){
 }
 function allowedDepts(){const codes=allowedDeptCodes();return DEPTS.filter(d=>codes.includes(d.code));}
 function canViewDept(code){return allowedDeptCodes().includes(code);}
+function canViewIssues(){return canViewDept('ADMIN');}
+function canManageIssues(){return AUTH_DB_ROLE==='exec'||AUTH_DB_ROLE==='admin'||(AUTH_DB_ROLE==='lead'&&(ROLE_META.lead.dept==='ADMIN'||MANAGE_DEPTS.includes('ADMIN')));}
 function visibleTasks(){const codes=allowedDeptCodes();return TASKS.filter(t=>codes.includes(t.dept));}
 /* ===== Navigation groups + Simple mode ===== */
 const NAVGROUPS=[
- {label:'งาน', items:['dash','myTasks','board','timeline']},
+ {label:'งาน', items:['dash','myTasks','board','timeline','problems']},
  {label:'วัดผล & รายงาน', items:['kpi','reports','monthly','tracker']},
  {label:'องค์กร & ความรู้', items:['org','sop','kb','ann','talk']},
  {label:'ตั้งค่าระบบ', items:['access']},
 ];
 const ROLE_ALLOW={
- staff:['myTasks','board','org','sop','kb','ann','talk'],
- lead:['dash','myTasks','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'],
- exec:['dash','board','timeline','kpi','reports','monthly','tracker','org','sop','kb','ann','talk','access'],
+ staff:['myTasks','board','problems','org','sop','kb','ann','talk'],
+ lead:['dash','myTasks','board','timeline','problems','kpi','reports','monthly','tracker','org','sop','kb','ann','talk'],
+ exec:['dash','board','timeline','problems','kpi','reports','monthly','tracker','org','sop','kb','ann','talk','access'],
 };
 const SIMPLE_ALLOW={
- staff:['myTasks','board','ann'],
- lead:['dash','board','kpi','reports','ann'],
- exec:['dash','board','kpi','reports','ann','access'],
+ staff:['myTasks','board','problems','ann'],
+ lead:['dash','board','problems','kpi','reports','ann'],
+ exec:['dash','board','problems','kpi','reports','ann','access'],
 };
 let SIMPLE=true;
 function toggleSimple(){SIMPLE=!SIMPLE;try{localStorage.setItem('ch_simple',SIMPLE?'1':'0')}catch(e){}document.body.classList.toggle('simple',SIMPLE);
@@ -1128,6 +1133,7 @@ function toggleSimple(){SIMPLE=!SIMPLE;try{localStorage.setItem('ch_simple',SIMP
 function buildNav(){
   let allow=[...((SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||Object.keys(NAV))];
   if(!canAdminAccess())allow=allow.filter(k=>k!=='access');
+  if(!canViewIssues())allow=allow.filter(k=>k!=='problems');
   let html=`<button class="navitem simpletgl" onclick="toggleSimple()"><span class="ic">${sic(SIMPLE?'i-grid':'i-check')}</span>${SIMPLE?'โหมดครบ (ทุกเมนู)':'โหมดง่าย (เมนูหลัก)'}</button>`;
   NAVGROUPS.forEach(g=>{
     const its=g.items.filter(k=>allow.includes(k));
@@ -1141,7 +1147,7 @@ function buildNav(){
   nav.innerHTML=html;
   deptNav.innerHTML=allowedDepts().map(d=>`<button class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
-function go(v,arg){if(v==='access'&&!canAdminAccess()){toast('เฉพาะผู้บริหารหรือผู้ดูแลระบบเข้าหน้านี้ได้','info');return;}VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);}
+function go(v,arg){if(v==='access'&&!canAdminAccess()){toast('เฉพาะผู้บริหารหรือผู้ดูแลระบบเข้าหน้านี้ได้','info');return;}if(v==='problems'&&!canViewIssues()){toast('คุณไม่มีสิทธิ์ดูปัญหาของแผนก Admin','info');return;}VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);}
 function navGo(v){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
 function myTasks(){const m=ROLE_META[ROLE].u;if(ROLE==='exec')return visibleTasks();return visibleTasks().filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
 function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}
@@ -1766,6 +1772,86 @@ RENDER.ann=function(){
       ${FEED.map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')}</div></div>
   </div>`;
 };
+
+/* ===== Operational issues (Supabase + department RLS) ===== */
+const PROB_PRIO={Critical:{t:'วิกฤต',c:'#d64545',o:4},High:{t:'สูง',c:'#e8971b',o:3},Medium:{t:'กลาง',c:'#2563eb',o:2},Low:{t:'ต่ำ',c:'#67769a',o:1}};
+const PROB_ST={Open:{t:'ยังไม่แก้',c:'#d64545'},'In Progress':{t:'กำลังแก้',c:'#e8971b'},Resolved:{t:'แก้แล้ว',c:'#0b7a5a'}};
+function setPF(k,v){PF[k]=PF[k]===v?'':v;RENDER.problems();}
+function clearPF(){PF={project:'',cat:'',prio:'',status:'',q:''};RENDER.problems();}
+function probPrio(p){const m=PROB_PRIO[p]||{t:p,c:'#888'};return `<span class="tag" style="background:${m.c}22;color:${m.c};border-color:${m.c}55">${esc(m.t)}</span>`;}
+function probStatus(s){const m=PROB_ST[s]||{t:s,c:'#888'};return `<span class="tag" style="background:${m.c}22;color:${m.c};border-color:${m.c}55">${esc(m.t)}</span>`;}
+function probDate(d){return d?d.split('-').reverse().join('/'):'-';}
+function probResT(m){if(m==null||m==='')return '-';if(Number(m)<60)return Math.round(Number(m))+' น.';const h=Number(m)/60;return (h>=100?Math.round(h):h.toFixed(1))+' ชม.';}
+function probFiltered(){const q=PF.q.toLowerCase();return PROBLEMS.filter(p=>(!PF.project||p.project===PF.project)&&(!PF.cat||p.cat===PF.cat)&&(!PF.prio||p.prio===PF.prio)&&(!PF.status||p.status===PF.status)&&(!q||(p.problem+' '+p.solution+' '+p.reporter+' '+p.id).toLowerCase().includes(q)));}
+function probCounts(list,key){const o={};list.forEach(p=>{const k=p[key]||'(ไม่ระบุ)';o[k]=(o[k]||0)+1;});return Object.entries(o).sort((a,b)=>b[1]-a[1]);}
+function probAvgHrs(list){const r=list.filter(p=>Number.isFinite(Number(p.resmin))&&p.resmin!==null&&p.status==='Resolved');return r.length?r.reduce((s,p)=>s+Number(p.resmin),0)/r.length/60:0;}
+function issueFromRow(row){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:ORG_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date(row.occurred_at)).reduce((o,p)=>(o[p.type]=p.value,o),{});
+  return {id:row.id,date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}:${parts.second}`,project:row.project_code,cat:row.category,problem:row.problem,prio:row.priority,reporter:row.reporter,status:row.status,owner:row.owner_team,solution:row.solution,resmin:row.resolution_minutes,source:row.source};
+}
+RENDER.problems=function(){
+  if(!canViewIssues()){main.innerHTML='<div class="card pad">คุณไม่มีสิทธิ์ดูข้อมูลแผนก Admin</div>';return;}
+  const all=PROBLEMS,list=probFiltered(),open=all.filter(p=>p.status!=='Resolved').length,resolved=all.filter(p=>p.status==='Resolved').length,crit=all.filter(p=>p.prio==='Critical'||p.prio==='High').length;
+  const projects=[...new Set(all.map(p=>p.project).filter(Boolean))].sort(),cats=[...new Set(all.map(p=>p.cat).filter(Boolean))].sort();
+  const opt=(cur,v,label)=>`<option value="${esc(v)}" ${cur===v?'selected':''}>${esc(label)}</option>`;
+  main.innerHTML=`${crumb('หน้าแรก','ศูนย์ปัญหาหน้างาน')}
+  <div class="page-h"><div><h1>ศูนย์ปัญหาหน้างาน Admin</h1><p>ข้อมูลจาก Supabase · จำกัดการมองเห็นตามสิทธิ์แผนก ADMIN</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" onclick="go('talk')">${sic('i-chat')} ถามข้อมูลปัญหา</button><button class="tbtn primary" onclick="openProblemForm()">+ แจ้งปัญหา</button></div></div>
+  ${!ISSUES_READY?'<div class="ai-note" style="margin-bottom:14px">ยังไม่พบตาราง Operational Issues — กรุณารัน Migration 005 แล้วรีเฟรช</div>':''}
+  <div class="stats" style="margin-bottom:14px">
+    <div class="stat accent click" onclick="clearPF()"><div class="lbl">ปัญหาทั้งหมด</div><div class="val">${all.length}</div><div class="sub">ทุกโปรเจกต์</div></div>
+    <div class="stat click" onclick="setPF('status','Open')"><div class="lbl">ยังไม่แก้</div><div class="val" style="color:var(--red)">${open}</div><div class="sub down">ต้องติดตาม</div></div>
+    <div class="stat click" onclick="setPF('status','Resolved')"><div class="lbl">แก้แล้ว</div><div class="val" style="color:var(--green)">${resolved}</div><div class="sub up">${all.length?Math.round(resolved/all.length*100):0}%</div></div>
+    <div class="stat"><div class="lbl">วิกฤต + สูง</div><div class="val" style="color:var(--amber)">${crit}</div><div class="sub muted">ความสำคัญสูง</div></div>
+    <div class="stat"><div class="lbl">เวลาแก้เฉลี่ย</div><div class="val">${probAvgHrs(all).toFixed(1)}<span style="font-size:14px"> ชม.</span></div><div class="sub muted">เฉพาะที่แก้แล้ว</div></div>
+  </div>
+  <div class="card"><div class="card-h"><h3>${sic('i-warning')} รายการปัญหา</h3><span class="act">${list.length} / ${all.length} เคส</span></div>
+    <div class="pad" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;border-bottom:1px solid var(--line-2)">
+      <div class="fsel"><label>โปรเจกต์</label><select onchange="PF.project=this.value;RENDER.problems()">${opt(PF.project,'','ทั้งหมด')}${projects.map(v=>opt(PF.project,v,v)).join('')}</select></div>
+      <div class="fsel"><label>หมวด</label><select onchange="PF.cat=this.value;RENDER.problems()">${opt(PF.cat,'','ทั้งหมด')}${cats.map(v=>opt(PF.cat,v,v)).join('')}</select></div>
+      <div class="fsel"><label>ความสำคัญ</label><select onchange="PF.prio=this.value;RENDER.problems()">${opt(PF.prio,'','ทั้งหมด')}${Object.keys(PROB_PRIO).map(v=>opt(PF.prio,v,PROB_PRIO[v].t)).join('')}</select></div>
+      <div class="fsel"><label>สถานะ</label><select onchange="PF.status=this.value;RENDER.problems()">${opt(PF.status,'','ทั้งหมด')}${Object.keys(PROB_ST).map(v=>opt(PF.status,v,PROB_ST[v].t)).join('')}</select></div>
+      <div class="fsel" style="flex:1;min-width:180px"><label>ค้นหา</label><input class="fin" value="${esc(PF.q)}" placeholder="ค้นหาปัญหา / ผู้แจ้ง / รหัส" oninput="PF.q=this.value;clearTimeout(window._pfq);window._pfq=setTimeout(()=>RENDER.problems(),250)"></div>
+      <button class="tbtn sm" onclick="clearPF()">ล้างตัวกรอง</button>
+    </div>
+    <div style="overflow-x:auto"><table class="datatable" style="width:100%;min-width:820px"><tr><th>วันที่</th><th>โปรเจกต์</th><th>หมวด</th><th>ปัญหา</th><th>ความสำคัญ</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th><th>เวลาแก้</th></tr>
+      ${list.slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,300).map(p=>`<tr style="cursor:pointer" data-id="${esc(p.id)}" onclick="openProblem(this.dataset.id)"><td style="white-space:nowrap">${probDate(p.date)}<div class="muted" style="font-size:10.5px">${esc((p.time||'').slice(0,5))}</div></td><td><b>${esc(p.project)}</b></td><td>${esc(p.cat)}</td><td style="max-width:320px">${esc((p.problem||'').slice(0,90))}${(p.problem||'').length>90?'…':''}</td><td>${probPrio(p.prio)}</td><td>${probStatus(p.status)}</td><td>${esc(p.owner||'-')}</td><td style="white-space:nowrap">${probResT(p.resmin)}</td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:26px">ไม่พบปัญหาที่ตรงกับตัวกรอง</td></tr>'}
+    </table></div><div class="pad muted" style="font-size:11px">แสดงล่าสุดไม่เกิน 300 รายการ · คลิกแถวเพื่อดูรายละเอียด</div>
+  </div>`;
+};
+function openProblemForm(){
+  if(!canViewIssues())return;
+  showModal(`<div class="modal-h"><div><h3>${sic('i-warning')} แจ้งปัญหาหน้างาน</h3><div class="muted" style="font-size:11.5px">บันทึกเข้าแผนก Admin และติดตามสถานะได้</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
+    <div class="two"><div class="field"><label>โปรเจกต์</label><input class="fin" id="piProject" maxlength="30" placeholder="เช่น 3X"></div><div class="field"><label>หมวด</label><select class="fin" id="piCat">${['Payment','System','Customer','Website','Network','Provider','Other'].map(v=>`<option>${v}</option>`).join('')}</select></div></div>
+    <div class="field"><label>รายละเอียดปัญหา</label><textarea class="fin" id="piProblem" rows="4" maxlength="4000" placeholder="อธิบายสิ่งที่เกิดขึ้นและผลกระทบ"></textarea></div>
+    <div class="two"><div class="field"><label>ความสำคัญ</label><select class="fin" id="piPrio">${Object.keys(PROB_PRIO).map(v=>`<option value="${v}" ${v==='Medium'?'selected':''}>${PROB_PRIO[v].t}</option>`).join('')}</select></div><div class="field"><label>ผู้แจ้ง</label><input class="fin" id="piReporter" maxlength="120" value="${esc((ACCESS_PROFILE&&ACCESS_PROFILE.display_name)||SB_UID||'')}"></div></div>
+    <button class="tbtn primary" id="piSubmit" onclick="submitProblem()">บันทึกปัญหา</button></div>`);
+}
+async function submitProblem(){
+  const project=normSp(val('piProject')).toUpperCase(),problem=normSp(val('piProblem'));if(!project||!problem){toast('กรุณากรอกโปรเจกต์และรายละเอียดปัญหา','info');return;}
+  const btn=document.getElementById('piSubmit');if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  try{const r=await SB.from('operational_issues').insert({department_code:'ADMIN',project_code:project,category:val('piCat'),problem,priority:val('piPrio'),reporter:normSp(val('piReporter')),status:'Open',source:'Company Hub'}).select().single();if(r.error)throw r.error;PROBLEMS.unshift(issueFromRow(r.data));closeModal();RENDER.problems();toast('บันทึกปัญหา '+r.data.id+' แล้ว');}
+  catch(e){if(btn){btn.disabled=false;btn.textContent='บันทึกปัญหา';}toast('บันทึกไม่สำเร็จ · '+(e.message||'ตรวจ Migration 005'),'info');}
+}
+function openProblem(id){
+  const p=PROBLEMS.find(x=>x.id===id);if(!p)return;
+  const manage=canManageIssues();
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag">${esc(p.project)}</span> ${probPrio(p.prio)} ${probStatus(p.status)}</div><h3>${esc(p.cat)} — ${esc(p.project)}</h3><div class="muted" style="font-size:11.5px">${esc(p.id)} · แจ้งโดย ${esc(p.reporter||'-')} · ${probDate(p.date)} ${esc((p.time||'').slice(0,5))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
+    <div class="field"><label>รายละเอียดปัญหา</label><div class="v">${esc(p.problem||'-')}</div></div>
+    ${manage?`<div class="two"><div class="field"><label>สถานะ</label><select class="fin" id="peStatus">${Object.keys(PROB_ST).map(v=>`<option value="${v}" ${p.status===v?'selected':''}>${PROB_ST[v].t}</option>`).join('')}</select></div><div class="field"><label>ผู้รับผิดชอบ</label><input class="fin" id="peOwner" maxlength="120" value="${esc(p.owner||'')}"></div></div><div class="field"><label>วิธีแก้ / ผลดำเนินการ</label><textarea class="fin" id="peSolution" rows="3" maxlength="4000">${esc(p.solution||'')}</textarea></div><div class="field"><label>เวลาแก้ (นาที)</label><input type="number" min="0" step="1" class="fin" id="peMinutes" value="${p.resmin==null?'':esc(p.resmin)}"></div><button class="tbtn primary" id="peSave" data-id="${esc(p.id)}" onclick="saveProblemEdit(this.dataset.id)">บันทึกการติดตาม</button>`:`${p.solution?`<div class="field"><label>✅ วิธีแก้ / ผลดำเนินการ</label><div class="ai-note">${esc(p.solution)}</div></div>`:'<div class="muted">ยังไม่มีบันทึกวิธีแก้</div>'}<div class="two"><div class="field"><label>ผู้รับผิดชอบ</label><div class="v">${esc(p.owner||'-')}</div></div><div class="field"><label>เวลาแก้</label><div class="v">${probResT(p.resmin)}</div></div></div>`}
+  </div>`);
+}
+async function saveProblemEdit(id){
+  if(!canManageIssues()){toast('เฉพาะหัวหน้า Admin หรือผู้บริหารแก้ไขได้','info');return;}
+  const mins=val('peMinutes'),patch={status:val('peStatus'),owner_team:normSp(val('peOwner')),solution:normSp(val('peSolution')),resolution_minutes:mins===''?null:Number(mins)};
+  const btn=document.getElementById('peSave');if(btn){btn.disabled=true;btn.textContent='กำลังบันทึก...';}
+  try{const r=await SB.from('operational_issues').update(patch).eq('id',id).select().single();if(r.error)throw r.error;const i=PROBLEMS.findIndex(x=>x.id===id);if(i>=0)PROBLEMS[i]=issueFromRow(r.data);closeModal();RENDER.problems();toast('อัปเดต '+id+' แล้ว');}
+  catch(e){if(btn){btn.disabled=false;btn.textContent='บันทึกการติดตาม';}toast('อัปเดตไม่สำเร็จ · '+(e.message||'ตรวจสิทธิ์แผนก'),'info');}
+}
+function probAnswer(q){
+  let list=PROBLEMS.slice();const s=q.toLowerCase(),proj=[...new Set(PROBLEMS.map(p=>p.project))].find(v=>s.includes(v.toLowerCase()));if(proj)list=list.filter(p=>p.project===proj);if(/ยังไม่แก้|ค้าง|open/.test(s))list=list.filter(p=>p.status!=='Resolved');if(/payment|ฝาก|ถอน/.test(s))list=list.filter(p=>p.cat==='Payment');
+  const open=list.filter(p=>p.status!=='Resolved').length,byProj=probCounts(list,'project').slice(0,5);return `<b>สรุปปัญหาหน้างาน: ${list.length} เคส</b> · ยังไม่แก้ ${open} · แก้แล้ว ${list.length-open}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>โปรเจกต์</th><th>เคส</th></tr>${byProj.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td></tr>`).join('')}</table>`;
+}
 RENDER.talk=function(){
   main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}
   <div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p></div></div>
@@ -1782,7 +1868,9 @@ function ask(q){
   const body=document.getElementById('chatBody'),inp=document.getElementById('chatInput');if(inp)inp.value='';
   body.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
   let ans='';
-  if(/kpi|เท่าไหร่|แผนก/.test(q)){
+  if(canViewIssues()&&/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน/.test(q)){
+    ans=probAnswer(q);
+  }else if(/kpi|เท่าไหร่|แผนก/.test(q)){
     ans=`<b>คะแนน KPI รายแผนก (เดือนนี้)</b><span class="q">SELECT dept, AVG(score) FROM kpi_records WHERE month='${CURRENT_YEAR}-${_todayParts.month}' GROUP BY dept</span>
       <table class="datatable" style="width:100%"><tr><th>แผนก</th><th>คะแนน</th></tr>
       ${Object.keys(KPI).filter(c=>canViewDept(c)).map(c=>`<tr><td>${deptName(c)}</td><td style="color:${scoreColor(deptScore(c))}">${deptScore(c)}/100</td></tr>`).join('')}</table>`;
@@ -1989,8 +2077,8 @@ async function applyAuthenticatedRole(session){
   try{
     const pr=await SB.from('profiles').select('id,email,display_name,role,department_code,active').eq('id',user.id).maybeSingle();
     if(pr.data&&pr.data.active!==false){ACCESS_PROFILE=pr.data;requested=String(pr.data.role||requested).toLowerCase();dept=String(pr.data.department_code||dept).toUpperCase();}
-    const vr=await SB.from('profile_departments').select('department_code').eq('profile_id',user.id);
-    if(!vr.error&&vr.data)visible=vr.data.map(x=>x.department_code);
+    const vr=await SB.from('profile_departments').select('department_code,can_manage').eq('profile_id',user.id);
+    if(!vr.error&&vr.data){visible=vr.data.map(x=>x.department_code);MANAGE_DEPTS=vr.data.filter(x=>x.can_manage).map(x=>x.department_code);}
   }catch(e){console.warn('access profile:',e);}
   AUTH_DB_ROLE=['staff','lead','exec','admin'].includes(requested)?requested:'staff';
   AUTH_ROLE=AUTH_DB_ROLE==='admin'?'exec':AUTH_DB_ROLE;
@@ -2012,7 +2100,7 @@ async function onLoggedIn(session){
     if(p&&p.new&&p.new.data){SB_VERSION=p.new.updated_at||SB_VERSION;}
     if(p&&p.new&&p.new.data&&p.new.updated_by!==SB_UID){ _sbApplying=true; try{applyCollaborationState(p.new.data);refresh();}finally{_sbApplying=false;} }
   }).subscribe(); }catch(e){}
-  try{let reloadT;SB.channel('ch_rows').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'knowledge_articles'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'kpi_results'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).subscribe();}catch(e){}
+  try{let reloadT;SB.channel('ch_rows').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'knowledge_articles'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'kpi_results'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadNormalized(false),350);}).on('postgres_changes',{event:'*',schema:'public',table:'operational_issues'},()=>{clearTimeout(reloadT);reloadT=setTimeout(()=>cloudLoadIssues(),350);}).subscribe();}catch(e){}
   hideLogin();buildNav(); refresh();
   toast('เชื่อมฐานข้อมูลกลางแล้ว · เข้าสู่ระบบ: '+SB_UID);
 }
@@ -2061,6 +2149,13 @@ async function cloudLoadNormalized(allowBootstrap=true){
     _sbApplying=true;try{refresh();}finally{_sbApplying=false;}
   }
 }
+async function cloudLoadIssues(){
+  if(!canViewIssues()){PROBLEMS.length=0;ISSUES_READY=false;return;}
+  const r=await SB.from('operational_issues').select('id,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,source').order('occurred_at',{ascending:false}).limit(500);
+  if(r.error){ISSUES_READY=false;console.warn('operational issues:',r.error.message);return;}
+  PROBLEMS.length=0;PROBLEMS.push(...r.data.map(issueFromRow));ISSUES_READY=true;
+  if(VIEW==='problems')RENDER.problems();
+}
 async function cloudLoad(){
   try{
     var res=await SB.from('company_hub_state').select('data,updated_at').eq('id','main').maybeSingle();
@@ -2069,6 +2164,7 @@ async function cloudLoad(){
     var d=res.data&&res.data.data;
     if(d){_sbApplying=true;try{applyCollaborationState(d);}finally{_sbApplying=false;}}
     await cloudLoadNormalized(true);
+    await cloudLoadIssues();
   }catch(e){NORMALIZED_READY=false;console.warn('normalized load:',e&&e.message||e);toast('ยังโหลดตารางข้อมูลจริงไม่ได้ · '+(e&&e.message||'กรุณาตรวจฐานข้อมูล'),'info');}
 }
 async function sbLogin(){
