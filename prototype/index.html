@@ -259,6 +259,8 @@ tfoot td{padding:9px 12px;font-size:11.5px;font-weight:500;background:var(--blue
 .gp-job{background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:8px;cursor:pointer;box-shadow:0 1px 2px #0000000a}.gp-job:hover{border-color:var(--blue-500);transform:translateY(-1px)}.gp-job h4{font-size:12.5px;line-height:1.4;margin:6px 0}.gp-meta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:10.5px;color:var(--muted)}.gp-due-late{color:var(--red);font-weight:700}.gp-progress{height:5px;background:var(--line);border-radius:9px;overflow:hidden;margin-top:8px}.gp-progress i{display:block;height:100%;background:var(--green)}
 .gp-projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}.gp-project{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}.gp-project h3{font-size:14px;margin-bottom:5px}.gp-empty{text-align:center;color:var(--muted);font-size:12px;padding:28px 8px}
 .gp-import{border:1px dashed var(--blue-500);background:var(--blue-50);padding:13px;border-radius:11px;margin-bottom:12px}.gp-status-actions{display:flex;gap:6px;flex-wrap:wrap}.gp-status-actions button{font-size:11px}.gp-file{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.source-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px}.source-badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:4px 9px;font-size:10.5px;font-weight:700;border:1px solid}.source-badge.live{color:#08735b;background:#e8f8f2;border-color:#9edbc8}.source-badge.imported{color:#315f9f;background:#edf4ff;border-color:#b8d2f5}.source-badge.demo{color:#955a00;background:#fff5df;border-color:#f0cf8d}.source-badge.rule{color:#6b4ba3;background:#f4efff;border-color:#d4c2f3}.source-note{font-size:10.5px;color:var(--muted)}
+.gp-more{width:100%;border:1px dashed var(--line);background:var(--surface);color:var(--blue-700);border-radius:9px;padding:8px;cursor:pointer;font-size:11px}.gp-more:hover{background:var(--blue-50)}
 @media(max-width:900px){.gp-kpis{grid-template-columns:repeat(2,1fr)}.gp-board{grid-template-columns:repeat(7,235px)}}
 .x{border:0;background:var(--blue-50);width:32px;height:32px;border-radius:9px;font-size:17px;color:var(--muted)}
 .field{margin-bottom:13px}
@@ -601,6 +603,9 @@ const TASKS = [
   {id:'T-1113',dept:'AUDXB',title:'สรุปยอดความเสียหายประจำเดือน (ระบบ XB)',creator:'boss',assignee:'lead_axb',status:'review',prio:'mid',start:'08-05',due:'08-07',spent:4,ontime:true,tags:['รายงานเดือน'],sop:'SOP-AXB',desc:'รวบรวมรายการความเสียหายที่ตรวจพบ จัดหมวด และสรุปเข้ารายงานประจำเดือน',sub:[]},
 ];
 
+/* IDs ชุดสาธิตเดิม ใช้แยกยอดตัวอย่างออกจากงานที่สร้างจริงภายหลัง */
+const SEED_TASK_IDS=new Set(TASKS.map(t=>t.id));
+
 /* KPI ทีม — ตัวชี้วัดจริงจากไฟล์ KPI 2026 ของแต่ละทีม
    ประเภท A (มี tgt/w): กรอก Actual (%) รายเดือน → คำนวณ Achievement/คะแนน/ระดับอัตโนมัติ
      tgt = เป้าหมาย (%), w = น้ำหนัก, ac = ผลจริง (%) [ค่าตัวอย่าง แก้ได้]
@@ -823,6 +828,8 @@ let F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'
 let PROBLEMS=[], ISSUES_READY=false, MANAGE_DEPTS=[];
 let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPHIC_PEOPLE=[],GRAPHIC_READY=false;
 let GF={tab:'board',project:'',status:'',q:''};
+const GP_COLUMN_PAGE_SIZE=30;
+let GP_VISIBLE_LIMITS={};
 let PF={project:'',cat:'',prio:'',status:'',q:''};
 let REPORT_EDITS={};      // แก้ไขข้อความรายงาน (persisted)
 let CARRIED=[];           // taskId ที่ยกไปเดือนถัดไป (persisted)
@@ -830,6 +837,15 @@ let TRACK_MONTH='08', TRACK_GROUP='', TRACK_DEPT='', TRACK_LEVEL='';  // ตั�
 let REP_MONTH='08', REP_GROUP='', REP_DEPT='';  // ตัวกรองรายงานประจำเดือน
 
 const nf=n=>Number(n).toLocaleString('th-TH');
+function sourceBadge(kind,label,detail=''){
+  return `<div class="source-row"><span class="source-badge ${kind}">${kind==='live'?'●':kind==='imported'?'↻':kind==='demo'?'◇':'⚙'} ${esc(label)}</span>${detail?`<span class="source-note">${esc(detail)}</span>`:''}</div>`;
+}
+function taskSourceBadge(){
+  const demo=TASKS.filter(t=>SEED_TASK_IDS.has(t.id)).length,real=TASKS.length-demo;
+  if(demo&&real)return sourceBadge('imported','ข้อมูลผสม',`${real} งานจริง · ${demo} งานตัวอย่าง`);
+  if(demo)return sourceBadge('demo','DEMO TASKS',`${demo} งานตัวอย่าง — ไม่ใช้ตัดสินใจเชิงปฏิบัติการ`);
+  return sourceBadge('live','LIVE TASKS',`${real} งานจากฐานข้อมูลกลาง`);
+}
 /* เทมเพลตวันที่ไทย: '08-12' -> 'ศ. 12 ส.ค.' */
 const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const THDAY=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
@@ -862,7 +878,8 @@ const shortName=id=>u(id).n.split(' (')[0];
 /* ============================================================
    INTERACTIVE STATE (ทำให้ทุกปุ่มทำงานจริง — in-memory)
 ============================================================ */
-const ASSIGNABLE=['a','b','c','d','e','f','lead_gr','lead_crm','lead_mkt'];
+/* รวมผู้บริหารในผู้รับ “ทั้งบริษัท” เพื่อให้บัญชี admin/exec รับทราบได้จริง */
+const ASSIGNABLE=['boss','a','b','c','d','e','f','lead_gr','lead_crm','lead_mkt'];
 const me=()=>ROLE_META[ROLE].u;
 const annAudienceIds=a=>(a.audienceIds&&a.audienceIds.length)?a.audienceIds:ASSIGNABLE;
 const nextAnnId=()=>'A'+(++ANN_SEQ);
@@ -919,7 +936,7 @@ function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'�
 
 function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
-  const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,
+  const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,source:'Company Hub',
     status:'todo',prio:d.prio||'mid',start:TODAY_MMDD,due:d.due||addDays(5),spent:0,ontime:true,sla:d.sla||null,
     tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
   TASKS.unshift(t);
@@ -1012,7 +1029,11 @@ function exportReportExcel(){
   taskRows(scope).forEach(r=>rows.push(r));
   downloadRows(rows,'report-'+REP_PERIOD+'.csv');}
 function printReport(){toast('เปิดหน้าต่างพิมพ์ / บันทึกเป็น PDF');setTimeout(()=>window.print(),200);}
-function sendAuto(){toast('ตั้งค่าส่งรายงานอัตโนมัติเข้าอีเมล/Telegram แล้ว (สาธิต)');}
+function openAutomationInfo(kind){
+  const meeting=kind==='meeting';
+  showModal(`<div class="modal-h"><div><h3>${meeting?'✉️ ส่งรายงานเข้าที่ประชุม':'⚙ ตั้งค่าการส่งรายงาน'}</h3><div class="muted" style="font-size:11.5px">สถานะการเชื่อมต่อจริง</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note"><b>ยังไม่เปิดใช้งานการส่งอัตโนมัติ</b><br>ระบบยังไม่มี Edge Function / Email / Telegram endpoint จึงจะไม่แสดงข้อความว่าส่งสำเร็จจนกว่าจะเชื่อมต่อจริง</div><div class="field" style="margin-top:14px"><label>สิ่งที่ต้องตั้งค่า</label><div class="v">1. Supabase Edge Function พร้อม JWT/RLS<br>2. ผู้รับและช่องทาง Email/Telegram<br>3. ตาราง delivery log, retry และสถานะส่งสำเร็จ/ล้มเหลว</div></div><button class="tbtn" onclick="closeModal()">ปิด</button></div>`);
+}
+function sendAuto(){openAutomationInfo('report');}
 
 /* ===== Date filter helper ===== */
 const d2=s=>s?(CURRENT_YEAR+'-'+s):'';
@@ -1312,18 +1333,19 @@ function gpVisible(){const q=GF.q.toLowerCase();return GRAPHIC_JOBS.filter(j=>(!
 function gpJobChecks(id){return GRAPHIC_CHECKS.filter(x=>x.job_id===id);}
 function gpJobFiles(id){return GRAPHIC_FILES.filter(x=>x.job_id===id);}
 function gpJobCard(j){const cs=gpJobChecks(j.id),done=cs.filter(x=>x.done).length,p=gpProject(j.project_id);return `<div class="gp-job" onclick="openGraphicJob('${j.id}')"><div class="gp-meta"><span class="tag">G-${j.job_no}</span>${j.priority!=='mid'?`<span class="tag" style="color:${j.priority==='urgent'?'var(--red)':'var(--amber)'}">${GP_PRIO[j.priority]}</span>`:''}${j.source==='Trello'?'<span class="tag">Trello</span>':''}</div><h4>${esc(j.title)}</h4><div class="gp-meta"><span>${esc(p.name||'ไม่ระบุโปรเจกต์')}</span>${j.assignee_name?`<span>· ${esc(j.assignee_name)}</span>`:''}</div><div class="gp-meta" style="margin-top:6px"><span class="${gpLate(j)?'gp-due-late':''}">${gpLate(j)?'⚠ เกินกำหนด':'กำหนด'} ${gpDate(j.due_at)}</span>${j.revision_count?`<span>· แก้ ${j.revision_count} รอบ</span>`:''}</div>${cs.length?`<div class="gp-progress"><i style="width:${Math.round(done/cs.length*100)}%"></i></div><div class="gp-meta" style="margin-top:4px">Checklist ${done}/${cs.length}</div>`:''}</div>`;}
-function gpTab(tab){GF.tab=tab;RENDER.graphic();}
-function gpSet(k,v){GF[k]=v;RENDER.graphic();}
+function gpTab(tab){GF.tab=tab;GP_VISIBLE_LIMITS={};RENDER.graphic();}
+function gpSet(k,v){GF[k]=v;GP_VISIBLE_LIMITS={};RENDER.graphic();}
+function gpShowMore(status){GP_VISIBLE_LIMITS[status]=(GP_VISIBLE_LIMITS[status]||GP_COLUMN_PAGE_SIZE)+GP_COLUMN_PAGE_SIZE;renderGraphicBoard();}
 
 RENDER.graphic=function(){
   if(!GRAPHIC_READY){main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h"><div><h1>Graphic Production</h1><p>กำลังโหลดงานจากฐานข้อมูล…</p></div></div>`;loadGraphic();return;}
   const all=GRAPHIC_JOBS,active=all.filter(x=>!['done'].includes(x.status)),review=all.filter(x=>x.status==='review'),late=all.filter(gpLate),monthDone=all.filter(x=>x.status==='done'&&x.completed_at&&new Date(x.completed_at).getMonth()===new Date().getMonth()),revs=all.reduce((s,x)=>s+x.revision_count,0);
   const tabs=[['dashboard','ภาพรวม'],['board','Kanban'],['monthly','งานรายเดือน'],['projects','โปรเจกต์ / Trello']];
-  main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h"><div><h1>Graphic Production</h1><p>รับบรีฟ · ผลิต · ตรวจงาน · แก้ไข · ส่งมอบ</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" onclick="openTrelloImport()">${sic('i-export')} นำเข้า Trello</button><button class="tbtn primary" onclick="openGraphicBrief()">+ รับบรีฟใหม่</button></div></div><div class="gp-tabs">${tabs.map(x=>`<button class="${GF.tab===x[0]?'active':''}" onclick="gpTab('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="gp-kpis"><div class="gp-kpi"><span>งานที่กำลังเดิน</span><b>${active.length}</b></div><div class="gp-kpi"><span>รอตรวจ</span><b>${review.length}</b></div><div class="gp-kpi"><span>เกินกำหนด</span><b style="color:${late.length?'var(--red)':'inherit'}">${late.length}</b></div><div class="gp-kpi"><span>เสร็จเดือนนี้</span><b>${monthDone.length}</b></div><div class="gp-kpi"><span>รอบแก้สะสม</span><b>${revs}</b></div></div><div id="gpBody"></div>`;
+  main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h"><div><h1>Graphic Production</h1><p>รับบรีฟ · ผลิต · ตรวจงาน · แก้ไข · ส่งมอบ</p>${sourceBadge('imported','TRELLO SNAPSHOT → SUPABASE',`${nf(all.length)} งาน · หน้าเว็บอัปเดตเมื่อฐานเปลี่ยน แต่ Trello ยังนำเข้าเป็นรอบ`)}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" onclick="openTrelloImport()">${sic('i-export')} นำเข้า Trello</button><button class="tbtn primary" onclick="openGraphicBrief()">+ รับบรีฟใหม่</button></div></div><div class="gp-tabs">${tabs.map(x=>`<button class="${GF.tab===x[0]?'active':''}" onclick="gpTab('${x[0]}')">${x[1]}</button>`).join('')}</div><div class="gp-kpis"><div class="gp-kpi"><span>งานที่กำลังเดิน</span><b>${active.length}</b></div><div class="gp-kpi"><span>รอตรวจ</span><b>${review.length}</b></div><div class="gp-kpi"><span>เกินกำหนด</span><b style="color:${late.length?'var(--red)':'inherit'}">${late.length}</b></div><div class="gp-kpi"><span>เสร็จเดือนนี้</span><b>${monthDone.length}</b></div><div class="gp-kpi"><span>รอบแก้สะสม</span><b>${revs}</b></div></div><div id="gpBody"></div>`;
   if(GF.tab==='dashboard')renderGraphicDashboard();else if(GF.tab==='monthly')renderGraphicMonthly();else if(GF.tab==='projects')renderGraphicProjects();else renderGraphicBoard();
 };
 function gpToolbar(){return `<div class="gp-toolbar"><div class="field grow"><label>ค้นหา</label><input class="fin" value="${esc(GF.q)}" placeholder="ชื่องาน / บรีฟ / ผู้รับผิดชอบ" oninput="GF.q=this.value;clearTimeout(window._gpt);window._gpt=setTimeout(()=>renderGraphicBoard(),200)"></div><div class="field"><label>โปรเจกต์</label><select class="fin" onchange="gpSet('project',this.value)"><option value="">ทุกโปรเจกต์</option>${GRAPHIC_PROJECTS.filter(x=>x.active).map(p=>`<option value="${p.id}" ${GF.project===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>สถานะ</label><select class="fin" onchange="gpSet('status',this.value)"><option value="">ทุกสถานะ</option>${Object.entries(GP_STATUS).map(([k,v])=>`<option value="${k}" ${GF.status===k?'selected':''}>${v.t}</option>`).join('')}</select></div></div>`;}
-function renderGraphicBoard(){const box=document.getElementById('gpBody');if(!box)return;const list=gpVisible();box.innerHTML=gpToolbar()+`<div class="gp-board">${Object.entries(GP_STATUS).map(([s,m])=>{const rows=list.filter(x=>x.status===s);return `<section class="gp-col"><div class="gp-col-h"><span><i style="background:${m.c}"></i>${m.t}</span><span class="gp-count">${rows.length}</span></div>${rows.map(gpJobCard).join('')||'<div class="gp-empty">ไม่มีงาน</div>'}</section>`;}).join('')}</div>`;}
+function renderGraphicBoard(){const box=document.getElementById('gpBody');if(!box)return;const list=gpVisible();box.innerHTML=gpToolbar()+`<div class="gp-board">${Object.entries(GP_STATUS).map(([s,m])=>{const rows=list.filter(x=>x.status===s),limit=GP_VISIBLE_LIMITS[s]||GP_COLUMN_PAGE_SIZE,shown=rows.slice(0,limit);return `<section class="gp-col"><div class="gp-col-h"><span><i style="background:${m.c}"></i>${m.t}</span><span class="gp-count">${rows.length}</span></div>${shown.map(gpJobCard).join('')||'<div class="gp-empty">ไม่มีงาน</div>'}${rows.length>shown.length?`<button class="gp-more" onclick="gpShowMore('${s}')">แสดงเพิ่ม ${Math.min(GP_COLUMN_PAGE_SIZE,rows.length-shown.length)} · เหลือ ${rows.length-shown.length}</button>`:''}</section>`;}).join('')}</div><div class="source-note" style="margin-top:8px">Kanban แสดงครั้งละ ${GP_COLUMN_PAGE_SIZE} งานต่อสถานะ เพื่อลดภาระเครื่อง · ใช้ตัวกรองก่อนเมื่อต้องค้นหางานจำนวนมาก</div>`;}
 function renderGraphicDashboard(){const box=document.getElementById('gpBody');if(!box)return;const active=GRAPHIC_JOBS.filter(x=>x.status!=='done'),byProject=GRAPHIC_PROJECTS.map(p=>({p,n:active.filter(x=>x.project_id===p.id).length})).filter(x=>x.n).sort((a,b)=>b.n-a.n),byPerson=[...new Set(active.map(x=>x.assignee_name||'ยังไม่มอบหมาย'))].map(n=>({n,v:active.filter(x=>(x.assignee_name||'ยังไม่มอบหมาย')===n).length})).sort((a,b)=>b.v-a.v);box.innerHTML=`<div class="two"><div class="card pad"><h3>งานค้างตามโปรเจกต์</h3>${byProject.length?hbars(byProject.slice(0,10).map(x=>({label:x.p.name,v:x.n}))):'<div class="gp-empty">ไม่มีงานค้าง</div>'}</div><div class="card pad"><h3>Workload ทีมกราฟิก</h3>${byPerson.length?hbars(byPerson.slice(0,10).map(x=>({label:x.n,v:x.v}))):'<div class="gp-empty">ยังไม่มีการมอบหมาย</div>'}</div></div><div class="card pad" style="margin-top:12px"><h3>งานที่ต้องจัดการทันที</h3><div class="gp-projects" style="margin-top:10px">${GRAPHIC_JOBS.filter(x=>gpLate(x)||x.status==='review'||x.status==='revision').sort((a,b)=>gpLate(b)-gpLate(a)).slice(0,12).map(gpJobCard).join('')||'<div class="gp-empty">ไม่มีงานเร่งด่วน</div>'}</div></div>`;}
 function renderGraphicMonthly(){const box=document.getElementById('gpBody');if(!box)return;const rows=GRAPHIC_JOBS.filter(x=>x.status==='monthly'||x.work_type==='monthly');box.innerHTML=`<div class="ai-note"><b>งานรายเดือน:</b> แตกเป้าหมายด้วย Checklist และใช้วันกำหนดจริง เพื่อให้ Dashboard เตือนได้</div><div class="gp-projects" style="margin-top:12px">${rows.map(gpJobCard).join('')||'<div class="gp-empty">ยังไม่มีงานรายเดือน</div>'}</div>`;}
 function renderGraphicProjects(){const box=document.getElementById('gpBody');if(!box)return;box.innerHTML=`<div class="gp-import"><b>โปรเจกต์จาก Trello ถูกลงทะเบียนแล้ว</b><div class="muted" style="font-size:11.5px;margin-top:4px">กด “นำเข้า Trello” แล้วเลือก JSON Export ของบอร์ด · นำเข้าซ้ำได้ ระบบจะอัปเดตใบเดิม</div></div><div class="gp-projects">${GRAPHIC_PROJECTS.map(p=>{const rows=GRAPHIC_JOBS.filter(x=>x.project_id===p.id);return `<div class="gp-project"><div class="gp-meta"><span class="tag">${esc(p.workstream.toUpperCase())}</span><span>${rows.length} งาน</span></div><h3>${esc(p.name)}</h3><div class="muted" style="font-size:11px">ค้าง ${rows.filter(x=>x.status!=='done').length} · เสร็จ ${rows.filter(x=>x.status==='done').length}</div>${p.trello_url?`<a class="tbtn sm" style="display:inline-flex;margin-top:10px" href="${esc(p.trello_url)}" target="_blank" rel="noopener">Trello ↗</a>`:''}</div>`;}).join('')}</div>`;}
@@ -1387,7 +1409,7 @@ function execDash(){
   const doneT=all.filter(t=>t.status==='done');const ontimeRate=doneT.length?Math.round(doneT.filter(t=>t.ontime).length/doneT.length*100):0;
   main.innerHTML=`
   ${crumb('หน้าแรก','ภาพรวมองค์กร')}
-  <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p></div>
+  <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p>${taskSourceBadge()}</div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานสรุป</button><button class="tbtn primary" onclick="go('talk')">🤖 ถามข้อมูล</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall}<span style="font-size:14px">/100</span></div><div class="sub">▲ +4 จากสัปดาห์ก่อน</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
@@ -1436,7 +1458,7 @@ function leadDash(){
   const byAssignee=[...new Set(dt.map(t=>t.assignee))].map(a=>({label:shortName(a),v:dt.filter(t=>t.assignee===a).length,dot:u(a).c,click:`goBoardFiltered({assignee:'${a}'})`}));
   main.innerHTML=`
   ${crumb('หน้าแรก','แดชบอร์ดหัวหน้า',unit)}
-  <div class="page-h"><div><h1>แดชบอร์ดหัวหน้า</h1><p>${unit} · ภาพรวมงานทีม · อนุมัติ · KPI</p></div>
+  <div class="page-h"><div><h1>แดชบอร์ดหัวหน้า</h1><p>${unit} · ภาพรวมงานทีม · อนุมัติ · KPI</p>${taskSourceBadge()}</div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานทีม</button><button class="tbtn primary" onclick="openCompose()">${sic('i-sparkle')} สั่งงานใหม่</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI แผนก</div><div class="val">${s}/100</div><div class="sub">เกณฑ์: ${scoreLabel(s)}</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
@@ -1470,7 +1492,7 @@ RENDER.board=function(deptFilter){
   const base=visibleTasks(),list=applyFilters(base);
   main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',deptFilter?deptName(deptFilter):'ทุกแผนก')}
   <div class="page-h"><div><h1>บอร์ดงาน ${deptFilter?'— '+deptName(deptFilter):''}</h1>
-    <p>มุมมองตารางสไตล์ Monday · กรอง จัดกลุ่ม เรียงลำดับ · คลิกงานเพื่อดูรายละเอียด</p></div>
+    <p>มุมมองตารางสไตล์ Monday · กรอง จัดกลุ่ม เรียงลำดับ · คลิกงานเพื่อดูรายละเอียด</p>${taskSourceBadge()}</div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">${sic('i-calendar')} ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
   ${filterBar(!!deptFilter)}${activeFilterChips()}
   <div class="resultline">แสดง ${list.length} จาก ${base.length} งาน · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
@@ -1530,7 +1552,7 @@ RENDER.timeline=function(){
 RENDER.kpi=function(){
   const codes=Object.keys(KPI).filter(c=>canViewDept(c));
   main.innerHTML=`${crumb('หน้าแรก','KPI แดชบอร์ด')}
-  <div class="page-h"><div><h1>KPI แดชบอร์ด</h1><p>ตัวชี้วัดจริงรายทีม · เทียบ Target · คะแนนถ่วงน้ำหนักเต็ม 100 · เกณฑ์ 5 ระดับ · <b style="color:var(--accent)">กรอก Actual รายเดือนในการ์ดแต่ละทีมได้เลย</b></p></div></div>
+  <div class="page-h"><div><h1>KPI แดชบอร์ด</h1><p>ตัวชี้วัดจริงรายทีม · เทียบ Target · คะแนนถ่วงน้ำหนักเต็ม 100 · เกณฑ์ 5 ระดับ · <b style="color:var(--accent)">กรอก Actual รายเดือนในการ์ดแต่ละทีมได้เลย</b></p>${sourceBadge(CLOUD?'imported':'demo',CLOUD?'SUPABASE KPI':'OFFLINE DEMO',CLOUD?'อ่าน/บันทึกผ่านฐานกลาง · ค่า Actual ต้องอัปเดตตามรอบ':'ใช้ข้อมูลตัวอย่างในเบราว์เซอร์')}</div></div>
   <div class="card pad" style="margin-bottom:14px;padding-top:10px;padding-bottom:10px">${kpiLegend().replace('margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2)','')}</div>
   <div class="stats" style="margin-bottom:14px">
     ${codes.slice(0,4).map(c=>{const s=deptScore(c);return `<div class="stat"><div class="lbl">${deptName(c)}</div><div class="val" style="color:${scoreColor(s)}">${s}<span style="font-size:14px;color:var(--muted)">/100</span></div><div style="font-size:11px;color:${scoreColor(s)};margin-top:1px">${scoreLabel(s)}</div><div class="bar" style="margin-top:8px"><i style="width:${s}%;background:${scoreColor(s)}"></i></div></div>`;}).join('')}
@@ -1572,13 +1594,13 @@ RENDER.reports=function(){
   const pname={today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',quarter:'ไตรมาสนี้'}[REP_PERIOD];
   const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
   main.innerHTML=`${crumb('หน้าแรก','รายงานสรุป')}
-  <div class="page-h"><div><h1>รายงานสรุป${isExec?'ผู้บริหาร':'ทีม'}</h1><p>สรุปผลการดำเนินงานเชิงตัวเลข · ${unit} · ${pname}</p></div></div>
+  <div class="page-h"><div><h1>รายงานสรุป${isExec?'ผู้บริหาร':'ทีม'}</h1><p>สรุปผลการดำเนินงานเชิงตัวเลข · ${unit} · ${pname}</p>${taskSourceBadge()}</div></div>
   <div class="rep-head">
     <div class="seg">${['today','week','month','quarter'].map(p=>`<button class="${REP_PERIOD===p?'active':''}" onclick="REP_PERIOD='${p}';RENDER.reports()">${{today:'วันนี้',week:'สัปดาห์',month:'เดือน',quarter:'ไตรมาส'}[p]}</button>`).join('')}</div>
     <div style="display:flex;gap:8px">
       <button class="tbtn sm" onclick="printReport()">${sic('i-doc')} PDF</button>
       <button class="tbtn sm" onclick="exportReportExcel()">${sic('i-grid')} Excel</button>
-      <button class="tbtn sm primary" onclick="sendAuto()">${sic('i-send')} ส่งอัตโนมัติ</button></div>
+      <button class="tbtn sm" onclick="sendAuto()">${sic('i-send')} ตั้งค่าการส่ง</button></div>
   </div>
   <div class="filterbar" style="margin-bottom:14px">
     <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="REP_GROUP=this.value;REP_DEPT='';RENDER.reports()">${opt(REP_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(REP_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
@@ -1665,9 +1687,10 @@ RENDER.monthly=function(){
   const d=monthlyData();const score=d.score;const gyr=score>=90?{t:'Green',c:'var(--green)'}:score>=75?{t:'Yellow',c:'var(--amber)'}:{t:'Red',c:'var(--red)'};
   const ta=(k,def,rows)=>`<textarea class="fin" rows="${rows||2}" onchange="setEdit('${k}',this.value)" style="margin-top:2px">${getEdit(k,def)}</textarea>`;
   main.innerHTML=`${crumb('หน้าแรก','รายงานประจำเดือน')}
+  <div class="page-h"><div><h1>รายงานประจำเดือน</h1><p>สรุปผลการดำเนินงานสำหรับ Monthly Performance Review</p>${taskSourceBadge()}</div></div>
   <div class="rep-head">
     <div><b style="font-size:14px">แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน</b><div class="muted" style="font-size:11.5px">🔄 ดึงข้อมูลอัตโนมัติ · แก้ไขข้อความได้ · ${d.unit} · ${d.monthLabel}</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn sm" onclick="printReport()">${sic('i-doc')} PDF</button><button class="tbtn sm" onclick="exportMonthlyWord()">${sic('i-doc')} Word</button><button class="tbtn sm" onclick="exportMonthlyExcel()">${sic('i-grid')} Excel</button><button class="tbtn sm primary" onclick="toast('สาธิต: ส่งรายงานเข้าที่ประชุม/อีเมลอัตโนมัติ')">✉️ ส่งเข้าประชุม</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn sm" onclick="printReport()">${sic('i-doc')} PDF</button><button class="tbtn sm" onclick="exportMonthlyWord()">${sic('i-doc')} Word</button><button class="tbtn sm" onclick="exportMonthlyExcel()">${sic('i-grid')} Excel</button><button class="tbtn sm" onclick="openAutomationInfo('meeting')">✉️ ตั้งค่าการส่งเข้าประชุม</button></div>
   </div>
   ${repFilterBar()}
   <div class="rpt">
@@ -1985,12 +2008,12 @@ function probAnswer(q){
 }
 function talkContextQuestions(){const common=['สรุปข้อมูลสำคัญของหน้านี้','มีอะไรต้องติดตามเร่งด่วน'];if(VIEW==='problems')return ['สาเหตุปัญหาหลักคืออะไร','แนวทางแก้ที่ใช้บ่อย','กลุ่มไหนพร้อมทำ SOP'];if(VIEW==='kpi')return ['KPI แผนกไหนต่ำกว่าเป้า','สรุป KPI เดือนนี้'];if(VIEW==='board'||VIEW==='myTasks')return ['งานติดปัญหาตอนนี้มีอะไรบ้าง','งานใกล้เกินกำหนดมีอะไรบ้าง'];return common;}
 function openTalkPopup(prefill){
-  const qs=talkContextQuestions();showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามได้จากทุกหน้า · คำตอบจำกัดตามสิทธิ์ของคุณ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill||'')}" placeholder="พิมพ์คำถาม..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('talkPopInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
+  const qs=talkContextQuestions();showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามได้จากทุกหน้า · คำตอบจำกัดตามสิทธิ์ของคุณ</div>${sourceBadge('rule','RULE-BASED','รองรับคำถามหลัก ยังไม่ใช่ NLP/LLM เต็มรูปแบบ')}</div><button class="x" onclick="closeModal()">×</button></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill||'')}" placeholder="พิมพ์คำถาม..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('talkPopInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
   if(prefill)setTimeout(()=>ask(prefill,'talkPopBody','talkPopInput'),80);
 }
 RENDER.talk=function(){
   main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}
-  <div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p></div></div>
+  <div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p>${sourceBadge('rule','RULE-BASED','รองรับคำถามหลักและจำกัดข้อมูลตามสิทธิ์ · ยังไม่ใช่ NLP เต็มรูปแบบ')}</div></div>
   <div class="card pad chat">
     <div class="chat-body" id="chatBody">
       <div class="msg a">สวัสดีค่ะ 👋 ถามข้อมูลงาน/KPI/ลูกค้าได้เลย ระบบจะดึงเฉพาะจากฐานข้อมูลภายในของเรา<br>
@@ -2015,7 +2038,8 @@ function ask(q,bodyId='chatBody',inputId='chatInput'){
     ans=`<b>งานที่ต้องจับตา (ติดปัญหา/รอตรวจ) มี ${b.length} งาน</b><span class="q">SELECT * FROM tasks WHERE status IN ('block','review')</span>
       ${b.map(t=>`• <b>${t.id}</b> ${esc(t.title)} — ${STATUS[t.status].t} (${deptName(t.dept)})`).join('<br>')}`;
   }else if(/ตรงเวลา|กราฟิก|graphic/.test(q)){
-    ans=canViewDept('GRAPHIC')?`แผนกกราฟิกส่งงานตรงเวลา <b style="color:var(--amber)">84%</b> (เป้า ≥90%) ต่ำกว่าเป้าเล็กน้อย<span class="q">SELECT on_time_rate FROM kpi WHERE dept='GRAPHIC'</span>สาเหตุหลักจากงานเร่งแทรกและแก้หลายรอบ — มีวิธีลดใน KB-05`:`คุณไม่มีสิทธิ์ดูข้อมูลแผนกกราฟิก`;
+    const completed=GRAPHIC_JOBS.filter(j=>j.status==='done'&&j.completed_at&&j.due_at),onTime=completed.filter(j=>new Date(j.completed_at)<=new Date(j.due_at)).length,rate=completed.length?Math.round(onTime/completed.length*100):deptScore('GRAPHIC');
+    ans=canViewDept('GRAPHIC')?`แผนกกราฟิกส่งงานตรงเวลา <b style="color:${rate>=90?'var(--green)':'var(--amber)'}">${rate}%</b>${completed.length?` จากงานที่มีวันเสร็จและกำหนดส่ง ${completed.length} งาน`:' (อ้างอิง KPI เพราะข้อมูลวันเสร็จยังไม่ครบ)'}<span class="q">แหล่งข้อมูล: graphic_jobs / KPI · จำกัดตามสิทธิ์</span>`:`คุณไม่มีสิทธิ์ดูข้อมูลแผนกกราฟิก`;
   }else{const vt=visibleTasks(),vk=KB.filter(k=>canViewDept(k.dept));ans=`พบข้อมูลที่คุณมีสิทธิ์ดู ${vt.length} งาน และ ${vk.length} บทความความรู้<span class="q">SELECT ... FROM internal_db /* จำกัดตามสิทธิ์ผู้ใช้ */</span>ลองถามเจาะจงด้วยชื่อแผนกที่คุณดูแล`;}
   setTimeout(()=>{body.insertAdjacentHTML('beforeend',`<div class="msg a">${ans}</div>`);body.scrollTop=body.scrollHeight;},250);
   body.scrollTop=body.scrollHeight;
