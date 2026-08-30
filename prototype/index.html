@@ -229,6 +229,7 @@ tfoot td{padding:9px 12px;font-size:11.5px;font-weight:500;background:var(--blue
 .msg.u{background:var(--primary);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
 .msg.a{background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:4px}
 .msg.a .q{font-family:monospace;font-size:11px;background:var(--blue-50);padding:6px 9px;border-radius:8px;color:var(--blue-800);margin:6px 0;display:block}
+.ai-answer{display:grid;gap:9px}.ai-answer .ai-main{white-space:pre-line}.ai-answer h4{font-size:12px;margin:2px 0;color:var(--blue-800)}.ai-answer ul{margin:0;padding-left:19px}.ai-answer li{margin:3px 0}.ai-answer .ai-meta{display:flex;gap:5px;flex-wrap:wrap}.ai-answer .ai-meta .tag{font-size:9.5px}.ai-thinking{display:inline-flex;align-items:center;gap:7px;color:var(--muted)}.ai-thinking:before{content:'';width:8px;height:8px;border:2px solid var(--blue-400);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 .chip{display:inline-block;background:var(--blue-50);border:1px solid var(--line);color:var(--blue-700);padding:6px 11px;border-radius:20px;font-size:12px;margin:4px 6px 0 0;cursor:pointer}
 .chip:hover{background:var(--blue-100)}
 .chat-in{display:flex;gap:10px;margin-top:10px}
@@ -817,6 +818,7 @@ let F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'
 let PROBLEMS=[], ISSUES_READY=false, MANAGE_DEPTS=[];
 let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPHIC_PEOPLE=[],GRAPHIC_MEMBERS=[],GRAPHIC_JOB_MEMBERS=[],GRAPHIC_READY=false;
 let GF={tab:'board',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:''};
+let TALK_HISTORY=[];
 const GP_COLUMN_PAGE_SIZE=30;
 let GP_VISIBLE_LIMITS={};
 let PF={project:'',cat:'',prio:'',status:'',q:''};
@@ -2039,9 +2041,39 @@ async function submitSopDraft(issueId,cause,review){
   try{const r=await SB.rpc('save_issue_sop_draft',{target_issue:issueId,draft_payload:d,submit_review:review});if(r.error)throw r.error;const saved=(r.data&&r.data.payload)||d,idx=SOPS.findIndex(s=>s.id===saved.id);if(idx>=0)SOPS[idx]=saved;else SOPS.unshift(saved);closeModal();RENDER.problems();toast(review?'สร้างร่างและส่งตรวจแล้ว':'บันทึกร่าง SOP แล้ว');}
   catch(e){buttons.forEach(b=>b.disabled=false);toast('บันทึกร่างไม่สำเร็จ · '+(e.message||'ตรวจ Migration 006'),'info');}
 }
+function probQuestionScope(q){
+  const s=q.toLowerCase();let list=PROBLEMS.slice(),filters=[];
+  const project=[...new Set(PROBLEMS.map(p=>p.project).filter(Boolean))].sort((a,b)=>b.length-a.length).find(v=>s.includes(v.toLowerCase()));
+  const category=[...new Set(PROBLEMS.map(p=>p.cat).filter(Boolean))].sort((a,b)=>b.length-a.length).find(v=>s.includes(v.toLowerCase()));
+  if(project){list=list.filter(p=>p.project===project);filters.push('โปรเจกต์ '+project);}
+  if(category){list=list.filter(p=>p.cat===category);filters.push('หมวด '+category);}
+  else if(/payment|ฝาก|ถอน|ธุรกรรม/.test(s)){list=list.filter(p=>p.cat==='Payment'||/ฝาก|ถอน|ธุรกรรม/.test((p.problem||'').toLowerCase()));filters.push('ธุรกรรม/Payment');}
+  if(/แก้แล้ว|resolved|ปิดเคส|สำเร็จ/.test(s)){list=list.filter(p=>p.status==='Resolved');filters.push('แก้แล้ว');}
+  else if(/กำลังแก้|in progress/.test(s)){list=list.filter(p=>p.status==='In Progress');filters.push('กำลังแก้');}
+  else if(/ยังไม่แก้|ค้าง|open|ยังไม่ปิด/.test(s)){list=list.filter(p=>p.status!=='Resolved');filters.push('ยังไม่แก้');}
+  if(/วิกฤต|critical/.test(s)){list=list.filter(p=>p.prio==='Critical');filters.push('วิกฤต');}
+  else if(/ความสำคัญสูง|priority สูง|high/.test(s)){list=list.filter(p=>p.prio==='Critical'||p.prio==='High');filters.push('วิกฤต/สูง');}
+  return {s,list,filters};
+}
 function probAnswer(q){
-  let list=PROBLEMS.slice();const s=q.toLowerCase(),proj=[...new Set(PROBLEMS.map(p=>p.project))].find(v=>s.includes(v.toLowerCase()));if(proj)list=list.filter(p=>p.project===proj);if(/ยังไม่แก้|ค้าง|open/.test(s))list=list.filter(p=>p.status!=='Resolved');if(/payment|ฝาก|ถอน/.test(s))list=list.filter(p=>p.cat==='Payment');
-  const open=list.filter(p=>p.status!=='Resolved').length,byCause=probGroup(list,probCause).slice(0,5),byApproach=probGroup(list,probApproach).slice(0,4);return `<b>สรุปปัญหาหน้างาน: ${list.length} เคส</b> · ยังไม่แก้ ${open} · แก้แล้ว ${list.length-open}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>สาเหตุหลัก</th><th>เคส</th></tr>${byCause.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.length}</td></tr>`).join('')}</table><div style="margin-top:8px"><b>แนวทางแก้ที่ใช้:</b> ${byApproach.map(([k,v])=>esc(k)+' '+v.length+' เคส').join(' · ')||'ยังไม่มีข้อมูล'}</div>`;
+  const scope=probQuestionScope(q),s=scope.s,list=scope.list,filterText=scope.filters.length?` <span class="tag">${esc(scope.filters.join(' · '))}</span>`:'';
+  const open=list.filter(p=>p.status!=='Resolved').length,resolved=list.length-open,noSolution=list.filter(p=>!String(p.solution||'').trim()).length;
+  const byCause=probGroup(list,probCause),byApproach=probGroup(list,probApproach),pct=n=>list.length?Math.round(n/list.length*100):0;
+  if(/สาเหตุ|root cause|เกิดจากอะไร|เพราะอะไร/.test(s)){
+    const rows=byCause.slice(0,8);return `<b>สาเหตุหลักจาก ${nf(list.length)} เคส</b>${filterText}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>สาเหตุ</th><th>เคส</th><th>สัดส่วน</th><th>ยังไม่แก้</th></tr>${rows.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${nf(v.length)}</td><td>${pct(v.length)}%</td><td>${nf(v.filter(p=>p.status!=='Resolved').length)}</td></tr>`).join('')||'<tr><td colspan="4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>'}</table>${rows.length?`<div style="margin-top:8px"><b>อันดับ 1:</b> ${esc(rows[0][0])} ${nf(rows[0][1].length)} เคส (${pct(rows[0][1].length)}%)</div>`:''}`;
+  }
+  if(!/ยังไม่มีแนวทาง|ไม่มีวิธีแก้|ขาดวิธีแก้/.test(s)&&/แนวทางแก้|วิธีแก้|แก้อย่างไร|solution|ดำเนินการอย่างไร/.test(s)){
+    return `<b>แนวทางแก้ที่ใช้กับ ${nf(list.length)} เคส</b>${filterText}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>แนวทาง</th><th>เคส</th><th>แก้แล้ว</th></tr>${byApproach.slice(0,8).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${nf(v.length)}</td><td>${nf(v.filter(p=>p.status==='Resolved').length)}</td></tr>`).join('')||'<tr><td colspan="3">ไม่พบข้อมูลตามเงื่อนไข</td></tr>'}</table><div style="margin-top:8px"><b>ความครบถ้วน:</b> มีบันทึกวิธีแก้ ${nf(list.length-noSolution)} เคส · ยังไม่มีวิธีแก้ ${nf(noSolution)} เคส</div>`;
+  }
+  if(/sop|คู่มือ|พร้อมทำ|ทำคู่มือ/.test(s)){
+    const existing=new Set(SOPS.filter(x=>x.sourceCause).map(x=>x.sourceCause)),ready=byCause.filter(([,rows])=>rows.length>=2&&rows.some(p=>String(p.solution||'').trim())).slice(0,8);
+    return `<b>กลุ่มที่พร้อมจัดทำ SOP ${nf(ready.length)} กลุ่ม</b>${filterText}<div class="muted" style="margin-top:4px">เงื่อนไข: เกิดซ้ำอย่างน้อย 2 เคส และมีวิธีแก้อย่างน้อย 1 เคส</div><table class="datatable" style="width:100%;margin-top:8px"><tr><th>กลุ่มสาเหตุ</th><th>เคส</th><th>มีวิธีแก้</th><th>สถานะคู่มือ</th></tr>${ready.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${nf(v.length)}</td><td>${nf(v.filter(p=>String(p.solution||'').trim()).length)}</td><td>${existing.has(k)?'มีร่างแล้ว':'พร้อมสร้างร่าง'}</td></tr>`).join('')||'<tr><td colspan="4">ยังไม่มีกลุ่มที่ผ่านเงื่อนไข</td></tr>'}</table>`;
+  }
+  if(/ยังไม่มีแนวทาง|ไม่มีวิธีแก้|ขาดวิธีแก้/.test(s)){
+    const rows=list.filter(p=>!String(p.solution||'').trim()).slice(0,10);return `<b>เคสที่ยังไม่มีวิธีแก้ ${nf(noSolution)} เคส</b>${filterText}<div style="margin-top:8px">${rows.map(p=>`• <b>${esc(p.id)}</b> ${esc(p.project)} — ${esc((p.problem||'').slice(0,100))}`).join('<br>')||'ไม่พบเคสที่ขาดวิธีแก้'}</div>`;
+  }
+  const byStatus=Object.keys(PROB_ST).map(k=>[PROB_ST[k].t,list.filter(p=>p.status===k).length]),high=list.filter(p=>p.prio==='Critical'||p.prio==='High').length;
+  return `<b>สรุปปัญหาหน้างาน ${nf(list.length)} เคส</b>${filterText} · ยังไม่แก้ ${nf(open)} · แก้แล้ว ${nf(resolved)}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>สถานะ</th><th>เคส</th></tr>${byStatus.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${nf(v)}</td></tr>`).join('')}</table><div style="margin-top:8px"><b>ต้องติดตาม:</b> ความสำคัญวิกฤต/สูง ${nf(high)} เคส · ยังไม่มีวิธีแก้ ${nf(noSolution)} เคส</div>`;
 }
 function talkContextQuestions(){const common=['สรุปข้อมูลสำคัญของหน้านี้','มีอะไรต้องติดตามเร่งด่วน'];if(VIEW==='problems')return ['สาเหตุปัญหาหลักคืออะไร','แนวทางแก้ที่ใช้บ่อย','กลุ่มไหนพร้อมทำ SOP'];if(VIEW==='kpi')return ['KPI แผนกไหนต่ำกว่าเป้า','สรุป KPI เดือนนี้'];if(VIEW==='board'||VIEW==='myTasks')return ['งานติดปัญหาตอนนี้มีอะไรบ้าง','งานใกล้เกินกำหนดมีอะไรบ้าง'];return common;}
 function talkProductionData(){
@@ -2066,44 +2098,64 @@ function talkUrgentSummary(){
   return `<b>รายการที่ต้องติดตามเร่งด่วน</b><div style="display:grid;gap:7px;margin-top:9px">${rows.join('')||'<div>ไม่มีรายการเร่งด่วนในขอบเขตสิทธิ์ของคุณ</div>'}</div><span class="q">คำนวณจากข้อมูล Production ปัจจุบัน · จำกัดด้วย Role/RLS</span>`;
 }
 function openTalkPopup(prefill){
-  const qs=talkContextQuestions();showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามได้จากทุกหน้า · คำตอบจำกัดตามสิทธิ์ของคุณ</div>${sourceBadge('rule','RULE-BASED','รองรับคำถามหลัก ยังไม่ใช่ NLP/LLM เต็มรูปแบบ')}</div><button class="x" onclick="closeModal()">×</button></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill||'')}" placeholder="พิมพ์คำถาม..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('talkPopInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
+  const qs=talkContextQuestions();showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามภาษาคนได้ · วิเคราะห์เฉพาะข้อมูลจริงตามสิทธิ์ของคุณ</div>${sourceBadge('live','AI + COMPANY DATA','เข้าใจคำถามต่อเนื่อง · แยกข้อเท็จจริงและข้อเสนอแนะ')}</div><div style="display:flex;gap:6px;align-items:center"><button class="tbtn sm" onclick="clearTalkHistory('talkPopBody')">ล้างบทสนทนา</button><button class="x" onclick="closeModal()">×</button></div></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill||'')}" placeholder="ถามข้อมูล วิเคราะห์สาเหตุ หรือขอข้อเสนอแนะ..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('talkPopInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
   if(prefill)setTimeout(()=>ask(prefill,'talkPopBody','talkPopInput'),80);
 }
 RENDER.talk=function(){
   main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}
-  <div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจากฐานข้อมูลภายในของเราเท่านั้น · ตอบเป็นภาษาไทยพร้อมกราฟ/ตาราง</p>${sourceBadge('rule','RULE-BASED','รองรับคำถามหลักและจำกัดข้อมูลตามสิทธิ์ · ยังไม่ใช่ NLP เต็มรูปแบบ')}</div></div>
+  <div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจริง วิเคราะห์สาเหตุ ความเสี่ยง และขอข้อเสนอแนะได้ด้วยภาษาธรรมชาติ</p>${sourceBadge('live','AI + COMPANY DATA','เข้าใจคำถามต่อเนื่อง · จำกัดข้อมูลด้วย Role/RLS')}</div><button class="tbtn" onclick="clearTalkHistory('chatBody')">ล้างบทสนทนา</button></div>
   <div class="card pad chat">
     <div class="chat-body" id="chatBody">
-      <div class="msg a">สวัสดีค่ะ 👋 ถามข้อมูลงาน/KPI/ลูกค้าได้เลย ระบบจะดึงเฉพาะจากฐานข้อมูลภายในของเรา<br>
-        <div style="margin-top:8px">${['เดือนนี้แต่ละแผนกทำ KPI ได้เท่าไหร่','งานติดปัญหาตอนนี้มีอะไรบ้าง','กราฟิกส่งงานตรงเวลากี่เปอร์เซ็นต์'].map(q=>`<span class="chip" onclick="ask('${q}')">${q}</span>`).join('')}</div></div>
+      <div class="msg a">สวัสดีค่ะ 👋 ฉันวิเคราะห์ข้อมูลจริงที่คุณมีสิทธิ์เห็น พร้อมบอกข้อจำกัดและเสนอสิ่งที่ควรทำต่อได้<br>
+        <div style="margin-top:8px">${['สรุปสิ่งที่ต้องตัดสินใจวันนี้','วิเคราะห์สาเหตุงานเกินกำหนดและเสนอแผนแก้','ใครมีภาระงานสูงและควรกระจายงานอย่างไร','ปัญหาใดควรทำ SOP ก่อน เพราะอะไร'].map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q)">${esc(q)}</span>`).join('')}</div></div>
     </div>
-    <div class="chat-in"><input id="chatInput" placeholder="พิมพ์คำถาม... หรือกดไมค์เพื่อพูด" onkeydown="if(event.key==='Enter')ask(this.value)"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('chatInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('chatInput').value)">ส่ง</button></div>
+    <div class="chat-in"><input id="chatInput" placeholder="ถามข้อมูล วิเคราะห์สาเหตุ หรือขอข้อเสนอแนะ..." onkeydown="if(event.key==='Enter')ask(this.value)"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('chatInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('chatInput').value)">ส่ง</button></div>
   </div>`;
 };
-function ask(q,bodyId='chatBody',inputId='chatInput'){
-  if(!q||!q.trim())return;
-  const body=document.getElementById(bodyId),inp=document.getElementById(inputId);if(!body)return;if(inp)inp.value='';
-  body.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
+function talkCurrentFilters(){if(VIEW==='graphic')return {...GF};if(VIEW==='problems')return {...PF};if(VIEW==='board'||VIEW==='myTasks')return {...F};return {};}
+function talkLines(title,rows){return Array.isArray(rows)&&rows.length?`<div><h4>${esc(title)}</h4><ul>${rows.map(row=>`<li>${esc(row)}</li>`).join('')}</ul></div>`:'';}
+function renderAiAnswer(payload){
+  const a=payload&&payload.answer?payload.answer:payload||{},follow=Array.isArray(a.follow_up_questions)?a.follow_up_questions:[],sources=Array.isArray(a.sources)?a.sources:[];
+  return `<div class="ai-answer"><div class="ai-main">${esc(a.answer||'ไม่พบคำตอบจาก AI')}</div>${talkLines('ข้อมูลเชิงลึก',a.insights)}${talkLines('ข้อเสนอแนะ',a.recommendations)}${talkLines('ข้อจำกัดของข้อมูล',a.caveats)}${sources.length?`<div class="ai-meta"><span class="tag">แหล่งข้อมูล</span>${sources.map(s=>`<span class="tag">${esc(s)}</span>`).join('')}</div>`:''}<div class="ai-meta"><span class="tag">ความมั่นใจ: ${esc(a.confidence||'ไม่ระบุ')}</span>${payload&&payload.model?`<span class="tag">${esc(payload.model)}</span>`:''}</div>${follow.length?`<div><h4>ถามต่อได้</h4>${follow.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,this.closest('.chat-body').id,this.closest('.chat').querySelector('input').id)">${esc(q)}</span>`).join('')}</div>`:''}</div>`;
+}
+function clearTalkHistory(bodyId){TALK_HISTORY=[];const body=document.getElementById(bodyId);if(body)body.innerHTML='<div class="msg a">ล้างบทสนทนาแล้ว — เริ่มถามเรื่องใหม่ได้เลย</div>';}
+function talkRuleAnswer(q){
   let ans='',question=q.toLowerCase();
   if(/สรุปข้อมูลสำคัญ|สรุป.*หน้านี้|ภาพรวมข้อมูล|ข้อมูลสำคัญ/.test(question)){
     ans=talkProductionSummary();
   }else if(/ติดตามเร่งด่วน|ต้องติดตาม|เร่งด่วน|ใกล้เกินกำหนด/.test(question)){
     ans=talkUrgentSummary();
-  }else if(canViewIssues()&&/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน|สาเหตุปัญหา|แนวทางแก้|ทำ sop|พร้อมทำ sop/.test(question)){
+  }else if(canViewIssues()&&(/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน|สาเหตุ|root cause|แนวทางแก้|วิธีแก้|ไม่มีวิธีแก้|เคส|ทำ sop|พร้อมทำ sop|ทำคู่มือ/.test(question)||(VIEW==='problems'&&/ค้าง|ยังไม่แก้|กำลังแก้|แก้แล้ว|วิกฤต|ความสำคัญสูง/.test(question)))){
     ans=probAnswer(q);
   }else if(/kpi|เท่าไหร่|แผนก/.test(q)){
     ans=`<b>คะแนน KPI รายแผนก (เดือนนี้)</b><span class="q">SELECT dept, AVG(score) FROM kpi_records WHERE month='${CURRENT_YEAR}-${_todayParts.month}' GROUP BY dept</span>
       <table class="datatable" style="width:100%"><tr><th>แผนก</th><th>คะแนน</th></tr>
       ${Object.keys(KPI).filter(c=>canViewDept(c)).map(c=>`<tr><td>${deptName(c)}</td><td style="color:${scoreColor(deptScore(c))}">${deptScore(c)}/100</td></tr>`).join('')}</table>`;
-  }else if(/ติดปัญหา|block|ค้าง/.test(q)){
-    const b=visibleTasks().filter(t=>t.status==='block'||t.status==='review');
-    ans=`<b>งานที่ต้องจับตา (ติดปัญหา/รอตรวจ) มี ${b.length} งาน</b><span class="q">SELECT * FROM tasks WHERE status IN ('block','review')</span>
-      ${b.map(t=>`• <b>${t.id}</b> ${esc(t.title)} — ${STATUS[t.status].t} (${deptName(t.dept)})`).join('<br>')}`;
+  }else if(/ติดปัญหา|block|งานค้าง/.test(question)){
+    const d=talkProductionData(),watch=d.active.filter(j=>j.status==='review'||j.status==='revision'||gpLate(j)).slice(0,10);
+    ans=canViewDept('GRAPHIC')?`<b>งานกราฟิกที่ต้องจับตา ${nf(watch.length)} จากทั้งหมด ${nf(d.active.length)} งานคงเหลือ</b><span class="q">แหล่งข้อมูล: graphic_jobs · รอตรวจ/กำลังแก้/เกินกำหนด</span>${watch.length?watch.map(j=>`• <b>G-${j.job_no}</b> ${esc(j.title)} — ${esc(GP_STATUS[j.status].t)}${gpLate(j)?' · เกินกำหนด':''}`).join('<br>'):'ไม่มีงานที่เข้าเงื่อนไขเร่งด่วน'}`:'คุณไม่มีสิทธิ์ดูข้อมูลแผนกกราฟิก';
   }else if(/ตรงเวลา|กราฟิก|graphic/.test(q)){
     const completed=GRAPHIC_JOBS.filter(j=>j.status==='done'&&j.completed_at&&j.due_at),onTime=completed.filter(j=>new Date(j.completed_at)<=new Date(j.due_at)).length,rate=completed.length?Math.round(onTime/completed.length*100):deptScore('GRAPHIC');
     ans=canViewDept('GRAPHIC')?`แผนกกราฟิกส่งงานตรงเวลา <b style="color:${rate>=90?'var(--green)':'var(--amber)'}">${rate}%</b>${completed.length?` จากงานที่มีวันเสร็จและกำหนดส่ง ${completed.length} งาน`:' (อ้างอิง KPI เพราะข้อมูลวันเสร็จยังไม่ครบ)'}<span class="q">แหล่งข้อมูล: graphic_jobs / KPI · จำกัดตามสิทธิ์</span>`:`คุณไม่มีสิทธิ์ดูข้อมูลแผนกกราฟิก`;
   }else{const d=talkProductionData(),vk=KB.filter(k=>canViewDept(k.dept));ans=`พบข้อมูลจริงที่คุณมีสิทธิ์ดู <b>${nf(d.graphic.length)} งานกราฟิก</b>${canViewIssues()?` · ${nf(d.issues.length)} ปัญหาหน้างาน`:''}${d.activities.length?` · ${nf(d.activities.length)} กิจกรรมพนักงาน`:''} · ${nf(vk.length)} บทความความรู้<span class="q">แหล่งข้อมูล: Supabase production tables · จำกัดด้วย Role/RLS</span>ลองถาม “สรุปข้อมูลสำคัญของหน้านี้” หรือ “มีอะไรต้องติดตามเร่งด่วน”`;}
-  setTimeout(()=>{body.insertAdjacentHTML('beforeend',`<div class="msg a">${ans}</div>`);body.scrollTop=body.scrollHeight;},250);
+  return ans;
+}
+async function ask(q,bodyId='chatBody',inputId='chatInput'){
+  q=String(q||'').trim();if(!q)return;
+  const body=document.getElementById(bodyId),inp=document.getElementById(inputId);if(!body)return;if(inp)inp.value='';
+  const loadingId='talkLoad_'+Date.now();body.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div><div class="msg a" id="${loadingId}"><span class="ai-thinking">กำลังอ่านและวิเคราะห์ข้อมูลตามสิทธิ์ของคุณ</span></div>`);body.scrollTop=body.scrollHeight;
+  const prior=TALK_HISTORY.slice(-8);TALK_HISTORY.push({role:'user',content:q});
+  try{
+    if(!SB||!SB.functions)throw new Error('ยังไม่ได้เชื่อมต่อ AI backend');
+    const result=await SB.functions.invoke('talk-to-data',{body:{question:q,view:VIEW,filters:talkCurrentFilters(),history:prior}});
+    if(result.error)throw result.error;if(!result.data||result.data.error)throw new Error((result.data&&result.data.error)||'AI ไม่ส่งคำตอบกลับมา');
+    const node=document.getElementById(loadingId);if(node)node.innerHTML=renderAiAnswer(result.data);
+    const a=result.data.answer||{},memory=[a.answer,...(a.insights||[]),...(a.recommendations||[])].filter(Boolean).join('\n').slice(0,1800);
+    TALK_HISTORY.push({role:'assistant',content:memory});TALK_HISTORY=TALK_HISTORY.slice(-16);
+  }catch(error){
+    const fallback=talkRuleAnswer(q),node=document.getElementById(loadingId);if(node)node.innerHTML=`${fallback}<span class="q">AI วิเคราะห์เชิงลึกยังไม่พร้อม จึงใช้คำตอบสำรองจากกฎข้อมูลจริง · ${esc(error&&error.message?error.message:'ลองใหม่อีกครั้ง')}</span>`;
+    TALK_HISTORY.push({role:'assistant',content:'ใช้คำตอบสำรองจากข้อมูลจริง เนื่องจาก AI backend ไม่พร้อม'});TALK_HISTORY=TALK_HISTORY.slice(-16);
+  }
   body.scrollTop=body.scrollHeight;
 }
 
