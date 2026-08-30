@@ -236,7 +236,6 @@ insert into public.graphic_projects(name,workstream,trello_board_id,trello_url) 
   ('(center) P','center','4AOOFsQ8','https://trello.com/b/4AOOFsQ8'),
   ('(center) S','center','QUcmFooZ','https://trello.com/b/QUcmFooZ'),
   ('(center) tangmo','center','CsxQxBKh','https://trello.com/b/CsxQxBKh'),
-  ('(center) ทดลอง','center','WpmJKvNo','https://trello.com/b/WpmJKvNo'),
   ('(center) JK','center','adzpIT5G','https://trello.com/b/adzpIT5G'),
   ('(RCA) JAMEMIE','rca','HOoRkBHO','https://trello.com/b/HOoRkBHO')
 on conflict(trello_board_id) do update set name=excluded.name,workstream=excluded.workstream,trello_url=excluded.trello_url;
