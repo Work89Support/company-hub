@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "jsr:@supabase/server@^1";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type Row = Record<string, unknown>;
 
@@ -70,13 +70,34 @@ async function safetyId(userId: string) {
 }
 
 export default {
-  fetch: withSupabase({ auth: "user" }, async (request, ctx) => {
+  fetch: async (request: Request) => {
     if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
     try {
       const apiKey = Deno.env.get("OPENAI_API_KEY");
       if (!apiKey) return json({ error: "AI backend ยังไม่ได้ตั้งค่า OPENAI_API_KEY" }, 503);
-      const actorId = String(ctx.userClaims?.sub || "");
-      if (!actorId) return json({ error: "กรุณาเข้าสู่ระบบใหม่" }, 401);
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      const authorization = request.headers.get("Authorization") || "";
+      const accessToken = authorization.replace(/^Bearer\s+/i, "").trim();
+      if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+        return json({ error: "AI backend ยังตั้งค่า Supabase ไม่ครบ" }, 503);
+      }
+      if (!accessToken) return json({ error: "กรุณาเข้าสู่ระบบใหม่" }, 401);
+
+      // Verify the access token with Supabase Auth instead of trusting decoded
+      // claims. This keeps the function protected while legacy JWT verification
+      // is disabled at the Edge gateway.
+      const authClient = createClient(supabaseUrl, anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: authData, error: authError } = await authClient.auth.getUser(accessToken);
+      const actorId = String(authData.user?.id || "");
+      if (authError || !actorId) return json({ error: "Session หมดอายุ กรุณาเข้าสู่ระบบใหม่" }, 401);
+
+      const admin = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
       const body = await request.json();
       const question = String(body.question || "").trim().slice(0, 2000);
       if (!question) return json({ error: "กรุณาระบุคำถาม" }, 400);
@@ -87,7 +108,6 @@ export default {
         content: String(item.content || "").slice(0, 1800),
       })) : [];
 
-      const admin = ctx.supabaseAdmin;
       const [{ data: profile, error: profileError }, { data: departments, error: departmentError }] = await Promise.all([
         admin.from("profiles").select("id,email,display_name,role,department_code,active").eq("id", actorId).single(),
         admin.from("departments").select("code,name").order("code"),
@@ -274,5 +294,5 @@ export default {
       console.error(error);
       return json({ error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" }, 400);
     }
-  }),
+  },
 };
