@@ -1,0 +1,17 @@
+name: Prototype regression checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  critical-modules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify critical modules and JavaScript
+        run: node scripts/check-prototype-regressions.mjs
