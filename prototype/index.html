@@ -2042,6 +2042,27 @@ function probAnswer(q){
   const open=list.filter(p=>p.status!=='Resolved').length,byCause=probGroup(list,probCause).slice(0,5),byApproach=probGroup(list,probApproach).slice(0,4);return `<b>สรุปปัญหาหน้างาน: ${list.length} เคส</b> · ยังไม่แก้ ${open} · แก้แล้ว ${list.length-open}<table class="datatable" style="width:100%;margin-top:8px"><tr><th>สาเหตุหลัก</th><th>เคส</th></tr>${byCause.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.length}</td></tr>`).join('')}</table><div style="margin-top:8px"><b>แนวทางแก้ที่ใช้:</b> ${byApproach.map(([k,v])=>esc(k)+' '+v.length+' เคส').join(' · ')||'ยังไม่มีข้อมูล'}</div>`;
 }
 function talkContextQuestions(){const common=['สรุปข้อมูลสำคัญของหน้านี้','มีอะไรต้องติดตามเร่งด่วน'];if(VIEW==='problems')return ['สาเหตุปัญหาหลักคืออะไร','แนวทางแก้ที่ใช้บ่อย','กลุ่มไหนพร้อมทำ SOP'];if(VIEW==='kpi')return ['KPI แผนกไหนต่ำกว่าเป้า','สรุป KPI เดือนนี้'];if(VIEW==='board'||VIEW==='myTasks')return ['งานติดปัญหาตอนนี้มีอะไรบ้าง','งานใกล้เกินกำหนดมีอะไรบ้าง'];return common;}
+function talkProductionData(){
+  const graphic=canViewDept('GRAPHIC')?(GRAPHIC_JOBS||[]):[],issues=canViewIssues()&&typeof PROBLEMS!=='undefined'?PROBLEMS:[],activities=typeof ACTIVITY_ROWS!=='undefined'?ACTIVITY_ROWS:[];
+  const active=graphic.filter(j=>j.status!=='done'),review=graphic.filter(j=>j.status==='review'||j.status==='revision'),overdue=active.filter(gpLate),done=graphic.filter(j=>j.status==='done');
+  const openIssues=issues.filter(i=>i.status!=='Resolved'),critical=openIssues.filter(i=>i.prio==='Critical'||i.prio==='High'),timeReview=activities.filter(r=>r.time_flag!=='ok');
+  return {graphic,active,review,overdue,done,issues,openIssues,critical,activities,timeReview};
+}
+function talkProductionSummary(){
+  const d=talkProductionData(),sections=[];
+  if(canViewDept('GRAPHIC'))sections.push(`<div><b>Graphic Production</b> ${nf(d.graphic.length)} งาน · คงเหลือ ${nf(d.active.length)} · รอตรวจ/แก้ไข ${nf(d.review.length)} · เกินกำหนด ${nf(d.overdue.length)} · เสร็จแล้ว ${nf(d.done.length)}</div>`);
+  if(canViewIssues())sections.push(`<div><b>ปัญหาหน้างาน</b> ${nf(d.issues.length)} เคส · คงค้าง ${nf(d.openIssues.length)} · ความสำคัญสูง ${nf(d.critical.length)}</div>`);
+  if(d.activities.length)sections.push(`<div><b>กิจกรรมพนักงาน</b> ${nf(d.activities.length)} รายการ · ต้องตรวจเวลา ${nf(d.timeReview.length)}</div>`);
+  return `<b>สรุปข้อมูลจริงของหน้า ${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b><div style="display:grid;gap:7px;margin-top:9px">${sections.join('')||'<div>ยังไม่พบข้อมูลที่อยู่ในสิทธิ์การมองเห็นของคุณ</div>'}</div><span class="q">แหล่งข้อมูล: Supabase production tables · จำกัดด้วย Role/RLS</span>`;
+}
+function talkUrgentSummary(){
+  const d=talkProductionData(),top=d.overdue.slice().sort((a,b)=>Date.parse(a.due_at||0)-Date.parse(b.due_at||0)).slice(0,5),rows=[];
+  if(canViewDept('GRAPHIC'))rows.push(`<div><b>งานกราฟิกเกินกำหนด ${nf(d.overdue.length)}</b>${top.length?`<br>${top.map(j=>`• G-${j.job_no} ${esc(j.title)}${j.assignee_name?` — ${esc(j.assignee_name)}`:''}`).join('<br>')}`:' · ไม่มีงานเกินกำหนด'}</div>`);
+  if(canViewDept('GRAPHIC'))rows.push(`<div><b>งานรอตรวจ/แก้ไข ${nf(d.review.length)}</b></div>`);
+  if(canViewIssues())rows.push(`<div><b>ปัญหาความสำคัญสูงที่ยังค้าง ${nf(d.critical.length)}</b></div>`);
+  if(d.activities.length)rows.push(`<div><b>กิจกรรมที่ต้องตรวจเวลา ${nf(d.timeReview.length)}</b></div>`);
+  return `<b>รายการที่ต้องติดตามเร่งด่วน</b><div style="display:grid;gap:7px;margin-top:9px">${rows.join('')||'<div>ไม่มีรายการเร่งด่วนในขอบเขตสิทธิ์ของคุณ</div>'}</div><span class="q">คำนวณจากข้อมูล Production ปัจจุบัน · จำกัดด้วย Role/RLS</span>`;
+}
 function openTalkPopup(prefill){
   const qs=talkContextQuestions();showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามได้จากทุกหน้า · คำตอบจำกัดตามสิทธิ์ของคุณ</div>${sourceBadge('rule','RULE-BASED','รองรับคำถามหลัก ยังไม่ใช่ NLP/LLM เต็มรูปแบบ')}</div><button class="x" onclick="closeModal()">×</button></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill||'')}" placeholder="พิมพ์คำถาม..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('talkPopInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
   if(prefill)setTimeout(()=>ask(prefill,'talkPopBody','talkPopInput'),80);
@@ -2061,8 +2082,12 @@ function ask(q,bodyId='chatBody',inputId='chatInput'){
   if(!q||!q.trim())return;
   const body=document.getElementById(bodyId),inp=document.getElementById(inputId);if(!body)return;if(inp)inp.value='';
   body.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
-  let ans='';
-  if(canViewIssues()&&/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน|สาเหตุปัญหา|แนวทางแก้|ทำ sop|พร้อมทำ sop/.test(q.toLowerCase())){
+  let ans='',question=q.toLowerCase();
+  if(/สรุปข้อมูลสำคัญ|สรุป.*หน้านี้|ภาพรวมข้อมูล|ข้อมูลสำคัญ/.test(question)){
+    ans=talkProductionSummary();
+  }else if(/ติดตามเร่งด่วน|ต้องติดตาม|เร่งด่วน|ใกล้เกินกำหนด/.test(question)){
+    ans=talkUrgentSummary();
+  }else if(canViewIssues()&&/ศูนย์ปัญหา|ปัญหาหน้างาน|incident|payment|ปัญหาฝาก|ปัญหาถอน|สาเหตุปัญหา|แนวทางแก้|ทำ sop|พร้อมทำ sop/.test(question)){
     ans=probAnswer(q);
   }else if(/kpi|เท่าไหร่|แผนก/.test(q)){
     ans=`<b>คะแนน KPI รายแผนก (เดือนนี้)</b><span class="q">SELECT dept, AVG(score) FROM kpi_records WHERE month='${CURRENT_YEAR}-${_todayParts.month}' GROUP BY dept</span>
@@ -2075,7 +2100,7 @@ function ask(q,bodyId='chatBody',inputId='chatInput'){
   }else if(/ตรงเวลา|กราฟิก|graphic/.test(q)){
     const completed=GRAPHIC_JOBS.filter(j=>j.status==='done'&&j.completed_at&&j.due_at),onTime=completed.filter(j=>new Date(j.completed_at)<=new Date(j.due_at)).length,rate=completed.length?Math.round(onTime/completed.length*100):deptScore('GRAPHIC');
     ans=canViewDept('GRAPHIC')?`แผนกกราฟิกส่งงานตรงเวลา <b style="color:${rate>=90?'var(--green)':'var(--amber)'}">${rate}%</b>${completed.length?` จากงานที่มีวันเสร็จและกำหนดส่ง ${completed.length} งาน`:' (อ้างอิง KPI เพราะข้อมูลวันเสร็จยังไม่ครบ)'}<span class="q">แหล่งข้อมูล: graphic_jobs / KPI · จำกัดตามสิทธิ์</span>`:`คุณไม่มีสิทธิ์ดูข้อมูลแผนกกราฟิก`;
-  }else{const vt=visibleTasks(),vk=KB.filter(k=>canViewDept(k.dept));ans=`พบข้อมูลที่คุณมีสิทธิ์ดู ${vt.length} งาน และ ${vk.length} บทความความรู้<span class="q">SELECT ... FROM internal_db /* จำกัดตามสิทธิ์ผู้ใช้ */</span>ลองถามเจาะจงด้วยชื่อแผนกที่คุณดูแล`;}
+  }else{const d=talkProductionData(),vk=KB.filter(k=>canViewDept(k.dept));ans=`พบข้อมูลจริงที่คุณมีสิทธิ์ดู <b>${nf(d.graphic.length)} งานกราฟิก</b>${canViewIssues()?` · ${nf(d.issues.length)} ปัญหาหน้างาน`:''}${d.activities.length?` · ${nf(d.activities.length)} กิจกรรมพนักงาน`:''} · ${nf(vk.length)} บทความความรู้<span class="q">แหล่งข้อมูล: Supabase production tables · จำกัดด้วย Role/RLS</span>ลองถาม “สรุปข้อมูลสำคัญของหน้านี้” หรือ “มีอะไรต้องติดตามเร่งด่วน”`;}
   setTimeout(()=>{body.insertAdjacentHTML('beforeend',`<div class="msg a">${ans}</div>`);body.scrollTop=body.scrollHeight;},250);
   body.scrollTop=body.scrollHeight;
 }
