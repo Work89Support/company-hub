@@ -166,10 +166,12 @@ onLoggedIn=async function(session){
   buildNav(); if(VIEW==='activity')RENDER.activity();
 };
 
-const coreTalkContextQuestions=talkContextQuestions;
-talkContextQuestions=function(){
-  if(VIEW==='activity')return ['สรุปกิจกรรมและชั่วโมงที่นับได้','แผนกไหนมีชั่วโมงสูงสุด','มีรายการเวลาผิดปกติกี่รายการ'];
-  return coreTalkContextQuestions();
-};
+if(typeof talkContextQuestions==='function'){
+  const coreTalkContextQuestions=talkContextQuestions;
+  talkContextQuestions=function(){
+    if(VIEW==='activity')return ['สรุปกิจกรรมและชั่วโมงที่นับได้','แผนกไหนมีชั่วโมงสูงสุด','มีรายการเวลาผิดปกติกี่รายการ'];
+    return coreTalkContextQuestions();
+  };
+}
 
 buildNav();

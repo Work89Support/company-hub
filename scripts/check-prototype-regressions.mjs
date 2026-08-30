@@ -6,6 +6,7 @@ const html = fs.readFileSync(file, 'utf8');
 const activity = fs.readFileSync(new URL('../prototype/activity-module.js', import.meta.url), 'utf8');
 const migration15 = fs.readFileSync(new URL('../supabase/migrations/202608300015_profile_roles_and_reporting.sql', import.meta.url), 'utf8');
 const checks = [
+  ['production activity module is loaded', /<script src="activity-module\.js\?v=[^"]+"><\/script>/],
   ['Graphic navigation entry', /graphic:\{ic:'i-grid',t:'Graphic Production'\}/],
   ['Graphic navigation group', /items:\['dash','myTasks','board','graphic'/],
   ['Graphic renderer', /RENDER\.graphic\s*=\s*function/],
