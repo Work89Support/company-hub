@@ -142,16 +142,20 @@ flowchart LR
 | 006 | Root Cause / Preventive Action / Issue-to-SOP |
 | 007 | Graphic Production + Trello import |
 | 008 | Daily Activities + duration normalization + RLS |
+| 009 | ตรวจ/แก้เวลา, เก็บค่าต้นทาง และรองรับเวลาแบบทศนิยมจากชีต |
+| 010 | Google Sheets sync, data-quality flags, source trace และเก็บแถวเก่าแบบ stale |
 
 ## 10. ลำดับเปิดใช้งาน Production
 
-1. รัน Migration 008 ใน Supabase
-2. นำเข้าข้อมูล Daily Activity ผ่าน `import_daily_activities(jsonb)` ด้วยบัญชีผู้ดูแล
-3. ตรวจจำนวนข้อมูลและผลรวมชั่วโมงที่ผ่านการคัดกรอง
-4. ทดสอบบัญชีพนักงาน หัวหน้า ผู้บริหาร และ Admin อย่างละหนึ่งบัญชี
-5. ตรวจ RLS โดยยืนยันว่าแต่ละบัญชีไม่เห็นแผนกที่ไม่ได้รับสิทธิ์
-6. Deploy GitHub Pages
-7. ล้างข้อมูลพนักงาน/ปัญหาจาก Git history เดิม หรือเปลี่ยน repository เป็น private จนกว่าจะล้างเสร็จ
+1. รัน Migration 001–010 ใน Supabase ตามลำดับ
+2. Export Google Sheets ทั้ง 4 กลุ่มเป็น XLSX และเตรียม payload ด้วย `scripts/prepare_google_activity_import.py`
+3. นำเข้า snapshot ทั้งชุดผ่าน `import_daily_activities(jsonb)` ด้วยบัญชีผู้ดูแล
+4. เรียก `finalize_daily_activity_sync(jsonb,text,jsonb)` ด้วย source key ครบทั้ง snapshot เพื่อเก็บแถวที่หายไปเป็น `stale` โดยไม่ลบประวัติ
+5. ตรวจจำนวนข้อมูล, data-quality flags และผลรวมชั่วโมงที่ผ่านการคัดกรอง
+6. ทดสอบบัญชีพนักงาน หัวหน้า ผู้บริหาร และ Admin อย่างละหนึ่งบัญชี
+7. ตรวจ RLS โดยยืนยันว่าแต่ละบัญชีไม่เห็นแผนกที่ไม่ได้รับสิทธิ์
+8. Deploy GitHub Pages
+9. ล้างข้อมูลพนักงาน/ปัญหาจาก Git history เดิม หรือเปลี่ยน repository เป็น private จนกว่าจะล้างเสร็จ
 
 ## 11. Acceptance Checklist
 
