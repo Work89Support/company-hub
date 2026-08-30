@@ -21,6 +21,8 @@ const checks = [
   ['Inactive accounts fail closed', /if\(!ACCESS_PROFILE\.active\)throw new Error/],
   ['Graphic account profile', /async function loadAuthenticatedProfile\(/],
   ['Activity renderer', /RENDER\.activity\s*=\s*function/],
+  ['Activity KPI cards have production layout styles', /\.activity-kpis\{display:grid;grid-template-columns:repeat\(6/],
+  ['Activity page has responsive mobile layout', /@media\(max-width:560px\)\{\.activity-kpis,\.activity-filters/],
   ['Operational issue loader', /async function cloudLoadIssues\(/],
   ['Verified issue save', /save_verified_issue_resolution/],
   ['Talk to Data popup', /Talk to Data/],
