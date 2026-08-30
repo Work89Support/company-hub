@@ -1787,19 +1787,58 @@ RENDER.problems=function(){
     <div class="pad muted" style="font-size:11px">ที่มา: ${PROB_SRC.file} · แสดงล่าสุด ${Math.min(300,list.length)} รายการ · คลิกแถวเพื่อดูรายละเอียด</div>
   </div>`;
 };
+const ISSUE_SOLUTION_TYPES={unresolved:'ยังไม่ได้แก้',temporary:'วิธีแก้ชั่วคราว',reuse:'ใช้วิธีแก้เดิม',onsite:'แก้ตามขั้นตอนหน้างาน',provider:'ประสานผู้ให้บริการ',permanent:'แก้ถาวร',new_sop:'สร้าง/ปรับ SOP'};
+function issueEsc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function issueReferenceCandidates(p){
+  return PROBLEMS.filter(x=>x.id!==p.id&&x.solution).sort((a,b)=>{
+    const as=(a.cat===p.cat?4:0)+(a.project===p.project?2:0)+(a.verified?1:0),bs=(b.cat===p.cat?4:0)+(b.project===p.project?2:0)+(b.verified?1:0);
+    return bs-as||((b.date||'').localeCompare(a.date||''));
+  }).slice(0,60);
+}
+function issueSolutionTypeChanged(){const b=document.getElementById('issueRefBox');if(b)b.style.display=val('issueSolutionType')==='reuse'?'block':'none';}
+function issueReferenceChanged(){
+  const id=val('issueReferenceId'),src=PROBLEMS.find(x=>x.id===id),preview=document.getElementById('issueRefPreview');
+  if(preview)preview.innerHTML=src?`<button class="tbtn sm" type="button" onclick="openIssueReference('issue','${src.id}')">เปิดเคสต้นทาง ↗</button> <button class="tbtn sm" type="button" onclick="useIssueSolution('${src.id}')">นำวิธีแก้นี้มาใช้</button><div class="ai-note" style="margin-top:8px">${issueEsc(src.solution)}</div>`:'';
+}
+function useIssueSolution(id){const src=PROBLEMS.find(x=>x.id===id),el=document.getElementById('issueSolution');if(src&&el){el.value=src.solution;toast('นำวิธีแก้จาก '+id+' มาให้แล้ว');}}
+function openIssueReference(type,id){if(type==='issue')openProblem(id);else if(type==='sop')openSOP(id);else if(type==='knowledge')openKB(id);}
 function openProblem(id){
   const p=PROBLEMS.find(x=>x.id===id);if(!p)return;
-  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag" style="background:#2158c822;color:#2158c8;border-color:#2158c855">${p.project}</span> ${probPrio(p.prio)} ${probStatus(p.status)}</div>
-    <h3>${p.cat} — ${p.project}</h3><div class="muted" style="font-size:11.5px">${p.id} · แจ้งโดย ${p.reporter||'-'} · ${probDate(p.date)} ${(p.time||'').slice(0,5)}</div></div><button class="x" onclick="closeModal()">×</button></div>
+  const refs=issueReferenceCandidates(p),type=p.solutionType||(p.solution?'permanent':'unresolved');
+  const selectedRef=p.referenceType==='issue'?p.referenceId:'';
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag" style="background:#2158c822;color:#2158c8;border-color:#2158c855">${issueEsc(p.project)}</span> ${probPrio(p.prio)} ${probStatus(p.status)} ${p.verified?'<span class="tag" style="background:#0b7a5a22;color:#0b7a5a;border-color:#0b7a5a55">✓ ยืนยันใช้ได้จริง</span>':''}</div>
+    <h3>${issueEsc(p.cat)} — ${issueEsc(p.project)}</h3><div class="muted" style="font-size:11.5px">${issueEsc(p.id)} · แจ้งโดย ${issueEsc(p.reporter||'-')} · ${probDate(p.date)} ${(p.time||'').slice(0,5)}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
-    <div class="field"><label>รายละเอียดปัญหา</label><div class="v">${p.problem||'-'}</div></div>
-    ${p.solution?`<div class="field"><label>✅ วิธีแก้ / ผลการดำเนินการ</label><div class="ai-note">${p.solution}</div></div>`:'<div class="field"><label>วิธีแก้</label><div class="muted" style="font-size:12.5px">ยังไม่มีบันทึกวิธีแก้</div></div>'}
-    <div class="two">
-      <div class="field"><label>ผู้รับผิดชอบ</label><div class="v">${p.owner||'-'}</div></div>
-      <div class="field"><label>เวลาที่ใช้แก้</label><div class="v">${probResT(p.resmin)}</div></div>
-    </div>
-    <div class="ai-note">${sic('i-chat')} <b>AI:</b> ปัญหานี้อยู่หมวด <b>${p.cat}</b> โปรเจกต์ <b>${p.project}</b> — ระบบจัดกลุ่มให้อัตโนมัติ ใช้เมนู “ศูนย์ปัญหา” กรองดูปัญหาซ้ำในหมวด/โปรเจกต์เดียวกันได้</div>
+    <div class="field"><label>รายละเอียดปัญหา</label><div class="v">${issueEsc(p.problem||'-')}</div></div>
+    <div class="two"><div class="field"><label>สถานะ</label><select class="fin" id="issueStatus"><option value="Open" ${p.status==='Open'?'selected':''}>ยังไม่แก้</option><option value="In Progress" ${p.status==='In Progress'?'selected':''}>กำลังแก้</option><option value="Resolved" ${p.status==='Resolved'?'selected':''}>แก้แล้ว</option></select></div>
+      <div class="field"><label>ผู้รับผิดชอบ</label><input class="fin" id="issueOwner" value="${issueEsc(p.owner||'')}"></div></div>
+    <div class="field"><label>สาเหตุราก (Root cause)</label><input class="fin" id="issueRootCause" maxlength="500" value="${issueEsc(p.rootCause||probCause(p))}"></div>
+    <div class="field"><label>ประเภทวิธีแก้</label><select class="fin" id="issueSolutionType" onchange="issueSolutionTypeChanged()">${Object.entries(ISSUE_SOLUTION_TYPES).map(([k,v])=>`<option value="${k}" ${type===k?'selected':''}>${v}</option>`).join('')}</select></div>
+    <div id="issueRefBox" class="field" style="display:${type==='reuse'?'block':'none'}"><label>ลิงก์ไปวิธีแก้เดิม (บังคับเมื่อเลือกใช้วิธีแก้เดิม)</label><select class="fin" id="issueReferenceId" onchange="issueReferenceChanged()"><option value="">— เลือกเคสที่มีวิธีแก้ —</option>${refs.map(x=>`<option value="${x.id}" ${selectedRef===x.id?'selected':''}>${x.id} · ${issueEsc(x.project)} · ${issueEsc((x.problem||'').slice(0,75))}</option>`).join('')}</select><div id="issueRefPreview"></div></div>
+    <div class="field"><label>วิธีแก้ / ผลดำเนินการ</label><textarea class="fin" id="issueSolution" maxlength="4000" rows="5">${issueEsc(p.solution||'')}</textarea></div>
+    <div class="field"><label>แนวทางป้องกันไม่ให้เกิดซ้ำ</label><textarea class="fin" id="issuePreventive" maxlength="4000" rows="3">${issueEsc(p.preventive||'')}</textarea></div>
+    <div class="field"><label>เวลาแก้ (นาที)</label><input class="fin" type="number" min="0" step="1" id="issueResolutionMinutes" value="${p.resmin==null?'':p.resmin}"></div>
+    <label class="ai-note" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer"><input type="checkbox" id="issueVerified" style="margin-top:3px" ${p.verified?'checked':''}><span><b>ยืนยันว่าทดสอบแล้วและวิธีแก้นี้ใช้ได้จริง</b><br><span class="muted">จะเลือกสถานะ “แก้แล้ว” ได้ต่อเมื่อกรอกวิธีแก้และติ๊กยืนยันข้อนี้</span></span></label>
+    ${p.referenceType&&p.referenceId?`<div class="field" style="margin-top:12px"><button class="tbtn sm" onclick="openIssueReference('${p.referenceType}','${p.referenceId}')">เปิดแหล่งอ้างอิง ↗</button></div>`:''}
+    <button class="tbtn primary" id="issueSaveBtn" style="margin-top:12px" onclick="saveIssueFollowup('${p.id}')">บันทึกการติดตาม</button>
   </div>`);
+  if(selectedRef)setTimeout(issueReferenceChanged,0);
+}
+async function saveIssueFollowup(id){
+  const p=PROBLEMS.find(x=>x.id===id);if(!p)return;
+  const status=val('issueStatus'),solutionType=val('issueSolutionType'),solution=(val('issueSolution')||'').trim(),verified=!!document.getElementById('issueVerified')?.checked;
+  const referenceId=solutionType==='reuse'?val('issueReferenceId'):'';
+  if(status==='Resolved'&&!solution){toast('กรุณากรอกวิธีแก้ก่อนปิดเคส','info');return;}
+  if(status==='Resolved'&&!verified){toast('ต้องยืนยันว่าทดสอบแล้วและใช้ได้จริง','info');return;}
+  if(solutionType==='reuse'&&!referenceId){toast('กรุณาเลือกเคสวิธีแก้เดิมที่จะอ้างอิง','info');return;}
+  if(!SB||!CLOUD){toast('ยังไม่เชื่อมฐานข้อมูล จึงยังบันทึกไม่ได้','info');return;}
+  const btn=document.getElementById('issueSaveBtn');if(btn)btn.disabled=true;
+  const minsRaw=val('issueResolutionMinutes'),payload={target_issue:id,next_status:status,next_owner:val('issueOwner'),next_root_cause:val('issueRootCause'),next_solution_type:solutionType,next_solution:solution,next_preventive_action:val('issuePreventive'),next_resolution_minutes:minsRaw===''?null:Number(minsRaw),next_reference_type:referenceId?'issue':'',next_reference_id:referenceId,confirm_effective:verified};
+  try{
+    const res=await SB.rpc('save_verified_issue_resolution',payload);if(res.error)throw res.error;
+    Object.assign(p,{status,owner:payload.next_owner,rootCause:payload.next_root_cause,solutionType,solution,preventive:payload.next_preventive_action,resmin:payload.next_resolution_minutes,referenceType:payload.next_reference_type,referenceId,verified:status==='Resolved'&&verified,verifiedAt:res.data&&res.data.solution_verified_at});
+    toast('บันทึกแล้ว'+(p.verified?' · ยืนยันว่าใช้ได้จริง':'') );refresh();openProblem(id);
+  }catch(e){toast('บันทึกไม่สำเร็จ: '+(e.message||e),'info');if(btn)btn.disabled=false;}
 }
 function probAnswer(q){
   const s=q.toLowerCase(); let list=PROBLEMS.slice(); const parts=[];
@@ -2082,7 +2121,23 @@ async function cloudLoad(){
       /* ว่างหรือเวอร์ชันข้อมูลเก่า -> วางชุดข้อมูลใหม่จากโค้ด (มี KPI/แผนกครบล่าสุด) */
       await SB.from('company_hub_state').update({data:stateBlob(),updated_at:new Date().toISOString(),updated_by:SB_UID}).eq('id','main');
     }
+    await cloudLoadIssues();
   }catch(e){console.warn(e);}
+}
+async function cloudLoadIssues(){
+  if(!SB)return;
+  try{
+    const fields='id,department_code,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,root_cause,preventive_action,solution_type,solution_reference_type,solution_reference_id,solution_verified,solution_verified_by,solution_verified_at';
+    const res=await SB.from('operational_issues').select(fields).order('occurred_at',{ascending:false}).limit(1000);
+    if(res.error)throw res.error;
+    if(!res.data||!res.data.length)return;
+    const bangkokDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'});
+    const bangkokTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    const rows=res.data.map(r=>{const at=new Date(r.occurred_at);return {
+      id:r.id,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||''
+    };});
+    PROBLEMS.length=0;PROBLEMS.push(...rows);PROB_SRC.file='Supabase · operational_issues';PROB_SRC.asof='อัปเดตจากฐานข้อมูลกลาง';PROB_SRC.n=rows.length;
+  }catch(e){console.warn('issue load:',e.message||e);}
 }
 async function sbLogin(){
   if(!SB){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้','info');return;}
