@@ -231,6 +231,18 @@ tfoot td{padding:9px 12px;font-size:11.5px;font-weight:500;background:var(--blue
 .chip:hover{background:var(--blue-100)}
 .chat-in{display:flex;gap:10px;margin-top:10px}
 .chat-in input{flex:1;padding:11px 15px;border:1px solid var(--line);border-radius:11px;font-size:13.5px}
+.talk-fab{position:fixed;right:22px;bottom:22px;z-index:45;border:0;border-radius:999px;padding:12px 17px;background:linear-gradient(135deg,var(--blue-700),var(--blue-500));color:#fff;box-shadow:0 10px 28px rgba(25,91,190,.35);display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}
+.talk-fab:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(25,91,190,.42)}
+.talk-fab .svic{width:19px;height:19px}
+.modal:has(.talk-popup){max-width:760px}
+.talk-popup .chat{height:min(610px,72vh);min-height:430px}.talk-popup .chat-body{background:var(--blue-50);border-radius:12px;padding:12px}
+.problem-insights{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.insight-row{padding:9px 0;border-bottom:1px dashed var(--line-2)}.insight-row:last-child{border-bottom:0}
+.insight-row .head{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;margin-bottom:5px}.insight-row .head b{font-weight:500}
+.flowline{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:14px 0}
+.flowstep{position:relative;background:var(--surface);border:1px solid var(--line);padding:13px 14px;min-height:70px}.flowstep:first-child{border-radius:12px 0 0 12px}.flowstep:last-child{border-radius:0 12px 12px 0}
+.flowstep:not(:last-child)::after{content:'›';position:absolute;right:-10px;top:22px;z-index:2;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;text-align:center;line-height:18px;font-size:20px}.flowstep b{display:block;font-size:12.5px}.flowstep span{font-size:11px;color:var(--muted)}
+.sop-ready{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px dashed var(--line-2)}.sop-ready:last-child{border-bottom:0}
 .datatable td,.datatable th{padding:5px 9px;font-size:11.5px;border-bottom:1px solid var(--line-2);text-align:left}
 
 /* Modal */
@@ -333,6 +345,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 @media(max-width:1100px){.orggrid{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.orggrid{grid-template-columns:1fr}}
 @media(max-width:1100px){.stats{grid-template-columns:1fr 1fr}}
+@media(max-width:1100px){.problem-insights{grid-template-columns:1fr 1fr}.problem-insights .wide{grid-column:1/-1}}
 @media(max-width:960px){
   .app{grid-template-columns:1fr;grid-template-rows:58px 1fr;grid-template-areas:"top top" "main main"}
   .brandbar{display:none}
@@ -343,6 +356,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
   .topbar{gap:8px;padding:0 12px}
   .search{min-width:0}
 }
+@media(max-width:680px){.problem-insights,.flowline{grid-template-columns:1fr}.problem-insights .wide{grid-column:auto}.flowstep{border-radius:10px!important}.flowstep:not(:last-child)::after{content:'↓';right:18px;top:auto;bottom:-11px}.talk-fab{right:14px;bottom:14px;padding:12px}.talk-fab span{display:none}.talk-popup .chat{height:68vh;min-height:380px}}
 
 /* ===== คู่มือการใช้งาน (หน้าต่างลากได้ + สารบัญซ้าย) ===== */
 .help-win{position:fixed;top:56px;left:calc(50% - 450px);width:min(900px,96vw);height:82vh;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 70px rgba(11,42,107,.30);z-index:3000;display:none;flex-direction:column;overflow:hidden}
@@ -460,6 +474,10 @@ body.simple #deptNav,body.simple #deptLabel{display:none}
 
   <div class="main" id="main"></div>
 </div>
+
+<button class="talk-fab" id="talkFab" onclick="openTalkPopup()" aria-label="เปิด Talk to Data" title="ถามข้อมูลจากหน้านี้">
+  <svg class="svic"><use href="#i-chat"></use></svg><span>Talk to Data</span>
+</button>
 
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal" id="modal"></div>
@@ -1395,7 +1413,7 @@ function execDash(){
   main.innerHTML=`
   ${crumb('หน้าแรก','ภาพรวมองค์กร')}
   <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p>${sourceBadge('live','SUPABASE LIVE',`${nf(all.length)} งานที่บัญชีนี้มีสิทธิ์เห็น · Graphic ${nf(GRAPHIC_JOBS.length)} งาน · Board ${nf(TASKS.length)} งาน`)}</div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานสรุป</button><button class="tbtn primary" onclick="go('talk')">🤖 ถามข้อมูล</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานสรุป</button><button class="tbtn primary" onclick="openTalkPopup()">🤖 ถามข้อมูล</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall==null?'รอตั้ง':overall+(overall==null?'':'')}<span style="font-size:14px">${overall==null?'':'/100'}</span></div><div class="sub">${nf(kpiCodes.length)} แผนกที่มี KPI จริง</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
     <div class="stat click" onclick="openDashboardAllWork()"><div class="lbl">งานทั้งหมด</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${donePct}%)</div><div class="icn">${sic('i-board')}</div><span class="go">ดูรายการ →</span></div>
@@ -1944,6 +1962,46 @@ function ask(q){
   body.scrollTop=body.scrollHeight;
 }
 
+/* Talk to Data — production popup available from every page. */
+let TALK_HISTORY=[];
+function talkContextQuestions(){
+  if(VIEW==='problems')return ['เคสไหนยังไม่มีวิธีแก้','สาเหตุปัญหาหลักคืออะไร','แนวทางแก้ที่ใช้บ่อย','กลุ่มไหนพร้อมทำ SOP'];
+  if(VIEW==='graphic')return ['งานกราฟิกที่ต้องติดตามมีอะไรบ้าง','ใครมีภาระงานสูง','งานไหนเกินกำหนด'];
+  if(VIEW==='activity')return ['สรุปกิจกรรมและชั่วโมงที่นับได้','แผนกไหนมีชั่วโมงสูงสุด','มีรายการเวลาผิดปกติกี่รายการ'];
+  if(VIEW==='kpi'||VIEW==='reports')return ['KPI แผนกไหนต่ำกว่าเป้า','สรุปผลงานและความเสี่ยง','ผู้บริหารควรตัดสินใจอะไรวันนี้'];
+  return ['สรุปข้อมูลสำคัญของหน้านี้','มีอะไรต้องติดตามเร่งด่วน','ช่วยเสนอแนะสิ่งที่ควรทำต่อ'];
+}
+function talkCurrentFilters(){if(VIEW==='graphic'&&typeof GF!=='undefined')return {...GF};if(VIEW==='problems')return {...PF};if(VIEW==='activity'&&typeof ACTIVITY_FILTER!=='undefined')return {...ACTIVITY_FILTER};if((VIEW==='board'||VIEW==='myTasks')&&typeof F!=='undefined')return {...F};return {};}
+function clearTalkHistory(bodyId='chatBody'){TALK_HISTORY=[];const body=document.getElementById(bodyId);if(body)body.innerHTML='<div class="msg a">ล้างบทสนทนาแล้ว — เริ่มถามเรื่องใหม่ได้เลย</div>';}
+function openTalkPopup(prefill=''){
+  const qs=talkContextQuestions();
+  showModal(`<div class="talk-popup"><div class="modal-h"><div><h3>${sic('i-chat')} Talk to Data</h3><div class="muted" style="font-size:11.5px">ถามได้จากทุกหน้า · วิเคราะห์เฉพาะข้อมูลจริงตามสิทธิ์ของคุณ</div>${sourceBadge('live','AI + COMPANY DATA','จำกัดข้อมูลด้วย Role/RLS')}</div><div style="display:flex;gap:6px;align-items:center"><button class="tbtn sm" onclick="clearTalkHistory('talkPopBody')">ล้างบทสนทนา</button><button class="x" onclick="closeModal()">×</button></div></div><div class="pad chat"><div class="chat-body" id="talkPopBody"><div class="msg a">กำลังดูหน้า <b>${esc((NAV[VIEW]&&NAV[VIEW].t)||VIEW)}</b> — ถามต่อได้เลย<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q,'talkPopBody','talkPopInput')">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="talkPopInput" value="${esc(prefill)}" placeholder="ถามข้อมูล วิเคราะห์สาเหตุ หรือขอข้อเสนอแนะ..." onkeydown="if(event.key==='Enter')ask(this.value,'talkPopBody','talkPopInput')"><button class="tbtn" onclick="voiceDictate('talkPopInput')">🎙️</button><button class="tbtn primary" onclick="ask(document.getElementById('talkPopInput').value,'talkPopBody','talkPopInput')">ส่ง</button></div></div></div>`);
+  if(prefill)setTimeout(()=>ask(prefill,'talkPopBody','talkPopInput'),80);
+}
+function talkRuleAnswer(q){
+  if(/กิจกรรม|ชั่วโมง|พนักงาน.*ทำ|ใครทำ|activity|บันทึกงาน/i.test(q))return actAnswer(q);
+  if(/ปัญหา|problem|เคส|incident|payment|callback|โปรเจกต์|ยังไม่แก้|วิธีแก้|สาเหตุ|sop|คู่มือ/i.test(q))return probAnswer(q);
+  if(/kpi|เท่าไหร่|แผนก/i.test(q))return `<b>คะแนน KPI รายแผนก</b><table class="datatable" style="width:100%"><tr><th>แผนก</th><th>คะแนน</th></tr>${Object.keys(KPI).map(c=>`<tr><td>${deptName(c)}</td><td style="color:${scoreColor(deptScore(c))}">${deptScore(c)}/100</td></tr>`).join('')}</table>`;
+  return `AI ยังวิเคราะห์คำถามนี้ไม่ได้ แต่ยังถามเรื่อง KPI ปัญหา วิธีแก้ และกิจกรรมได้`;
+}
+ask=async function(q,bodyId='chatBody',inputId='chatInput'){
+  q=String(q||'').trim();if(!q)return;const body=document.getElementById(bodyId),inp=document.getElementById(inputId);if(!body)return;if(inp)inp.value='';
+  const loadingId='talkLoad_'+Date.now();body.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div><div class="msg a" id="${loadingId}">กำลังอ่านและวิเคราะห์ข้อมูลตามสิทธิ์ของคุณ…</div>`);body.scrollTop=body.scrollHeight;
+  const prior=TALK_HISTORY.slice(-8);TALK_HISTORY.push({role:'user',content:q});
+  try{
+    if(!SB||!SB.functions)throw new Error('ยังไม่ได้เชื่อมต่อ AI backend');
+    const result=await SB.functions.invoke('talk-to-data',{body:{question:q,view:VIEW,filters:talkCurrentFilters(),history:prior}});
+    if(result.error)throw result.error;if(!result.data||result.data.error)throw new Error((result.data&&result.data.error)||'AI ไม่ส่งคำตอบกลับมา');
+    const a=result.data.answer||{},section=(title,rows)=>Array.isArray(rows)&&rows.length?`<div style="margin-top:9px"><b>${title}</b><ul>${rows.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:'';
+    const node=document.getElementById(loadingId);if(node)node.innerHTML=`<div>${esc(a.answer||'ไม่พบคำตอบจาก AI')}</div>${section('ข้อมูลเชิงลึก',a.insights)}${section('ข้อเสนอแนะ',a.recommendations)}${section('ข้อจำกัดของข้อมูล',a.caveats)}${Array.isArray(a.sources)?a.sources.map(s=>`<span class="tag">${esc(s)}</span>`).join(''):''}`;
+    TALK_HISTORY.push({role:'assistant',content:String(a.answer||'').slice(0,1800)});
+  }catch(error){
+    const node=document.getElementById(loadingId);if(node)node.innerHTML=`${talkRuleAnswer(q)}<span class="q">ใช้คำตอบสำรองจากข้อมูลในหน้าเว็บ · ${esc(error&&error.message?error.message:'ลองใหม่')}</span>`;
+  }
+  TALK_HISTORY=TALK_HISTORY.slice(-16);body.scrollTop=body.scrollHeight;
+};
+RENDER.talk=function(){const qs=talkContextQuestions();main.innerHTML=`${crumb('หน้าแรก','Talk to Data')}<div class="page-h"><div><h1>Talk to Data</h1><p>ถามข้อมูลจริง วิเคราะห์สาเหตุ ความเสี่ยง และขอข้อเสนอแนะได้</p>${sourceBadge('live','AI + COMPANY DATA','จำกัดข้อมูลด้วย Role/RLS')}</div><button class="tbtn" onclick="clearTalkHistory()">ล้างบทสนทนา</button></div><div class="card pad chat"><div class="chat-body" id="chatBody"><div class="msg a">สวัสดีค่ะ 👋 ฉันจะตอบจากข้อมูลที่คุณมีสิทธิ์เห็น<div style="margin-top:8px">${qs.map(q=>`<span class="chip" data-q="${esc(q)}" onclick="ask(this.dataset.q)">${esc(q)}</span>`).join('')}</div></div></div><div class="chat-in"><input id="chatInput" placeholder="ถามข้อมูล วิเคราะห์สาเหตุ หรือขอข้อเสนอแนะ..." onkeydown="if(event.key==='Enter')ask(this.value)"><button class="tbtn" onclick="voiceDictate('chatInput')">🎙️</button><button class="tbtn primary" onclick="ask(document.getElementById('chatInput').value)">ส่ง</button></div></div>`;};
+
 /* ============================================================
    MODALS
 ============================================================ */
@@ -1955,20 +2013,41 @@ const PROBLEMS = [{"id":"ISS-20260813-0002","date":"2026-08-13","time":"00:43:06
 const PROB_SRC = {file:'Problem Management V2 · ชีต Issues (Apps Script)', asof:'13–21 ส.ค. 2026', n: PROBLEMS.length};
 const PROB_PRIO = {Critical:{t:'วิกฤต',c:'#d64545',o:4}, High:{t:'สูง',c:'#e8971b',o:3}, Medium:{t:'กลาง',c:'#2563eb',o:2}, Low:{t:'ต่ำ',c:'#67769a',o:1}};
 const PROB_ST = {Open:{t:'ยังไม่แก้',c:'#d64545'}, 'In Progress':{t:'กำลังแก้',c:'#e8971b'}, Resolved:{t:'แก้แล้ว',c:'#0b7a5a'}};
-let PF={project:'',cat:'',prio:'',status:'',q:''};
+let PF={project:'',cat:'',prio:'',status:'',solution:'',q:''};
 function setPF(k,v){PF[k]=(PF[k]===v?'':v);RENDER.problems();}
-function clearPF(){PF={project:'',cat:'',prio:'',status:'',q:''};RENDER.problems();}
+function clearPF(){PF={project:'',cat:'',prio:'',status:'',solution:'',q:''};RENDER.problems();}
 function probPrio(p){const m=PROB_PRIO[p]||{t:p,c:'#888'};return `<span class="tag" style="background:${m.c}22;color:${m.c};border-color:${m.c}55">${m.t}</span>`;}
 function probStatus(s){const m=PROB_ST[s]||{t:s,c:'#888'};return `<span class="tag" style="background:${m.c}22;color:${m.c};border-color:${m.c}55">${m.t}</span>`;}
 function probDate(d){return d?d.split('-').reverse().join('/'):'-';}
 function probResT(m){if(m==null||m==='')return '-';if(m<60)return Math.round(m)+' น.';const h=m/60;return (h>=100?Math.round(h):h.toFixed(1))+' ชม.';}
-function probFiltered(){return PROBLEMS.filter(p=>(!PF.project||p.project===PF.project)&&(!PF.cat||p.cat===PF.cat)&&(!PF.prio||p.prio===PF.prio)&&(!PF.status||p.status===PF.status)&&(!PF.q||(p.problem+' '+p.solution+' '+p.reporter+' '+p.id).toLowerCase().includes(PF.q.toLowerCase())));}
+function hasIssueSolution(p){return !!String(p.solution||'').trim();}
+function probFiltered(){return PROBLEMS.filter(p=>(!PF.project||p.project===PF.project)&&(!PF.cat||p.cat===PF.cat)&&(!PF.prio||p.prio===PF.prio)&&(!PF.status||p.status===PF.status)&&(!PF.solution||(PF.solution==='yes'?hasIssueSolution(p):!hasIssueSolution(p)))&&(!PF.q||(p.problem+' '+p.solution+' '+p.reporter+' '+p.id).toLowerCase().includes(PF.q.toLowerCase())));}
 function probCounts(list,key){const o={};list.forEach(p=>{const k=p[key]||'(ไม่ระบุ)';o[k]=(o[k]||0)+1;});return Object.entries(o).sort((a,b)=>b[1]-a[1]);}
 function probBars(pairs,total,click,colorFn){const max=Math.max(1,...pairs.map(x=>x[1]));return pairs.map(([k,v])=>`<div class="kpirow" style="grid-template-columns:120px 1fr 42px;cursor:pointer" onclick="${click(k)}"><div class="nm" style="font-size:12px">${k}</div><div class="bar"><i style="width:${Math.round(v/max*100)}%;background:${colorFn?colorFn(k):'#2563eb'}"></i></div><div class="score" style="font-size:12px">${v}</div></div>`).join('');}
 function probAvgHrs(list){const r=list.filter(p=>typeof p.resmin==='number'&&p.status==='Resolved');if(!r.length)return 0;return (r.reduce((s,p)=>s+p.resmin,0)/r.length/60);}
+function probCause(p){
+  if(p.rootCause)return p.rootCause;
+  const s=((p.cat||'')+' '+(p.problem||'')).toLowerCase();
+  if(/ปิดปรับปรุง|ปิดให้บริการ|ยอดเต็ม|provider|ผู้ให้บริการ|ธนาคารปิด/.test(s))return 'ผู้ให้บริการ / ช่องทางปิด';
+  if(/ฝาก|ถอน|payment|callback|ออโต้|อัตโนมัติ|timeout/.test(s))return 'ธุรกรรมไม่เข้าอัตโนมัติ';
+  if(/ยอดเงิน|ยอดหาย|เงินไม่เข้า|รายการลูกค้า|เดิมพัน/.test(s))return 'ยอดเงิน / รายการลูกค้า';
+  if(/network|เครือข่าย|โดเมน|domain|link|ลิงก์|เข้าเว็บ/.test(s))return 'เครือข่าย / เว็บไซต์';
+  return p.cat||'อื่น ๆ';
+}
+function probApproach(p){const s=((p.solution||'')+' '+(p.preventive||'')).toLowerCase();if(!s.trim())return 'ยังไม่มีแนวทางแก้';if(/แจ้ง|ประสาน|provider|ผู้ให้บริการ|ธนาคาร/.test(s))return 'ประสานผู้ให้บริการ';if(/manual|แมนนวล|ดำเนินการเอง|ปรับยอด/.test(s))return 'ดำเนินการ Manual';if(/ตรวจ|monitor|เฝ้า|ติดตาม/.test(s))return 'ตรวจสอบและติดตาม';return 'แก้ตามขั้นตอนหน้างาน';}
+function probGroup(list,fn){const o={};list.forEach(p=>{const k=fn(p);(o[k]||(o[k]=[])).push(p);});return Object.entries(o).sort((a,b)=>b[1].length-a[1].length);}
+function problemAnalysisHTML(all){
+  const causes=probGroup(all,probCause),approaches=probGroup(all,probApproach),solved=all.filter(hasIssueSolution),missing=all.length-solved.length,max=Math.max(1,...causes.map(x=>x[1].length));
+  const ready=causes.filter(([,rows])=>rows.length>=2&&rows.some(hasIssueSolution)).slice(0,6);
+  return `<div class="flowline"><div class="flowstep"><b>1 · รับแจ้งปัญหา</b><span>${nf(all.length)} เคสจากหน้างาน</span></div><div class="flowstep"><b>2 · วิเคราะห์สาเหตุ</b><span>${nf(causes.length)} กลุ่มสาเหตุ</span></div><div class="flowstep"><b>3 · แก้ไขและป้องกันซ้ำ</b><span>${nf(solved.length)} เคสมีวิธีแก้</span></div><div class="flowstep"><b>4 · จัดทำ SOP</b><span>${nf(ready.length)} กลุ่มพร้อมทำคู่มือ</span></div></div>
+  <div class="problem-insights"><div class="card"><div class="card-h"><h3>${sic('i-pie')} สาเหตุที่เกิดบ่อย</h3></div><div class="pad">${causes.slice(0,6).map(([k,v])=>`<div class="insight-row"><div class="head"><b>${esc(k)}</b><span>${nf(v.length)} เคส</span></div><div class="bar"><i style="width:${Math.max(4,v.length/max*100)}%;background:var(--primary)"></i></div></div>`).join('')}</div></div>
+  <div class="card"><div class="card-h"><h3>${sic('i-bulb')} แนวทางแก้ไข</h3></div><div class="pad">${approaches.slice(0,6).map(([k,v])=>`<div class="insight-row"><div class="head"><b>${esc(k)}</b><span>${nf(v.length)}</span></div></div>`).join('')}<div class="ai-note"><b>ความพร้อม:</b> มีวิธีแก้ ${nf(solved.length)} · ยังขาด ${nf(missing)}</div></div></div>
+  <div class="card wide"><div class="card-h"><h3>${sic('i-book')} เคสพร้อมจัดทำคู่มือ</h3><span class="act">เกิดซ้ำ ≥ 2 และมีวิธีแก้</span></div><div class="pad">${ready.map(([cause,rows])=>{const sample=rows.find(hasIssueSolution)||rows[0];return `<div class="sop-ready"><div><b>${esc(cause)}</b><div class="muted" style="font-size:11px">${nf(rows.length)} เคส · มีวิธีแก้ ${nf(rows.filter(hasIssueSolution).length)} · ตัวอย่าง ${esc(sample.id)}</div></div><button class="tbtn sm" onclick="openProblem('${esc(sample.id)}')">เปิดเคส</button></div>`;}).join('')||'<span class="muted">ยังไม่มีกลุ่มที่ผ่านเกณฑ์</span>'}</div></div></div>`;
+}
 RENDER.problems=function(){
   const all=PROBLEMS, list=probFiltered();
   const open=all.filter(p=>p.status!=='Resolved').length, resolved=all.filter(p=>p.status==='Resolved').length;
+  const withSolution=all.filter(hasIssueSolution).length, withoutSolution=all.length-withSolution;
   const crit=all.filter(p=>p.prio==='Critical'||p.prio==='High').length;
   const avg=probAvgHrs(all);
   const projColor=k=>'#2158c8';
@@ -1978,7 +2057,7 @@ RENDER.problems=function(){
   const opt=(cur,v,label)=>`<option value="${v}" ${cur===v?'selected':''}>${label}</option>`;
   main.innerHTML=`${crumb('หน้าแรก','ศูนย์ปัญหา')}
   <div class="page-h"><div><h1>ศูนย์ปัญหา (Problem Management)</h1><p>รวมปัญหาหน้างานที่พนักงานแจ้งผ่านระบบ · ${PROB_SRC.n} เคส · ข้อมูล ${PROB_SRC.asof}</p></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('talk')">${sic('i-chat')} ถาม AI เรื่องปัญหา</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="openTalkPopup('สรุปปัญหาหน้างานและสาเหตุหลัก')">${sic('i-chat')} ถาม AI เรื่องปัญหา</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="clearPF()"><div class="lbl">ปัญหาทั้งหมด</div><div class="val">${all.length}</div><div class="sub">ทุกโปรเจกต์</div><div class="icn">${sic('i-warning')}</div></div>
     <div class="stat click" onclick="setPF('status','Open')"><div class="lbl">ยังไม่แก้ (Open)</div><div class="val" style="color:var(--red)">${open}</div><div class="sub down">ต้องติดตาม</div></div>
@@ -1986,6 +2065,11 @@ RENDER.problems=function(){
     <div class="stat click" onclick="setPF('prio','Critical')"><div class="lbl">วิกฤต + สูง</div><div class="val" style="color:var(--amber)">${crit}</div><div class="sub muted">ความสำคัญสูง</div></div>
     <div class="stat"><div class="lbl">เวลาแก้เฉลี่ย</div><div class="val">${avg.toFixed(1)}<span style="font-size:14px"> ชม.</span></div><div class="sub muted">เฉพาะที่แก้แล้ว</div></div>
   </div>
+  <div class="stats" style="margin-bottom:14px;grid-template-columns:repeat(2,minmax(220px,1fr))">
+    <div class="stat click" onclick="setPF('solution','yes')"><div class="lbl">✓ มีวิธีแก้แล้ว</div><div class="val" style="color:var(--green)">${nf(withSolution)}</div><div class="sub up">คลิกดูเคสและวิธีแก้</div></div>
+    <div class="stat click" onclick="setPF('solution','no')"><div class="lbl">ยังไม่มีวิธีแก้</div><div class="val" style="color:var(--red)">${nf(withoutSolution)}</div><div class="sub down">ต้องวิเคราะห์/บันทึกผลดำเนินการ</div></div>
+  </div>
+  ${problemAnalysisHTML(all)}
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
     <div class="card"><div class="card-h"><h3>${sic('i-board')} ปัญหาตามโปรเจกต์</h3><span class="act">คลิกเพื่อกรอง</span></div><div class="pad">${probBars(probCounts(all,'project'),all.length,k=>`setPF('project','${k}')`,projColor)}</div></div>
     <div class="card"><div class="card-h"><h3>${sic('i-pie')} ปัญหาตามหมวด</h3><span class="act">คลิกเพื่อกรอง</span></div><div class="pad">${probBars(probCounts(all,'cat'),all.length,k=>`setPF('cat','${k}')`,catColor)}</div></div>
@@ -2000,16 +2084,17 @@ RENDER.problems=function(){
       <div class="fsel"><label>หมวด</label><select onchange="PF.cat=this.value;RENDER.problems()">${opt(PF.cat,'','ทั้งหมด')}${[...new Set(all.map(p=>p.cat))].map(v=>opt(PF.cat,v,v)).join('')}</select></div>
       <div class="fsel"><label>ความสำคัญ</label><select onchange="PF.prio=this.value;RENDER.problems()">${opt(PF.prio,'','ทั้งหมด')}${Object.keys(PROB_PRIO).map(v=>opt(PF.prio,v,PROB_PRIO[v].t)).join('')}</select></div>
       <div class="fsel"><label>สถานะ</label><select onchange="PF.status=this.value;RENDER.problems()">${opt(PF.status,'','ทั้งหมด')}${Object.keys(PROB_ST).map(v=>opt(PF.status,v,PROB_ST[v].t)).join('')}</select></div>
+      <div class="fsel"><label>วิธีแก้</label><select onchange="PF.solution=this.value;RENDER.problems()">${opt(PF.solution,'','ทั้งหมด')}${opt(PF.solution,'yes','มีวิธีแก้แล้ว')}${opt(PF.solution,'no','ยังไม่มีวิธีแก้')}</select></div>
       <div class="fsel" style="flex:1;min-width:160px"><label>ค้นหา</label><input class="fin" value="${PF.q}" placeholder="ค้นหาปัญหา / ผู้แจ้ง / รหัส" oninput="PF.q=this.value;clearTimeout(window._pfq);window._pfq=setTimeout(RENDER.problems,250)"></div>
       <button class="tbtn sm" onclick="clearPF()">ล้างตัวกรอง</button>
     </div>
-    <div style="overflow-x:auto"><table class="datatable" style="width:100%;min-width:820px">
-      <tr><th>วันที่</th><th>โปรเจกต์</th><th>หมวด</th><th>ปัญหา</th><th>ความสำคัญ</th><th>สถานะ</th><th>ผู้รับผิดชอบ</th><th>เวลาแก้</th></tr>
+    <div style="overflow-x:auto"><table class="datatable" style="width:100%;min-width:940px">
+      <tr><th>วันที่</th><th>โปรเจกต์</th><th>หมวด</th><th>ปัญหา</th><th>ความสำคัญ</th><th>สถานะ</th><th>วิธีแก้</th><th>ผู้รับผิดชอบ</th><th>เวลาแก้</th></tr>
       ${list.slice().sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,300).map(p=>`<tr style="cursor:pointer" onclick="openProblem('${p.id}')">
         <td style="white-space:nowrap">${probDate(p.date)}<div class="muted" style="font-size:10.5px">${(p.time||'').slice(0,5)}</div></td>
         <td><b>${p.project}</b></td><td>${p.cat}</td>
         <td style="max-width:320px">${(p.problem||'').slice(0,90)}${(p.problem||'').length>90?'…':''}</td>
-        <td>${probPrio(p.prio)}</td><td>${probStatus(p.status)}</td><td>${p.owner||'-'}</td><td style="white-space:nowrap">${probResT(p.resmin)}</td></tr>`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:26px">ไม่พบปัญหาที่ตรงกับตัวกรอง</td></tr>'}
+        <td>${probPrio(p.prio)}</td><td>${probStatus(p.status)}</td><td>${hasIssueSolution(p)?'<span class="tag" style="color:var(--green)">✓ มีวิธีแก้</span>':'<span class="tag" style="color:var(--red)">ยังไม่มี</span>'}</td><td>${p.owner||'-'}</td><td style="white-space:nowrap">${probResT(p.resmin)}</td></tr>`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:26px">ไม่พบปัญหาที่ตรงกับตัวกรอง</td></tr>'}
     </table></div>
     <div class="pad muted" style="font-size:11px">ที่มา: ${PROB_SRC.file} · แสดงล่าสุด ${Math.min(300,list.length)} รายการ · คลิกแถวเพื่อดูรายละเอียด</div>
   </div>`;
@@ -2033,7 +2118,7 @@ function openProblem(id){
   const p=PROBLEMS.find(x=>x.id===id);if(!p)return;
   const refs=issueReferenceCandidates(p),type=p.solutionType||(p.solution?'permanent':'unresolved');
   const selectedRef=p.referenceType==='issue'?p.referenceId:'';
-  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag" style="background:#2158c822;color:#2158c8;border-color:#2158c855">${issueEsc(p.project)}</span> ${probPrio(p.prio)} ${probStatus(p.status)} ${p.verified?'<span class="tag" style="background:#0b7a5a22;color:#0b7a5a;border-color:#0b7a5a55">✓ ยืนยันใช้ได้จริง</span>':''}</div>
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag" style="background:#2158c822;color:#2158c8;border-color:#2158c855">${issueEsc(p.project)}</span> ${probPrio(p.prio)} ${probStatus(p.status)} ${hasIssueSolution(p)?'<span class="tag" style="color:var(--green)">✓ มีวิธีแก้แล้ว</span>':'<span class="tag" style="color:var(--red)">ยังไม่มีวิธีแก้</span>'} ${p.verified?'<span class="tag" style="background:#0b7a5a22;color:#0b7a5a;border-color:#0b7a5a55">✓ ยืนยันใช้ได้จริง</span>':''}</div>
     <h3>${issueEsc(p.cat)} — ${issueEsc(p.project)}</h3><div class="muted" style="font-size:11.5px">${issueEsc(p.id)} · แจ้งโดย ${issueEsc(p.reporter||'-')} · ${probDate(p.date)} ${(p.time||'').slice(0,5)}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>รายละเอียดปัญหา</label><div class="v">${issueEsc(p.problem||'-')}</div></div>
@@ -2075,6 +2160,9 @@ function probAnswer(q){
   else if(/system|ระบบ|callback/.test(s)){list=list.filter(p=>p.cat==='System');parts.push('หมวด System');}
   let onlyOpen=false;
   if(/ยังไม่แก้|ค้าง|open|ยังไม่ได้แก้|ยังไม่เสร็จ/.test(s)){list=list.filter(p=>p.status!=='Resolved');onlyOpen=true;parts.push('สถานะยังไม่แก้');}
+  if(/ไม่มีวิธีแก้|ยังไม่มีแนวทาง|ขาดวิธีแก้/.test(s)){const missing=list.filter(p=>!hasIssueSolution(p));return `<b>เคสที่ยังไม่มีวิธีแก้ ${nf(missing.length)} เคส</b><div style="margin-top:8px">${missing.slice(0,10).map(p=>`• <b>${esc(p.id)}</b> ${esc(p.project)} — ${esc((p.problem||'').slice(0,100))}`).join('<br>')||'ไม่พบเคสที่ขาดวิธีแก้'}</div><div style="margin-top:8px"><button class="tbtn sm" onclick="clearPF();PF.solution='no';go('problems')">เปิดรายการ →</button></div>`;}
+  if(/สาเหตุ|root cause|เกิดจากอะไร|เพราะอะไร/.test(s)){const rows=probGroup(list,probCause).slice(0,8);return `<b>สาเหตุปัญหาหลักจาก ${nf(list.length)} เคส</b><table class="datatable" style="width:100%;margin-top:8px"><tr><th>สาเหตุ</th><th>เคส</th><th>ยังไม่แก้</th></tr>${rows.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${nf(v.length)}</td><td>${nf(v.filter(p=>p.status!=='Resolved').length)}</td></tr>`).join('')}</table>`;}
+  if(/แนวทางแก้|วิธีแก้|แก้อย่างไร|solution/.test(s)){const rows=probGroup(list,probApproach).slice(0,8),withSolution=list.filter(hasIssueSolution).length;return `<b>แนวทางแก้จาก ${nf(list.length)} เคส</b><table class="datatable" style="width:100%;margin-top:8px"><tr><th>แนวทาง</th><th>เคส</th></tr>${rows.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${nf(v.length)}</td></tr>`).join('')}</table><div style="margin-top:8px">มีวิธีแก้ ${nf(withSolution)} เคส · ยังขาด ${nf(list.length-withSolution)} เคส</div>`;}
   const open=list.filter(p=>p.status!=='Resolved').length, res=list.filter(p=>p.status==='Resolved').length;
   const avg=probAvgHrs(list);
   const byProj=probCounts(list,'project').slice(0,5), byCat=probCounts(list,'cat').slice(0,5);
@@ -2116,7 +2204,7 @@ RENDER.activity=function(){
   const depts=[...new Set(all.map(a=>a.dp))];
   main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}
   <div class="page-h"><div><h1>บันทึกกิจกรรม (Daily Activity)</h1><p>รวมกิจกรรมประจำวันที่ทีมกรอกใน ${ACT_SRC.files} · ${ACT_SRC.n} รายการ · ล้างข้อมูลแล้ว · ${ACT_SRC.asof}</p></div>
-    <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('talk')">${sic('i-chat')} ถาม AI เรื่องกิจกรรม</button></div></div>
+    <div style="display:flex;gap:8px"><button class="tbtn" onclick="openTalkPopup('สรุปกิจกรรมและชั่วโมงที่นับได้')">${sic('i-chat')} ถาม AI เรื่องกิจกรรม</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="clearAF()"><div class="lbl">กิจกรรมทั้งหมด</div><div class="val">${all.length}</div><div class="sub">ทุกแผนก</div><div class="icn">${sic('i-check')}</div></div>
     <div class="stat"><div class="lbl">ชั่วโมงรวม (คำนวณได้)</div><div class="val">${hours}</div><div class="sub muted">เฉพาะแถวเวลาถูกต้อง</div></div>
