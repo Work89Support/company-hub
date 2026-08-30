@@ -190,8 +190,8 @@ begin
   where exists(select 1 from jsonb_array_elements_text(active_source_keys) k where k.value=d.source_key);
 
   insert into public.activity_sync_runs(batch_key,active_rows,stale_rows,summary,created_by)
-  values(left(batch_key,120),active_count,stale_count,coalesce(batch_summary,'{}'::jsonb),auth.uid())
-  on conflict(batch_key) do update set
+  values(left($2,120),active_count,stale_count,coalesce(batch_summary,'{}'::jsonb),auth.uid())
+  on conflict on constraint activity_sync_runs_batch_key_key do update set
     active_rows=excluded.active_rows,stale_rows=excluded.stale_rows,
     summary=excluded.summary,created_by=auth.uid(),created_at=now();
 
