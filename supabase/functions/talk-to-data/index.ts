@@ -5,6 +5,15 @@ type Row = Record<string, unknown>;
 
 const MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5.4-mini";
 const MAX_HISTORY = 8;
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function json(data: unknown, status = 200) {
+  return Response.json(data, { status, headers: CORS_HEADERS });
+}
 
 function countBy(rows: Row[], key: string) {
   const result: Record<string, number> = {};
@@ -62,14 +71,15 @@ async function safetyId(userId: string) {
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, ctx) => {
+    if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
     try {
       const apiKey = Deno.env.get("OPENAI_API_KEY");
-      if (!apiKey) return Response.json({ error: "AI backend ยังไม่ได้ตั้งค่า OPENAI_API_KEY" }, { status: 503 });
+      if (!apiKey) return json({ error: "AI backend ยังไม่ได้ตั้งค่า OPENAI_API_KEY" }, 503);
       const actorId = String(ctx.userClaims?.sub || "");
-      if (!actorId) return Response.json({ error: "กรุณาเข้าสู่ระบบใหม่" }, { status: 401 });
+      if (!actorId) return json({ error: "กรุณาเข้าสู่ระบบใหม่" }, 401);
       const body = await request.json();
       const question = String(body.question || "").trim().slice(0, 2000);
-      if (!question) return Response.json({ error: "กรุณาระบุคำถาม" }, { status: 400 });
+      if (!question) return json({ error: "กรุณาระบุคำถาม" }, 400);
       const view = String(body.view || "unknown").slice(0, 80);
       const filters = body.filters && typeof body.filters === "object" ? body.filters : {};
       const history = Array.isArray(body.history) ? body.history.slice(-MAX_HISTORY).map((item: Row) => ({
@@ -82,7 +92,7 @@ export default {
         admin.from("profiles").select("id,email,display_name,role,department_code,active").eq("id", actorId).single(),
         admin.from("departments").select("code,name").order("code"),
       ]);
-      if (profileError || !profile?.active) return Response.json({ error: "บัญชีไม่มีสิทธิ์ใช้งาน" }, { status: 403 });
+      if (profileError || !profile?.active) return json({ error: "บัญชีไม่มีสิทธิ์ใช้งาน" }, 403);
       if (departmentError) throw departmentError;
       let allowedDepartments: string[];
       if (["admin", "exec"].includes(profile.role)) {
@@ -254,15 +264,15 @@ export default {
       const aiPayload = await aiResponse.json();
       if (!aiResponse.ok) {
         console.error("OpenAI error", aiResponse.status, aiPayload?.error?.code || "unknown");
-        return Response.json({ error: "AI ประมวลผลไม่สำเร็จ กรุณาลองใหม่" }, { status: 502 });
+        return json({ error: "AI ประมวลผลไม่สำเร็จ กรุณาลองใหม่" }, 502);
       }
       const text = responseText(aiPayload);
-      if (!text) return Response.json({ error: "AI ไม่ได้ส่งคำตอบกลับมา" }, { status: 502 });
+      if (!text) return json({ error: "AI ไม่ได้ส่งคำตอบกลับมา" }, 502);
       const answer = JSON.parse(text);
-      return Response.json({ ok: true, answer, model: MODEL, generated_at: context.generated_at, scope: context.user_scope });
+      return json({ ok: true, answer, model: MODEL, generated_at: context.generated_at, scope: context.user_scope });
     } catch (error) {
       console.error(error);
-      return Response.json({ error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" }, { status: 400 });
+      return json({ error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" }, 400);
     }
   }),
 };
