@@ -1014,7 +1014,7 @@ function openReportDepartment(code){
   openDashboardDepartment(code);
 }
 function exportCurrent(){
-  const base=VIEW==='myTasks'?myTasks():TASKS;
+  const base=VIEW==='myTasks'?myTasks():boardAllWork();
   const list=applyFilters(base);
   if(!list.length){toast('ไม่มีงานให้ส่งออก (ลองล้างตัวกรอง)','info');return;}
   downloadCSV(list,(VIEW==='myTasks'?'my-tasks':'tasks')+'-'+list.length+'.csv');}
@@ -1077,7 +1077,7 @@ function voiceDictate(targetId){
 
 /* ===== ผู้รับผิดชอบหลายคน + กลุ่ม (People Picker) ===== */
 const assigneesOf=t=>(t.assignees&&t.assignees.length)?t.assignees:[t.assignee];
-function avStack(ids){return `<span style="display:inline-flex;vertical-align:middle">${ids.slice(0,4).map((id,i)=>`<span class="mini" style="background:${u(id).c};margin-left:${i?-8:0}px;border:2px solid #fff">${u(id).s}</span>`).join('')}${ids.length>4?`<span class="mini" style="background:#9aa7bd;margin-left:-8px;border:2px solid #fff">+${ids.length-4}</span>`:''}</span>`;}
+function avStack(ids){return `<span style="display:inline-flex;vertical-align:middle">${ids.slice(0,4).map((id,i)=>`<span class="mini" style="background:${u(id).c};margin-left:${i?-8:0}px;border:2px solid #fff">${esc(u(id).s)}</span>`).join('')}${ids.length>4?`<span class="mini" style="background:#9aa7bd;margin-left:-8px;border:2px solid #fff">+${ids.length-4}</span>`:''}</span>`;}
 let PICK=new Set();
 function renderPicker(){
   const box=document.getElementById('pickerBox');if(!box)return;const sel=[...PICK];
@@ -1278,8 +1278,8 @@ function filterBarLite(ph){
 }
 
 function filterBar(lockDept){
-  const assignees=[...new Set(TASKS.map(t=>t.assignee))];
-  const opt=(cur,val,txt)=>`<option value="${val}" ${cur===val?'selected':''}>${txt}</option>`;
+  const assignees=[...new Set((VIEW==='myTasks'?myTasks():boardAllWork()).map(t=>t.assignee).filter(Boolean))];
+  const opt=(cur,val,txt)=>`<option value="${esc(val)}" ${cur===val?'selected':''}>${esc(txt)}</option>`;
   return `<div class="filterbar">
     <div class="fsearch"><input placeholder="ค้นหางาน / รหัส / แท็ก" value="${F.q}" oninput="F.q=this.value;clearTimeout(window._t);window._t=setTimeout(()=>RENDER[VIEW](BOARD_DEPT),250)"></div>
     ${lockDept?'':`<div class="fsel"><label>แผนก</label><select onchange="setF('dept',this.value)">${opt(F.dept,'','ทั้งหมด')}${DEPTS.map(d=>opt(F.dept,d.code,d.name)).join('')}</select></div>`}
@@ -1361,7 +1361,7 @@ async function saveGraphicMemberLink(id){const email=normSp(val('gmEmail_'+id)),
 async function inviteGraphicMember(id){const m=gpMember(id),email=normSp(val('gmEmail_'+id));if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('กรุณากรอกอีเมลจริงของสมาชิกก่อน','info');return;}if(!confirm(`ส่งคำเชิญสร้างบัญชี Company Hub ไปที่ ${email} ใช่หรือไม่?`))return;try{const r=await SB.functions.invoke('invite-company-user',{body:{email,display_name:m.full_name||m.username,position_title:'Graphic Designer',role:'staff',department_code:'GRAPHIC',visible_departments:['GRAPHIC'],managed_departments:[],trello_member_id:id}});if(r.error)throw r.error;if(r.data&&r.data.error)throw new Error(r.data.error);toast('ส่งคำเชิญและสร้างบัญชีแล้ว');GRAPHIC_READY=false;await loadGraphic();GF.tab='projects';RENDER.graphic();}catch(e){toast('สร้างบัญชีไม่สำเร็จ · '+(e.message||'ตรวจ Edge Function'),'info');}}
 
 async function sbAllRows(table,order,ascending=true){const all=[];for(let from=0;;from+=1000){const r=await SB.from(table).select('*').order(order,{ascending}).range(from,from+999);if(r.error)throw r.error;const rows=r.data||[];all.push(...rows);if(rows.length<1000)break;}return{data:all,error:null};}
-async function loadGraphic(){if(!SB||!canViewDept('GRAPHIC'))return;try{const [jr,pr,fr,cr,ur,mr,jmr]=await Promise.all([sbAllRows('graphic_jobs','updated_at',false),SB.from('graphic_projects').select('*').order('name'),sbAllRows('graphic_job_files','created_at'),sbAllRows('graphic_job_checklist_items','position'),SB.from('profiles').select('id,display_name,email,department_code').eq('department_code','GRAPHIC'),SB.from('graphic_trello_members').select('*').order('full_name'),sbAllRows('graphic_job_members','created_at')]);const err=[jr,pr,fr,cr,mr,jmr].find(x=>x.error);if(err)throw err.error;const excludedProjects=new Set((pr.data||[]).filter(gpExcludedProject).map(p=>p.id));GRAPHIC_PROJECTS=(pr.data||[]).filter(p=>!excludedProjects.has(p.id));GRAPHIC_JOBS=(jr.data||[]).filter(j=>!excludedProjects.has(j.project_id));const visibleJobs=new Set(GRAPHIC_JOBS.map(j=>j.id));GRAPHIC_FILES=(fr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_CHECKS=(cr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_PEOPLE=ur.data||[];GRAPHIC_MEMBERS=mr.data||[];GRAPHIC_JOB_MEMBERS=(jmr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_READY=true;if(VIEW==='graphic')RENDER.graphic();else if(VIEW==='dash')RENDER.dash();}catch(e){GRAPHIC_READY=false;if(VIEW==='graphic')main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="ai-note"><b>ยังเปิดโมดูลไม่ได้</b><br>กรุณารัน Migration 011 · ${esc(e.message||'')}</div>`;}}
+async function loadGraphic(){if(!SB||!canViewDept('GRAPHIC'))return;try{const [jr,pr,fr,cr,ur,mr,jmr]=await Promise.all([sbAllRows('graphic_jobs','updated_at',false),SB.from('graphic_projects').select('*').order('name'),sbAllRows('graphic_job_files','created_at'),sbAllRows('graphic_job_checklist_items','position'),SB.from('profiles').select('id,display_name,email,department_code').eq('department_code','GRAPHIC'),SB.from('graphic_trello_members').select('*').order('full_name'),sbAllRows('graphic_job_members','created_at')]);const err=[jr,pr,fr,cr,mr,jmr].find(x=>x.error);if(err)throw err.error;const excludedProjects=new Set((pr.data||[]).filter(gpExcludedProject).map(p=>p.id));GRAPHIC_PROJECTS=(pr.data||[]).filter(p=>!excludedProjects.has(p.id));GRAPHIC_JOBS=(jr.data||[]).filter(j=>!excludedProjects.has(j.project_id));const visibleJobs=new Set(GRAPHIC_JOBS.map(j=>j.id));GRAPHIC_FILES=(fr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_CHECKS=(cr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_PEOPLE=ur.data||[];GRAPHIC_MEMBERS=mr.data||[];GRAPHIC_JOB_MEMBERS=(jmr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_READY=true;if(VIEW==='graphic')RENDER.graphic();else if(VIEW==='dash')RENDER.dash();else if(VIEW==='board')RENDER.board(BOARD_DEPT);else if(VIEW==='timeline')RENDER.timeline();}catch(e){GRAPHIC_READY=false;if(VIEW==='graphic')main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="ai-note"><b>ยังเปิดโมดูลไม่ได้</b><br>กรุณารัน Migration 011 · ${esc(e.message||'')}</div>`;}}
 function openGraphicBrief(){showModal(`<div class="modal-h"><div><h3>รับบรีฟงานกราฟิก</h3><div class="muted" style="font-size:11.5px">กรอกข้อมูลให้ครบ เพื่อลดรอบถามกลับ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="field"><label>ชื่องาน *</label><input class="fin" id="gbTitle" maxlength="300" placeholder="เช่น Banner โปรโมชันเดือนกันยายน"></div><div class="field"><label>รายละเอียดบรีฟ *</label><textarea class="fin" id="gbBrief" rows="4" placeholder="วัตถุประสงค์, ข้อความ, mood & tone, สิ่งห้าม"></textarea></div><div class="two"><div class="field"><label>โปรเจกต์</label><select class="fin" id="gbProject"><option value="">ไม่ระบุ</option>${GRAPHIC_PROJECTS.filter(x=>x.active).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>ประเภท</label><select class="fin" id="gbType"><option value="general">งานทั่วไป</option><option value="social">Social</option><option value="ui">UI</option><option value="monthly">รายเดือน</option><option value="urgent">งานด่วน</option></select></div></div><div class="two"><div class="field"><label>ผู้ของาน</label><input class="fin" id="gbRequester" maxlength="120" value="${esc(ACCESS_PROFILE&&ACCESS_PROFILE.display_name||'')}"></div><div class="field"><label>ผู้รับผิดชอบ</label><select class="fin" id="gbAssignee"><option value="">ยังไม่มอบหมาย</option>${GRAPHIC_PEOPLE.map(p=>`<option value="${p.id}" data-name="${esc(p.display_name||p.email)}">${esc(p.display_name||p.email)}</option>`).join('')}</select></div></div><div class="two"><div class="field"><label>กำหนดส่ง *</label><input type="datetime-local" class="fin" id="gbDue"></div><div class="field"><label>ความสำคัญ</label><select class="fin" id="gbPrio">${Object.entries(GP_PRIO).map(([k,v])=>`<option value="${k}" ${k==='mid'?'selected':''}>${v}</option>`).join('')}</select></div></div><div class="two"><div class="field"><label>ขนาด / สเปก</label><input class="fin" id="gbDim" maxlength="200" placeholder="1080×1080 px"></div><div class="field"><label>ช่องทาง</label><input class="fin" id="gbChannel" maxlength="120" placeholder="Facebook / LINE / Web"></div></div><div class="field"><label>Checklist (1 บรรทัดต่อ 1 รายการ)</label><textarea class="fin" id="gbChecks" rows="3" placeholder="Draft 1\nแก้ไขตาม Feedback\nFinal export"></textarea></div><button class="tbtn primary" id="gbSave" onclick="createGraphicJob()">สร้างงาน</button></div>`);}
 async function createGraphicJob(){const title=normSp(val('gbTitle')),brief=normSp(val('gbBrief')),due=val('gbDue');if(!title||!brief||!due){toast('กรุณากรอกชื่อ บรีฟ และกำหนดส่ง','info');return;}const ae=document.getElementById('gbAssignee'),aid=ae.value,an=aid?(ae.options[ae.selectedIndex].dataset.name||ae.options[ae.selectedIndex].text):'';const btn=document.getElementById('gbSave');btn.disabled=true;try{const row={title,brief,project_id:val('gbProject')||null,work_type:val('gbType'),requester_name:normSp(val('gbRequester')),assignee_id:aid||null,assignee_name:an,due_at:new Date(due).toISOString(),priority:val('gbPrio'),dimensions:normSp(val('gbDim')),channel:normSp(val('gbChannel')),status:val('gbType')==='monthly'?'monthly':'intake',source:'Company Hub'};const r=await SB.from('graphic_jobs').insert(row).select().single();if(r.error)throw r.error;const checks=(val('gbChecks')||'').split('\n').map(normSp).filter(Boolean);if(checks.length){const cr=await SB.from('graphic_job_checklist_items').insert(checks.map((title,i)=>({job_id:r.data.id,title,position:i}))).select();if(cr.error)throw cr.error;GRAPHIC_CHECKS.push(...cr.data);}GRAPHIC_JOBS.unshift(r.data);closeModal();RENDER.graphic();toast('สร้างงาน G-'+r.data.job_no+' แล้ว');}catch(e){btn.disabled=false;toast('สร้างงานไม่สำเร็จ · '+(e.message||''),'info');}}
 function gpExtractLinks(body){return [...new Set((body||'').match(/https?:\/\/[^\s\])>\"]+/g)||[])];}
@@ -1385,12 +1385,37 @@ function dashboardGraphicRows(){
   return GRAPHIC_JOBS.map(j=>({id:j.id,jobNo:j.job_no,title:j.title,dept:'GRAPHIC',status:statusMap[j.status]||'todo',prio:j.priority==='urgent'?'high':(j.priority||'mid'),priority:j.priority==='urgent'?'high':(j.priority||'mid'),assignee:j.assignee_name||'',assignees:[],creator:j.requester_name||'',start:mmdd(j.created_at),due:mmdd(j.due_at),dueAt:j.due_at||'',completedAt:j.completed_at||'',spent:0,ontime:!!(j.completed_at&&j.due_at&&new Date(j.completed_at)<=new Date(j.due_at)),desc:j.brief||'',solution:'',tags:[j.work_type,j.channel].filter(Boolean),_source:'graphic',_graphicStatus:j.status}));
 }
 function dashboardAllWork(){return [...TASKS.map(t=>({...t,_source:'task'})),...dashboardGraphicRows()];}
+/* Unified production board: include every real source already returned by Supabase/RLS. */
+function boardMmdd(value){const s=String(value||'');if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(5,10);const d=new Date(value);return Number.isNaN(d.getTime())?'':String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function boardActivityStatus(row){
+  const s=String(row.status||'').toLowerCase();
+  if((row.time_flag&&row.time_flag!=='ok')||(typeof activityReviewFlags==='function'&&activityReviewFlags(row).length))return'review';
+  if(/completed|done|เสร็จ|สำเร็จ/.test(s))return'done';
+  if(/waiting|pending|block|รอ|ค้าง|เลื่อน|ปัญหา/.test(s)||row.operational_issue)return'block';
+  if(/progress|doing|กำลัง|ดำเนิน/.test(s))return'doing';
+  return'todo';
+}
+function boardActivityRows(){
+  if(typeof ACTIVITY_READY==='undefined'||!ACTIVITY_READY||!Array.isArray(ACTIVITY_ROWS))return[];
+  return ACTIVITY_ROWS.map(row=>{const owner=String(row.employee_name||'ยังไม่ระบุ').trim(),date=boardMmdd(row.activity_date),quality=typeof activityReviewFlags==='function'?activityReviewFlags(row):[];return {
+    id:'ACT-'+row.id,sourceId:String(row.id),_source:'activity',dept:row.department_code||'',title:row.activity||row.category||'บันทึกกิจกรรม',creator:owner,assignee:owner,assignees:[owner],status:boardActivityStatus(row),prio:(row.operational_issue||quality.length)?'high':'mid',start:date,due:date,spent:row.time_flag==='ok'?Number(row.duration_minutes||0)/60:0,ontime:true,tags:[row.category,row.time_flag!=='ok'?'ต้องตรวจเวลา':'',...quality].filter(Boolean),desc:row.result_note||row.operational_issue||'',sourceRow:row
+  };});
+}
+function boardIssueRows(){return PROBLEMS.map(p=>{const date=boardMmdd(p.date),owner=String(p.owner||p.reporter||'ยังไม่มอบหมาย').trim(),priority=String(p.prio||'').toLowerCase();return {
+  id:'ISSUE-'+p.id,sourceId:String(p.id),_source:'issue',dept:p.dept||'',title:(p.cat?p.cat+' — ':'')+(p.problem||p.project||'ปัญหาหน้างาน'),creator:p.reporter||'',assignee:owner,assignees:[owner],status:p.status==='Resolved'?'done':p.status==='In Progress'?'doing':'block',prio:/critical|high|สูง|ด่วน/.test(priority)?'high':/low|ต่ำ/.test(priority)?'low':'mid',start:date,due:date,spent:p.resmin?Number(p.resmin)/60:0,ontime:p.status==='Resolved',tags:[p.project,p.cat,p.solution?'มีวิธีแก้แล้ว':'ยังไม่มีวิธีแก้'].filter(Boolean),desc:p.solution||p.problem||'',sourceRow:p
+  };});}
+function boardAllWork(){return [...TASKS.map(t=>({...t,_source:'task',sourceId:t.id})),...dashboardGraphicRows().map(t=>({...t,sourceId:t.id})),...boardActivityRows(),...boardIssueRows()].filter(t=>t.dept&&canViewDept(t.dept));}
+const BOARD_SOURCE_LABEL={task:'งานที่มอบหมาย',graphic:'Graphic Production',activity:'บันทึกกิจกรรม',issue:'ศูนย์ปัญหา'};
+function boardSourceLabel(t){return BOARD_SOURCE_LABEL[t._source]||'งาน';}
+function openBoardActivity(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;const hours=activityCountedDuration(row),flags=activityQualityFlags(row);showModal(`<div class="modal-h"><div><span class="tag">บันทึกกิจกรรม</span><h3 style="margin-top:7px">${esc(row.activity||row.category||'กิจกรรม')}</h3><div class="muted">${esc(row.employee_name||'ไม่ระบุพนักงาน')} · ${esc(activityDateLabel(row.activity_date))} · ${esc(deptName(row.department_code))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="two"><div class="field"><label>สถานะ</label><div class="v">${esc(row.status||'-')}</div></div><div class="field"><label>เวลาที่นับได้</label><div class="v">${nf(hours)} ชม.</div></div></div><div class="field"><label>ผลการดำเนินงาน</label><div class="v" style="white-space:pre-wrap">${esc(row.result_note||'-')}</div></div>${row.operational_issue?`<div class="field"><label>ปัญหาหน้างาน</label><div class="v">${esc(row.operational_issue)}</div></div>`:''}${flags.length?`<div class="ai-note"><b>ต้องตรวจข้อมูล:</b> ${flags.map(activityQualityLabel).map(esc).join(' · ')}</div>`:''}<button class="tbtn primary" style="margin-top:12px" onclick="openBoardActivitySource('${esc(String(row.id))}')">เปิดในบันทึกกิจกรรม →</button></div>`);}
+function openBoardActivitySource(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;closeModal();ACTIVITY_FILTER.department=row.department_code||'';ACTIVITY_FILTER.query=row.employee_name||'';ACTIVITY_PAGE=1;go('activity');}
+function openBoardWork(source,id){if(source==='graphic')openGraphicJob(id);else if(source==='activity')openBoardActivity(id);else if(source==='issue')openProblem(id);else openTask(id);}
 function dashboardDueAt(t){if(t.dueAt)return new Date(t.dueAt);if(/^\d{2}-\d{2}$/.test(t.due||'')){const [m,d]=t.due.split('-').map(Number);return new Date(2026,m-1,d,23,59,59);}const v=new Date(t.due||'');return Number.isNaN(v.getTime())?null:v;}
 function dashboardIsOverdue(t){const due=dashboardDueAt(t);return !!due&&t.status!=='done'&&due<new Date();}
 function dashboardDueText(t){const due=dashboardDueAt(t);return due?new Intl.DateTimeFormat('th-TH',{timeZone:ORG_TIMEZONE,day:'numeric',month:'short',year:'2-digit'}).format(due):'-';}
 function openDashboardWork(source,id){if(source==='graphic')openGraphicJob(id);else openTask(id);}
-function openDashboardAllWork(){if(TASKS.length)goBoardFiltered();else{GF.status='';go('graphic');}}
-function openDashboardStatus(status){if(TASKS.some(t=>t.status===status))goBoardFiltered({status});else{GF.status=({todo:'intake',doing:'doing',review:'review',block:'revision',done:'done'})[status]||'';go('graphic');}}
+function openDashboardAllWork(){goBoardFiltered();}
+function openDashboardStatus(status){goBoardFiltered({status});}
 function openDashboardDepartment(code){if(code==='GRAPHIC'){GF.project='';GF.status='';go('graphic');}else goBoardFiltered({dept:code});}
 
 function execDash(){
@@ -1456,7 +1481,7 @@ function execDash(){
 }
 
 function leadDash(){
-  const dept=currentDept(), dt=TASKS.filter(t=>t.dept===dept), s=KPI[dept]?deptScore(dept):0;
+  const dept=currentDept(), dt=boardAllWork().filter(t=>t.dept===dept), s=KPI[dept]?deptScore(dept):0;
   if(ACCESS_PROFILE?.department_code==='GRAPHIC'&&GRAPHIC_READY){GF.tab='dashboard';return RENDER.graphic();}
   const byAssignee=[...new Set(dt.map(t=>t.assignee))].map(a=>({label:shortName(a),v:dt.filter(t=>t.assignee===a).length,dot:u(a).c,click:`goBoardFiltered({dept:'${dept}',assignee:'${a}'})`}));
   main.innerHTML=`
@@ -1491,14 +1516,16 @@ RENDER.myTasks=function(){
 
 RENDER.board=function(deptFilter){
   if(deptFilter)F.dept=deptFilter;
-  const base=TASKS,list=applyFilters(base);
-  main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',deptFilter?deptName(deptFilter):'ทุกแผนก')}
-  <div class="page-h"><div><h1>บอร์ดงาน ${deptFilter?'— '+deptName(deptFilter):''}</h1>
+  const selectedDept=deptFilter||F.dept,base=boardAllWork(),list=applyFilters(base),shown=list.slice(0,500);
+  const sourceCount=Object.entries(BOARD_SOURCE_LABEL).map(([key,label])=>{const n=base.filter(t=>t._source===key).length;return n?`${label} ${nf(n)}`:'';}).filter(Boolean).join(' · ');
+  main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',selectedDept?deptName(selectedDept):'ทุกแผนก')}
+  <div class="page-h"><div><h1>บอร์ดงาน ${selectedDept?'— '+deptName(selectedDept):''}</h1>
     <p>มุมมองตารางสไตล์ Monday · กรอง จัดกลุ่ม เรียงลำดับ · คลิกงานเพื่อดูรายละเอียด</p></div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">${sic('i-calendar')} ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
   ${filterBar(!!deptFilter)}${activeFilterChips()}
-  <div class="resultline">แสดง ${list.length} จาก ${base.length} งาน · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
-  ${groupedBoards(list)}`;
+  ${sourceBadge('live','PRODUCTION BOARD',sourceCount||'ยังไม่พบข้อมูลตามสิทธิ์')}
+  <div class="resultline">ตรงตัวกรอง ${list.length} จาก ${base.length} รายการ${list.length>shown.length?` · แสดง ${shown.length} รายการแรก กรุณากรองแผนก/พนักงานเพิ่ม`:''} · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
+  ${groupedBoards(shown)}`;
 };
 
 function groupedBoards(list){
@@ -1510,7 +1537,7 @@ function groupedBoards(list){
     let label,color;
     if(F.group==='dept'){label=deptName(g);color=deptColor(g);}
     else if(F.group==='status'){label=STATUS[g].t;color=STATUS[g].c;}
-    else {label=shortName(g);color=u(g).c;}
+    else {label=esc(shortName(g));color=u(g).c;}
     return `<div class="board"><div class="board-grp"><span class="dot" style="background:${color}"></span>${label} <span class="muted" style="font-weight:300;font-size:11.5px">(${groups[g].length})</span></div>${boardTableInner(groups[g],F.group!=='dept')}</div>`;
   }).join('');
 }
@@ -1519,17 +1546,17 @@ function boardTableInner(list,showDept=true){
   const totalSpent=list.reduce((s,t)=>s+t.spent,0);
   return `<table><thead><tr>
     <th>งาน</th>${showDept?'<th>แผนก</th>':''}<th>ผู้รับผิดชอบ</th>${th('status','สถานะ')}${th('prio','ความสำคัญ')}${th('due','กำหนดส่ง')}${th('spent','เวลาที่ใช้')}</tr></thead>
-    <tbody>${list.map(t=>`<tr class="${t.prio==='high'?'trow-lead':''}" onclick="openTask('${t.id}')">
-      <td><b style="font-weight:500">${t.title}</b><div class="muted" style="font-size:10.5px">${t.id} · สั่งโดย ${shortName(t.creator)} · ⏱ ${slaText(t)}${slaOverdue(t)?' <span style="color:var(--red);font-weight:500">· เกิน SLA</span>':''}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
+    <tbody>${list.map(t=>`<tr class="${t.prio==='high'?'trow-lead':''}" onclick="openBoardWork('${t._source||'task'}','${t.sourceId||t.id}')">
+      <td><b style="font-weight:500">${esc(t.title)}</b><div class="muted" style="font-size:10.5px"><span class="tag">${esc(boardSourceLabel(t))}</span> ${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)} · ${esc(t.creator?'โดย '+shortName(t.creator):'ไม่ระบุผู้สร้าง')}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
       ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
-      <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${shortName(assigneesOf(t)[0])}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
+      <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${esc(shortName(assigneesOf(t)[0]))}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
       <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>
       <td class="nowrap">${fmtDate(t.due)} ${t.due<'08-07'&&t.status!=='done'?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="${showDept?6:5}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
 }
 
 RENDER.timeline=function(){
-  const list=applyFilters(TASKS).filter(t=>t.status!=='done');
+  const list=applyFilters(boardAllWork()).filter(t=>t.status!=='done').slice(0,500);
   const D=s=>new Date(2026,+s.split('-')[0]-1,+s.split('-')[1]);
   const mmdd=dt=>('0'+(dt.getMonth()+1)).slice(-2)+'-'+('0'+dt.getDate()).slice(-2);
   const all=list.flatMap(t=>[t.start,t.due]).filter(Boolean).sort();
@@ -1545,8 +1572,8 @@ RENDER.timeline=function(){
   ${list.length?`<div class="card pad">
     <div class="tl-scale" style="grid-template-columns:repeat(${ticks.length},1fr)">${ticks.map(d=>`<span>${d}</span>`).join('')}</div>
     ${list.map(t=>{const l=idx(t.start)/span*100,w=Math.max((idx(t.due)-idx(t.start)+1)/span*100,3);
-      return `<div class="tl-row"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${deptPill(t.dept)} ${t.title} <span class="muted">· ส่ง ${fmtDate(t.due)}</span></div>
-        <div class="tl-track"><div class="tl-bar" style="left:${l}%;width:${w}%;background:${STATUS[t.status].c}" onclick="openTask('${t.id}')" title="${t.title} (${fmtDate(t.start)}→${fmtDate(t.due)})">${t.id}</div></div></div>`;}).join('')}
+      return `<div class="tl-row"><div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${deptPill(t.dept)} ${esc(t.title)} <span class="muted">· ส่ง ${fmtDate(t.due)}</span></div>
+        <div class="tl-track"><div class="tl-bar" style="left:${l}%;width:${w}%;background:${STATUS[t.status].c}" onclick="openBoardWork('${t._source||'task'}','${t.sourceId||t.id}')" title="${esc(t.title)} (${fmtDate(t.start)}→${fmtDate(t.due)})">${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)}</div></div></div>`;}).join('')}
     <div class="legend" style="margin-top:12px">${Object.keys(STATUS).map(s=>`<span><span class="dot" style="background:${STATUS[s].c}"></span>${STATUS[s].t}</span>`).join('')}</div>
   </div>`:'<div class="card pad" style="text-align:center;color:var(--muted);padding:40px">ไม่มีงานที่กำลังดำเนินการในช่วงนี้</div>'}`;
 };

@@ -76,6 +76,8 @@ async function loadActivities(){
     ACTIVITY_READY=true;
     if(VIEW==='activity')RENDER.activity();
     if(VIEW==='dash')RENDER.dash();
+    if(VIEW==='board')RENDER.board(BOARD_DEPT);
+    if(VIEW==='timeline')RENDER.timeline();
   }catch(error){
     ACTIVITY_READY=false;
     if(VIEW==='activity') main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="ai-note"><b>ยังเปิดข้อมูลกิจกรรมไม่ได้</b><br>กรุณารัน Migration 008 · ${esc(error.message||'')}</div>`;
