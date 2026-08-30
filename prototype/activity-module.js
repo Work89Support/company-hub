@@ -36,11 +36,11 @@ const ACTIVITY_EXPECTED_SOURCES=[
 ];
 function activityReadinessData(){
   const adminView=['admin','exec'].includes(AUTH_DB_ROLE),expected=adminView?ACTIVITY_EXPECTED_SOURCES:[...new Map(ACTIVITY_ROWS.map(r=>[String(r.source_sheet||r.department_label||r.department_code).trim(),[r.department_code,String(r.source_sheet||r.department_label||r.department_code).trim()]])).values()];
-  return expected.map(([code,sheet])=>{const rows=ACTIVITY_ROWS.filter(r=>r.department_code===code&&String(r.source_sheet||'').trim()===sheet.trim());const dates=rows.map(r=>r.activity_date).filter(Boolean).sort();const review=rows.filter(r=>activityReviewFlags(r).length>0).length;return {code,sheet,rows:rows.length,from:dates[0]||'',to:dates.at(-1)||'',review,state:rows.length?'ready':'missing'};});
+  return expected.map(([code,sheet])=>{const rows=ACTIVITY_ROWS.filter(r=>r.department_code===code&&String(r.source_sheet||'').trim()===sheet.trim());const dates=rows.map(r=>r.activity_date).filter(Boolean).sort();const review=rows.filter(r=>activityReviewFlags(r).length>0).length;if(code==='GRAPHIC'&&!rows.length&&typeof GRAPHIC_READY!=='undefined'&&GRAPHIC_READY){const gd=GRAPHIC_JOBS.map(j=>(j.due_at||j.created_at||'').slice(0,10)).filter(Boolean).sort();return {code,sheet:'Graphic Production',rows:GRAPHIC_JOBS.length,from:gd[0]||'',to:gd.at(-1)||'',review:GRAPHIC_JOBS.filter(j=>j.status==='review').length,state:'ready',graphic:true};}return {code,sheet,rows:rows.length,from:dates[0]||'',to:dates.at(-1)||'',review,state:rows.length?'ready':'missing'};});
 }
 function activityReadinessBlock(executive=false){
   const data=activityReadinessData(),missing=data.filter(x=>x.state==='missing').length,ready=data.length-missing;
-  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>${sic('i-clipboard')} ความพร้อมข้อมูลรายแผนก</h3><span class="act">พร้อม ${nf(ready)} · ขาด ${nf(missing)}</span></div><div class="pad"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px">${data.map(x=>`<button class="tbtn" style="height:auto;min-height:74px;text-align:left;justify-content:flex-start;padding:11px;border-color:${x.state==='missing'?'#fecaca':'#bbf7d0'};background:${x.state==='missing'?'#fff7f7':'#f7fff9'}" onclick="ACTIVITY_FILTER.department='${esc(x.code)}';ACTIVITY_PAGE=1;go('activity')"><span style="width:100%"><b>${esc(x.sheet)}</b><br><span style="color:${x.state==='missing'?'var(--red)':'var(--green)'}">${x.state==='missing'?'ยังไม่มีบันทึกจริง':nf(x.rows)+' กิจกรรม'}</span>${x.rows?`<br><small class="muted">${activityDateLabel(x.from)}–${activityDateLabel(x.to)} · ตรวจ ${nf(x.review)}</small>`:(x.code==='GRAPHIC'?'<br><small class="muted">งาน Graphic อยู่ในโมดูล Production แยกต่างหาก</small>':'')}</span></button>`).join('')}</div>${executive&&missing?`<div class="ai-note" style="margin-top:12px"><b>ข้อควรระวัง:</b> แผนกที่ขึ้นว่า “ยังไม่มีบันทึกจริง” จะไม่ถูกนำไปตีความว่าผลงานเป็นศูนย์</div>`:''}</div></div>`;
+  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>${sic('i-clipboard')} ความพร้อมข้อมูลรายแผนก</h3><span class="act">พร้อม ${nf(ready)} · ขาด ${nf(missing)}</span></div><div class="pad"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px">${data.map(x=>`<button class="tbtn" style="height:auto;min-height:74px;text-align:left;justify-content:flex-start;padding:11px;border-color:${x.state==='missing'?'#fecaca':'#bbf7d0'};background:${x.state==='missing'?'#fff7f7':'#f7fff9'}" onclick="${x.graphic?"go('graphic')":`ACTIVITY_FILTER.department='${esc(x.code)}';ACTIVITY_PAGE=1;go('activity')`}"><span style="width:100%"><b>${esc(x.sheet)}</b><br><span style="color:${x.state==='missing'?'var(--red)':'var(--green)'}">${x.state==='missing'?'ยังไม่มีบันทึกจริง':nf(x.rows)+(x.graphic?' งาน':' กิจกรรม')}</span>${x.rows?`<br><small class="muted">${activityDateLabel(x.from)}–${activityDateLabel(x.to)} · ${x.graphic?'รอตรวจ':'ตรวจข้อมูล'} ${nf(x.review)}</small>`:''}</span></button>`).join('')}</div>${executive&&missing?`<div class="ai-note" style="margin-top:12px"><b>ข้อควรระวัง:</b> แผนกที่ขึ้นว่า “ยังไม่มีบันทึกจริง” จะไม่ถูกนำไปตีความว่าผลงานเป็นศูนย์</div>`:''}</div></div>`;
 }
 function activityVisibleRows(){
   const q=ACTIVITY_FILTER.query.trim().toLowerCase();
@@ -55,7 +55,7 @@ function activityVisibleRows(){
 function activitySet(key,value){ACTIVITY_FILTER[key]=value;ACTIVITY_PAGE=1;RENDER.activity();}
 function activityClear(){ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:'',to:''};ACTIVITY_PAGE=1;RENDER.activity();}
 function activityPage(page){ACTIVITY_PAGE=Math.max(1,page);RENDER.activity();document.querySelector('.activity-scroll')?.scrollIntoView({behavior:'smooth',block:'start'});}
-function canManageActivity(row){return AUTH_DB_ROLE==='admin'||AUTH_DB_ROLE==='exec'||(AUTH_DB_ROLE==='lead'&&(ROLE_META.lead.dept===row.department_code||MANAGE_DEPTS.includes(row.department_code)));}
+function canManageActivity(row){return isExecutiveRole()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(row.department_code));}
 function openActivityTime(id){
   const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row||!canManageActivity(row))return;
   showModal(`<div class="modal-h"><div><h3>ตรวจและยืนยันเวลา</h3><div class="muted" style="font-size:11.5px">${esc(row.employee_name)} · ${activityDateLabel(row.activity_date)} · ${esc(row.department_label||deptName(row.department_code))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note"><b>ค่าต้นทาง:</b> ${esc(row.source_start_raw||'(ไม่มีค่าเดิม)')} – ${esc(row.source_end_raw||'(ไม่มีค่าเดิม)')}<br><span class="muted">รายการที่นำเข้าก่อน Migration 009 อาจไม่มีค่าต้นทาง ให้ตรวจจากชีตเดิมก่อนยืนยัน</span></div><div class="two" style="margin-top:14px"><div class="field"><label>เวลาเริ่มที่ถูกต้อง</label><input class="fin" id="avStart" type="time" value="${activityTime(row.start_time)==='-'?'':activityTime(row.start_time)}"></div><div class="field"><label>เวลาสิ้นสุดที่ถูกต้อง</label><input class="fin" id="avEnd" type="time" value="${activityTime(row.end_time)==='-'?'':activityTime(row.end_time)}"></div></div><div class="field"><label>หมายเหตุ / หลักฐานอ้างอิง</label><textarea class="fin" id="avNote" rows="3" placeholder="เช่น ตรวจจาก Google Sheet ต้นทางแล้ว"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="tbtn" onclick="closeModal()">ยกเลิก</button><button class="tbtn primary" id="avSave" onclick="saveActivityTime('${esc(row.id)}')">ยืนยันเวลา</button></div></div>`);
@@ -96,6 +96,10 @@ RENDER.activity=function(){
   const flagged=rows.filter(r=>r.time_flag!=='ok').length;
   const qualityRows=rows.filter(r=>activityReviewFlags(r).length>0).length;
   const flagCounts=rows.reduce((o,r)=>(o[r.time_flag]=(o[r.time_flag]||0)+1,o),{});
+  const byDepartment=[...rows.reduce((m,r)=>m.set(r.department_label||deptName(r.department_code),(m.get(r.department_label||deptName(r.department_code))||0)+1),new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v);
+  const byPerson=[...rows.reduce((m,r)=>{const key=r.employee_name||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+activityCountedDuration(r));},new Map())].map(([label,v])=>({label:esc(label),v:Number(v.toFixed(1))})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const byCategory=[...rows.reduce((m,r)=>{const key=r.category||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+1);},new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const byStatus=[...rows.reduce((m,r)=>{const key=r.status||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+1);},new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v);
   const pages=Math.max(1,Math.ceil(rows.length/ACTIVITY_PAGE_SIZE));
   if(ACTIVITY_PAGE>pages)ACTIVITY_PAGE=pages;
   const from=(ACTIVITY_PAGE-1)*ACTIVITY_PAGE_SIZE,pageRows=rows.slice(from,from+ACTIVITY_PAGE_SIZE);
@@ -108,6 +112,12 @@ RENDER.activity=function(){
       <div class="activity-kpi"><div>เสร็จ</div><div class="n">${nf(completed)}</div><div class="sub">รายการ</div></div>
       <div class="activity-kpi review"><div>ต้องตรวจเวลา</div><div class="n">${nf(flagged)}</div><div class="sub">ไม่ครบ ${nf(flagCounts.missing||0)} · ข้ามวัน ${nf(flagCounts.overnight||0)} · ผิดปกติ ${nf(flagCounts.suspicious||0)} · ไม่นับ ${nf(flagCounts.excluded_all_day||0)}</div></div>
       <div class="activity-kpi quality"><div>ต้องตรวจข้อมูล</div><div class="n">${nf(qualityRows)}</div><div class="sub">ชื่อ · สถานะ · วันที่ · รูปแบบเวลา</div></div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:16px">
+      <div class="card"><div class="card-h"><h3>${sic('i-board')} กิจกรรมตามแผนก</h3><span class="act">คลิกชื่อแผนกในตัวกรองเพื่อเจาะลึก</span></div><div class="pad">${hbars(byDepartment)}</div></div>
+      <div class="card"><div class="card-h"><h3>${sic('i-users')} พนักงาน (ชั่วโมงสูงสุด)</h3><span class="act">Top 8 · ชั่วโมงที่ตรวจผ่าน</span></div><div class="pad">${hbars(byPerson)}</div></div>
+      <div class="card"><div class="card-h"><h3>${sic('i-clipboard')} ตามประเภทงาน</h3><span class="act">Top 8</span></div><div class="pad">${hbars(byCategory)}</div></div>
+      <div class="card"><div class="card-h"><h3>${sic('i-target')} ตามสถานะ</h3><span class="act">ข้อมูลตามตัวกรอง</span></div><div class="pad">${hbars(byStatus)}</div></div>
     </div>
     ${activityReadinessBlock(false)}
     <div class="card pad">
@@ -149,7 +159,8 @@ ask=function(question,bodyId,inputId){
 
 const coreOnLoggedIn=onLoggedIn;
 onLoggedIn=async function(session){
-  await coreOnLoggedIn(session);
+  const started=await coreOnLoggedIn(session);
+  if(!started||!CLOUD||!ACCESS_PROFILE)return;
   await loadActivities();
   try{let timer;SB.channel('ch_daily_activities').on('postgres_changes',{event:'*',schema:'public',table:'daily_activities'},()=>{clearTimeout(timer);timer=setTimeout(loadActivities,350);}).subscribe();}catch(error){}
   buildNav(); if(VIEW==='activity')RENDER.activity();

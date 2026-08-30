@@ -86,10 +86,19 @@ repo นี้ถูกจัดโครงสร้างให้พร้อ
 ลิงก์ Pages จะอัปเดตให้เองภายในไม่กี่นาที
 
 > **หมายเหตุ:** GitHub Pages ใช้เสิร์ฟหน้าเว็บ ส่วนข้อมูลกลางอยู่ใน Supabase
-> และถูกจำกัดด้วย RLS ตามบทบาท/แผนก `localStorage` ใช้เป็น cache สำหรับ
-> โหมด offline/demo เท่านั้น
+> และถูกจำกัดด้วย RLS ตามบทบาท/แผนก ระบบ Production ทำงานแบบ fail-closed:
+> หากยืนยันตัวตนหรือเชื่อม Supabase ไม่ได้ จะไม่เปิดข้อมูล local/ตัวอย่าง
 
 ### Migration ล่าสุด
+
+ก่อนขึ้นเวอร์ชัน Role/รายงานล่าสุด ให้รันตามลำดับถึง
+`supabase/migrations/202608300015_profile_roles_and_reporting.sql` ซึ่งเพิ่มตำแหน่งงาน,
+แยก “แผนกที่มองเห็น” ออกจาก “แผนกที่หัวหน้าจัดการ” อย่างชัดเจน,
+จำกัด metadata ส่วนกลางไว้เฉพาะผู้บริหาร/Admin และล้าง shared demo state
+
+หลัง Migration 015 ให้ deploy `supabase/functions/invite-company-user` เวอร์ชันล่าสุด
+เพื่อให้การสร้างพนักงานจากหน้า Company Hub บันทึกตำแหน่ง, Role, แผนกหลัก,
+แผนกที่มองเห็น และแผนกที่จัดการครบชุด
 
 รัน `supabase/migrations/202608210005_operational_issues.sql` และตามด้วย
 `supabase/migrations/202608210006_issue_to_sop_workflow.sql` ใน Supabase SQL Editor
