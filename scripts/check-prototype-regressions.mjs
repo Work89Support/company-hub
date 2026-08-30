@@ -10,6 +10,8 @@ const checks = [
   ['Graphic database loader', /async function loadGraphic\(/],
   ['Graphic pagination', /GP_COLUMN_PAGE_SIZE\s*=\s*30/],
   ['Graphic realtime refresh', /table:'graphic_jobs'/],
+  ['Dashboard includes Graphic jobs', /function dashboardAllWork\(\)/],
+  ['Dashboard prevents empty NaN percent', /donePct=all\.length\?/],
   ['Graphic account profile', /async function loadAuthenticatedProfile\(/],
   ['Activity renderer', /RENDER\.activity\s*=\s*function/],
   ['Operational issue loader', /async function cloudLoadIssues\(/],
