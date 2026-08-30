@@ -96,12 +96,11 @@ repo นี้ถูกจัดโครงสร้างให้พร้อ
 และ workflow สร้างร่าง SOP แบบควบคุมสิทธิ์ ข้อมูลเคสจริงจะนำเข้าฐานข้อมูลโดยตรง
 และจะไม่บันทึกไว้ในไฟล์เว็บหรือ migration ที่เผยแพร่บน GitHub Pages
 
-### Graphic Production + Trello
+### Graphic Production
 
 รัน `supabase/migrations/202608260007_graphic_production.sql` หลัง Migration 006
 เพื่อเปิดโมดูลรับบรีฟ, Kanban 7 ขั้น, งานรายเดือน, Checklist, ไฟล์งาน,
 รอบแก้ไข และ Dashboard ของทีมกราฟิก
 
-การย้ายข้อมูล Trello: เปิดบอร์ด → Show menu → More → Print and export → Export as JSON
-แล้วเข้า Company Hub → Graphic Production → นำเข้า Trello
-สามารถนำเข้าซ้ำได้ เพราะระบบจะ upsert ด้วย Trello Card ID
+Company Hub เป็นระบบหลักสำหรับรับบรีฟ มอบหมาย ติดตาม ตรวจงาน และส่งมอบ
+สามารถกดดูงานแยกตามทีม/ผู้รับผิดชอบจากหน้า Graphic Production ได้โดยตรง
