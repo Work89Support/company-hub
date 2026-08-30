@@ -55,7 +55,6 @@ async function saveActivityTime(id){
 }
 
 async function loadActivities(){
-  if(DEMO_MODE&&!SB){ACTIVITY_ROWS=[];ACTIVITY_READY=true;if(VIEW==='activity')RENDER.activity();return;}
   if(!SB)return;
   try{
     const result=await sbAllRows('daily_activities','activity_date',false);
@@ -63,6 +62,7 @@ async function loadActivities(){
     ACTIVITY_ROWS=(result.data||[]).filter(row=>row.is_active!==false);
     ACTIVITY_READY=true;
     if(VIEW==='activity')RENDER.activity();
+    if(VIEW==='dash')RENDER.dash();
   }catch(error){
     ACTIVITY_READY=false;
     if(VIEW==='activity') main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="ai-note"><b>ยังเปิดข้อมูลกิจกรรมไม่ได้</b><br>กรุณารัน Migration 008 · ${esc(error.message||'')}</div>`;
@@ -87,7 +87,7 @@ RENDER.activity=function(){
   if(ACTIVITY_PAGE>pages)ACTIVITY_PAGE=pages;
   const from=(ACTIVITY_PAGE-1)*ACTIVITY_PAGE_SIZE,pageRows=rows.slice(from,from+ACTIVITY_PAGE_SIZE);
   main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}
-    <div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>ข้อมูลหน้างานจริงจาก Google Sheets → Supabase · การมองเห็นจำกัดตามแผนกและสิทธิ์</p>${sourceBadge(CLOUD?'live':'demo',CLOUD?'GOOGLE SHEETS SYNC':'OFFLINE DEMO',CLOUD?'แสดงเฉพาะ snapshot ล่าสุด · เก็บรหัสชีต แท็บ แถว และผลตรวจคุณภาพ':'ไม่ได้เชื่อมฐานข้อมูลกลาง')}</div></div>
+    <div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>ข้อมูลหน้างานจริงจาก Google Sheets → Supabase · การมองเห็นจำกัดตามแผนกและสิทธิ์</p>${sourceBadge('live','GOOGLE SHEETS → SUPABASE','แสดง snapshot จริงล่าสุด · เก็บรหัสชีต แท็บ แถว และผลตรวจคุณภาพ')}</div></div>
     <div class="activity-kpis">
       <div class="activity-kpi"><div>รายการที่เห็น</div><div class="n">${nf(rows.length)}</div><div class="sub">ตามตัวกรองปัจจุบัน</div></div>
       <div class="activity-kpi"><div>พนักงาน</div><div class="n">${nf(people)}</div><div class="sub">รายชื่อไม่ซ้ำ</div></div>
@@ -140,33 +140,6 @@ onLoggedIn=async function(session){
   try{let timer;SB.channel('ch_daily_activities').on('postgres_changes',{event:'*',schema:'public',table:'daily_activities'},()=>{clearTimeout(timer);timer=setTimeout(loadActivities,350);}).subscribe();}catch(error){}
   buildNav(); if(VIEW==='activity')RENDER.activity();
 };
-
-if(DEMO_MODE){
-  const databaseCanAdminAccess=canAdminAccess;
-  canAdminAccess=function(){return ROLE==='exec'||databaseCanAdminAccess();};
-  const databaseAccessRender=RENDER.access;
-  RENDER.access=function(){
-    if(SB)return databaseAccessRender();
-    const samples=[
-      ['ผู้บริหาร','exec','ทุกแผนก','ดูภาพรวมและกำหนดสิทธิ์'],
-      ['หัวหน้ากราฟิก','lead','กราฟิก','ดูและจัดการทีมกราฟิก'],
-      ['หัวหน้า Admin','lead','Admin','ดูปัญหาหน้างานและกิจกรรม Admin'],
-      ['พนักงานกราฟิก','staff','กราฟิก','งานตนเองและข้อมูลแผนก']
-    ];
-    main.innerHTML=`${crumb('หน้าแรก','จัดการสิทธิ์ผู้ใช้')}<div class="page-h"><div><h1>จัดการสิทธิ์ผู้ใช้</h1><p>ตัวอย่างมุมมองผู้บริหาร · ข้อมูลจริงจะแสดงหลังเข้าสู่ระบบ</p></div></div><div class="card pad"><div class="ai-note" style="margin-bottom:12px"><b>หลักการ:</b> สิทธิ์ประกอบด้วยบทบาท + แผนกหลัก + แผนกที่มองเห็น + สิทธิ์จัดการ</div><div class="board"><table><thead><tr><th>ตัวอย่างผู้ใช้</th><th>บทบาท</th><th>ขอบเขต</th><th>สิ่งที่ทำได้</th></tr></thead><tbody>${samples.map(r=>`<tr><td><b>${esc(r[0])}</b></td><td>${roleLabel(r[1])}</td><td>${esc(r[2])}</td><td>${esc(r[3])}</td></tr>`).join('')}</tbody></table></div></div>`;
-  };
-  const databaseLoadGraphic=loadGraphic;
-  loadGraphic=async function(){
-    if(!SB){GRAPHIC_JOBS=[];GRAPHIC_PROJECTS=[];GRAPHIC_FILES=[];GRAPHIC_CHECKS=[];GRAPHIC_PEOPLE=[];GRAPHIC_READY=true;if(VIEW==='graphic')RENDER.graphic();return;}
-    return databaseLoadGraphic();
-  };
-  const databaseLoadIssues=loadIssues;
-  loadIssues=async function(){
-    if(!SB){PROBLEMS.length=0;ISSUES_READY=true;if(VIEW==='problems')RENDER.problems();return;}
-    return databaseLoadIssues();
-  };
-  loadActivities();
-}
 
 const coreTalkContextQuestions=talkContextQuestions;
 talkContextQuestions=function(){
