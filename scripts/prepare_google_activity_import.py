@@ -82,7 +82,7 @@ def parse_date(value: object) -> tuple[dt.date | None, list[str]]:
                 return dt.date(year, month, day), ["date_range_end"]
             except ValueError:
                 return None, ["invalid_date"]
-        for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y"):
+        for pattern in ("%Y-%m-%d", "%d/%m/%Y", "%d/%m/%y", "%d-%m-%Y", "%d-%m-%y"):
             try:
                 parsed = dt.datetime.strptime(text, pattern).date()
                 break
@@ -90,7 +90,9 @@ def parse_date(value: object) -> tuple[dt.date | None, list[str]]:
                 pass
     if parsed is None:
         return None, ["missing_date" if not clean(value) else "invalid_date"]
-    if parsed.year in {1969, 2006, 2569}:
+    # 69 is commonly entered as the Thai short year 2569. Python parses it as
+    # 2069; the other values below are legacy spreadsheet conversion errors.
+    if parsed.year in {1969, 2006, 2069, 2569}:
         parsed = parsed.replace(year=2026)
         flags.append("corrected_date")
     if parsed.year != 2026:

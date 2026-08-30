@@ -1327,7 +1327,8 @@ function execDash(){
   const all=dashboardAllWork(),done=all.filter(t=>t.status==='done').length,block=all.filter(t=>t.status==='block').length;
   const overdue=all.filter(dashboardIsOverdue).length,donePct=all.length?Math.round(done/all.length*100):0;
   const graphicActive=GRAPHIC_JOBS.filter(j=>j.status!=='done'),graphicReview=GRAPHIC_JOBS.filter(j=>j.status==='review').length,graphicUnassigned=GRAPHIC_JOBS.filter(j=>j.status!=='done'&&!gpJobPeople(j).length).length;
-  const openIssues=PROBLEMS.filter(p=>p.status!=='Resolved'),verifiedIssues=PROBLEMS.filter(p=>p.verified).length,activityReview=ACTS.filter(a=>a.tf!=='ok').length;
+  const openIssues=PROBLEMS.filter(p=>p.status!=='Resolved'),verifiedIssues=PROBLEMS.filter(p=>p.verified).length;
+  const activityRows=ACTIVITY_READY?ACTIVITY_ROWS:[],activityReview=activityRows.filter(r=>activityReviewFlags(r).length>0).length,activityTimeReview=activityRows.filter(r=>r.time_flag!=='ok').length;
   const overall=Math.round(Object.keys(KPI).reduce((s,c)=>s+deptScore(c),0)/Object.keys(KPI).length);
   const byDept=DEPTS.filter(d=>all.some(t=>t.dept===d.code)).map(d=>({label:d.name,v:all.filter(t=>t.dept===d.code).length,click:`openDashboardDepartment('${d.code}')`})).sort((a,b)=>b.v-a.v);
   // Action Center — งานที่ผู้บริหารควรลงมือ (ไม่ซ้ำ)
@@ -1364,7 +1365,7 @@ function execDash(){
         ['งานกราฟิกรอตรวจ',nf(graphicReview)+' งาน','var(--amber)',"GF.status='review';go('graphic')"],
         ['งานกราฟิกยังไม่มอบหมาย',nf(graphicUnassigned)+' งาน',graphicUnassigned?'var(--red)':'var(--green)',"GF.person='__UNASSIGNED__';go('graphic')"],
         ['ปัญหาหน้างานยังไม่ปิด',nf(openIssues.length)+' เคส',openIssues.length?'var(--red)':'var(--green)',"go('problems')"],
-        ['กิจกรรมที่ต้องตรวจข้อมูล',nf(activityReview)+' รายการ',activityReview?'var(--amber)':'var(--green)',"go('activity')"],
+        ['กิจกรรมที่ต้องตรวจข้อมูล',ACTIVITY_READY?nf(activityReview)+' รายการ':'กำลังโหลด…',activityReview?'var(--amber)':'var(--green)',"go('activity')"],
       ].map(r=>`<div class="legrow" onclick="${r[3]}" style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:12.5px">${r[0]}</span><b style="color:${r[2]};font-size:12.5px">${r[1]} ›</b></div>`).join('')}</div>
       <div class="ai-note" style="margin-top:12px"><b>${sic('i-chat')} สรุปจากฐานข้อมูล:</b> งานกราฟิกคงเหลือ ${nf(graphicActive.length)} งาน · เกินกำหนด ${nf(overdue)} งาน · ปัญหาหน้างานยังไม่ปิด ${nf(openIssues.length)} เคส</div></div></div>
   </div>
@@ -1379,8 +1380,9 @@ function execDash(){
   <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-top:16px">
     <div class="card click" onclick="go('graphic')"><div class="card-h"><h3>${sic('i-board')} Graphic Production</h3><span class="act">Supabase</span></div><div class="pad"><div class="val" style="font-size:28px;font-weight:700">${nf(GRAPHIC_JOBS.length)}</div><div class="muted">กำลังเดิน ${nf(graphicActive.length)} · เสร็จ ${nf(GRAPHIC_JOBS.length-graphicActive.length)} · ตรงเวลา ${ontimeRate}%</div></div></div>
     <div class="card click" onclick="go('problems')"><div class="card-h"><h3>${sic('i-warning')} ปัญหาหน้างาน</h3><span class="act">Supabase</span></div><div class="pad"><div class="val" style="font-size:28px;font-weight:700">${nf(PROBLEMS.length)}</div><div class="muted">ยังไม่ปิด ${nf(openIssues.length)} · ยืนยันวิธีแก้แล้ว ${nf(verifiedIssues)}</div></div></div>
-    <div class="card click" onclick="go('activity')"><div class="card-h"><h3>${sic('i-clipboard')} บันทึกกิจกรรม</h3><span class="act">Imported</span></div><div class="pad"><div class="val" style="font-size:28px;font-weight:700">${nf(ACTS.length)}</div><div class="muted">ต้องตรวจข้อมูล ${nf(activityReview)} รายการ</div></div></div>
-  </div>`;
+    <div class="card click" onclick="go('activity')"><div class="card-h"><h3>${sic('i-clipboard')} บันทึกกิจกรรม</h3><span class="act">Supabase Live</span></div><div class="pad"><div class="val" style="font-size:28px;font-weight:700">${ACTIVITY_READY?nf(activityRows.length):'…'}</div><div class="muted">${ACTIVITY_READY?`ต้องตรวจข้อมูล ${nf(activityReview)} · ตรวจเวลา ${nf(activityTimeReview)}`:'กำลังโหลดข้อมูลตามสิทธิ์'}</div></div></div>
+  </div>
+  ${ACTIVITY_READY&&typeof activityReadinessBlock==='function'?activityReadinessBlock(true):''}`;
 }
 
 function leadDash(){

@@ -29,6 +29,19 @@ const ACTIVITY_REVIEW_FLAGS=new Set(['missing_employee','missing_status','missin
 function activityReviewFlags(row){return activityQualityFlags(row).filter(flag=>ACTIVITY_REVIEW_FLAGS.has(flag));}
 const ACTIVITY_QUALITY_LABELS={missing_employee:'ไม่มีชื่อพนักงาน',missing_status:'ไม่มีสถานะ',missing_start_time:'ไม่มีเวลาเริ่ม',missing_end_time:'ไม่มีเวลาจบ',corrected_date:'แก้ปีวันที่',date_range_end:'ใช้วันสิ้นสุดกะ',inherited_date:'ใช้วันที่แถวก่อน',start_invalid_time:'เวลาเริ่มไม่ถูกต้อง',end_invalid_time:'เวลาจบไม่ถูกต้อง'};
 function activityQualityLabel(flag){return ACTIVITY_QUALITY_LABELS[flag]||String(flag||'').replaceAll('_',' ');}
+const ACTIVITY_EXPECTED_SOURCES=[
+  ['BOM','ทีมบริหาร (Management)'],['FIN','การเงิน (Finance)'],['AUD123','ออดิท (Audit)'],['HR','ทรัพยากรบุคคล (HR)'],['KPI','ทีม KPI'],['SECRET','เลขานุการ (Secret)'],
+  ['GRAPHIC','Content Creative'],['MKT','การตลาด (Marketing)'],['PROG','Programmer'],['CRM','ลูกค้าสัมพันธ์ (CRM)'],
+  ['ADMIN','แอดมิน (Admin) X8'],['ADMIN','แอดมิน (Admin) X5'],['ADMIN','แอดมิน (Admin) X1'],['QC','QC (ตรวจสอบคุณภาพ)'],['BO','Data Provider']
+];
+function activityReadinessData(){
+  const adminView=['admin','exec'].includes(AUTH_DB_ROLE),expected=adminView?ACTIVITY_EXPECTED_SOURCES:[...new Map(ACTIVITY_ROWS.map(r=>[String(r.source_sheet||r.department_label||r.department_code).trim(),[r.department_code,String(r.source_sheet||r.department_label||r.department_code).trim()]])).values()];
+  return expected.map(([code,sheet])=>{const rows=ACTIVITY_ROWS.filter(r=>r.department_code===code&&String(r.source_sheet||'').trim()===sheet.trim());const dates=rows.map(r=>r.activity_date).filter(Boolean).sort();const review=rows.filter(r=>activityReviewFlags(r).length>0).length;return {code,sheet,rows:rows.length,from:dates[0]||'',to:dates.at(-1)||'',review,state:rows.length?'ready':'missing'};});
+}
+function activityReadinessBlock(executive=false){
+  const data=activityReadinessData(),missing=data.filter(x=>x.state==='missing').length,ready=data.length-missing;
+  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>${sic('i-clipboard')} ความพร้อมข้อมูลรายแผนก</h3><span class="act">พร้อม ${nf(ready)} · ขาด ${nf(missing)}</span></div><div class="pad"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px">${data.map(x=>`<button class="tbtn" style="height:auto;min-height:74px;text-align:left;justify-content:flex-start;padding:11px;border-color:${x.state==='missing'?'#fecaca':'#bbf7d0'};background:${x.state==='missing'?'#fff7f7':'#f7fff9'}" onclick="ACTIVITY_FILTER.department='${esc(x.code)}';ACTIVITY_PAGE=1;go('activity')"><span style="width:100%"><b>${esc(x.sheet)}</b><br><span style="color:${x.state==='missing'?'var(--red)':'var(--green)'}">${x.state==='missing'?'ยังไม่มีบันทึกจริง':nf(x.rows)+' กิจกรรม'}</span>${x.rows?`<br><small class="muted">${activityDateLabel(x.from)}–${activityDateLabel(x.to)} · ตรวจ ${nf(x.review)}</small>`:(x.code==='GRAPHIC'?'<br><small class="muted">งาน Graphic อยู่ในโมดูล Production แยกต่างหาก</small>':'')}</span></button>`).join('')}</div>${executive&&missing?`<div class="ai-note" style="margin-top:12px"><b>ข้อควรระวัง:</b> แผนกที่ขึ้นว่า “ยังไม่มีบันทึกจริง” จะไม่ถูกนำไปตีความว่าผลงานเป็นศูนย์</div>`:''}</div></div>`;
+}
 function activityVisibleRows(){
   const q=ACTIVITY_FILTER.query.trim().toLowerCase();
   return ACTIVITY_ROWS.filter(r=>(!ACTIVITY_FILTER.department||r.department_code===ACTIVITY_FILTER.department)
@@ -96,6 +109,7 @@ RENDER.activity=function(){
       <div class="activity-kpi review"><div>ต้องตรวจเวลา</div><div class="n">${nf(flagged)}</div><div class="sub">ไม่ครบ ${nf(flagCounts.missing||0)} · ข้ามวัน ${nf(flagCounts.overnight||0)} · ผิดปกติ ${nf(flagCounts.suspicious||0)} · ไม่นับ ${nf(flagCounts.excluded_all_day||0)}</div></div>
       <div class="activity-kpi quality"><div>ต้องตรวจข้อมูล</div><div class="n">${nf(qualityRows)}</div><div class="sub">ชื่อ · สถานะ · วันที่ · รูปแบบเวลา</div></div>
     </div>
+    ${activityReadinessBlock(false)}
     <div class="card pad">
       <div class="activity-filters">
         <div class="field"><label>แผนก</label><select class="fin" onchange="activitySet('department',this.value)"><option value="">ทั้งหมดที่มีสิทธิ์</option>${departments.map(([code,label])=>`<option value="${esc(code)}" ${ACTIVITY_FILTER.department===code?'selected':''}>${esc(label)}</option>`).join('')}</select></div>
