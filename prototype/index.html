@@ -954,19 +954,38 @@ function reportDepts(){
 function reportScope(){const d=reportDepts();return dashboardAllWork().filter(t=>d.includes(t.dept));}
 function workOwner(t){return t._source==='graphic'?(t.assignee||'ยังไม่มอบหมาย'):assigneesOf(t).map(shortName).join(' | ');}
 function reportActivityRows(depts=reportDepts()){return ACTIVITY_READY?ACTIVITY_ROWS.filter(r=>depts.includes(r.department_code)):[];}
+function reportIssueRows(depts=reportDepts()){return PROBLEMS.filter(p=>p.dept&&depts.includes(p.dept));}
+function reportActivityDone(row){return /เสร็จ|completed|done/i.test(String(row.status||''));}
+function reportActivityNeedsFollowup(row){return !reportActivityDone(row)&&/รอ|ค้าง|เลื่อน|pending|waiting|block|ปัญหา/i.test(String(row.status||''));}
+function reportIssueResolved(row){return /resolved|closed|ปิด|แก้แล้ว|เสร็จ/i.test(String(row.status||''));}
+function reportDeptMetrics(code,scope=reportScope(),activities=reportActivityRows(),issues=reportIssueRows()){
+  const work=scope.filter(t=>t.dept===code),activity=activities.filter(r=>r.department_code===code),problem=issues.filter(p=>p.dept===code);
+  const workDone=work.filter(t=>t.status==='done'),activityDone=activity.filter(reportActivityDone),issueDone=problem.filter(reportIssueResolved);
+  const workFollowup=work.filter(t=>t.status==='block'||dashboardIsOverdue(t)).length;
+  const activityFollowup=activity.filter(reportActivityNeedsFollowup).length;
+  const issueFollowup=problem.filter(p=>!reportIssueResolved(p)).length;
+  const hours=activity.reduce((sum,row)=>sum+activityCountedDuration(row),0);
+  return {code,work,activity,problem,total:work.length+activity.length+problem.length,completed:workDone.length+activityDone.length+issueDone.length,followup:workFollowup+activityFollowup+issueFollowup,hours,
+    sources:[work.length&&`งาน ${nf(work.length)}`,activity.length&&`กิจกรรม ${nf(activity.length)}`,problem.length&&`ปัญหา ${nf(problem.length)}`].filter(Boolean)};
+}
+function openReportDepartment(code){
+  if(code==='GRAPHIC'&&GRAPHIC_JOBS.length){GF.project='';GF.status='';go('graphic');return;}
+  if(ACTIVITY_READY&&ACTIVITY_ROWS.some(r=>r.department_code===code)){ACTIVITY_FILTER.department=code;ACTIVITY_PAGE=1;go('activity');return;}
+  if(PROBLEMS.some(p=>p.dept===code)){PF.project='';PF.cat='';PF.prio='';PF.status='';PF.q='';go('problems');return;}
+  openDashboardDepartment(code);
+}
 function exportCurrent(){
   const base=VIEW==='myTasks'?myTasks():TASKS;
   const list=applyFilters(base);
   if(!list.length){toast('ไม่มีงานให้ส่งออก (ลองล้างตัวกรอง)','info');return;}
   downloadCSV(list,(VIEW==='myTasks'?'my-tasks':'tasks')+'-'+list.length+'.csv');}
 function exportReportExcel(){
-  const scope=reportScope(),activities=reportActivityRows();const rows=[];
+  const scope=reportScope(),activities=reportActivityRows(),issues=reportIssueRows();const rows=[];
   rows.push(['รายงานสรุป Company Hub']);rows.push(['ช่วง',{today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',quarter:'ไตรมาสนี้'}[REP_PERIOD]]);rows.push(['จัดทำโดย',ACCESS_PROFILE?.display_name||ACCESS_PROFILE?.email||'']);rows.push([]);
   rows.push(['[ Scorecard รายแผนก ]']);
-  rows.push(['แผนก','คะแนน KPI','งานทั้งหมด','เสร็จ','ติดปัญหา','ส่งตรงเวลา %']);
-  reportDepts().filter(c=>KPI[c]).forEach(c=>{
-    const dt=scope.filter(t=>t.dept===c),dn=dt.filter(t=>t.status==='done'),ot=dn.filter(t=>t.ontime).length;
-    rows.push([deptName(c),deptScore(c)+'/100',dt.length,dn.length,dt.filter(t=>t.status==='block').length,dn.length?Math.round(ot/dn.length*100):0]);});
+  rows.push(['แผนก','คะแนน KPI','รายการรวม','งาน Production','Daily Activity','ปัญหาหน้างาน','เสร็จ/ปิดแล้ว','ต้องติดตาม','ชั่วโมงที่นับได้','แหล่งข้อมูล']);
+  reportDepts().forEach(c=>{const m=reportDeptMetrics(c,scope,activities,issues);
+    rows.push([deptName(c),KPI[c]?deptScore(c)+'/100':'ยังไม่ตั้ง KPI',m.total,m.work.length,m.activity.length,m.problem.length,m.completed,m.followup,m.hours.toFixed(2),m.sources.join(' | ')||'ยังไม่มีข้อมูล']);});
   rows.push([]);rows.push(['[ รายการงานทั้งหมด รวม Graphic Production ]']);
   rows.push(['แหล่ง','รหัส','งาน','แผนก','ผู้รับผิดชอบ','สถานะ','ความสำคัญ','กำหนดส่ง']);
   scope.forEach(t=>rows.push([t._source==='graphic'?'Graphic Production':'Board',t._source==='graphic'?('G-'+t.jobNo):t.id,t.title,deptName(t.dept),workOwner(t),STATUS[t.status]?.t||t.status,PRIO[t.prio]?.t||t.prio,t.dueAt||t.due||'']));
@@ -974,7 +993,7 @@ function exportReportExcel(){
   activities.forEach(a=>rows.push([a.activity_date,deptName(a.department_code),a.employee_name,a.activity,a.status,activityCountedDuration(a).toFixed(2),a.time_flag]));
   downloadRows(rows,'report-'+REP_PERIOD+'.csv');}
 function printReport(){toast('เปิดหน้าต่างพิมพ์ / บันทึกเป็น PDF');setTimeout(()=>window.print(),200);}
-function copyReportSummary(){const d=reportDepts(),work=reportScope(),activities=reportActivityRows(d),graphic=work.filter(t=>t._source==='graphic');const text=`Company Hub: ${d.map(deptName).join(', ')} | งาน ${work.length} | Graphic ${graphic.length} | กิจกรรม ${activities.length}`;navigator.clipboard?.writeText(text).then(()=>toast('คัดลอกสรุปแล้ว')).catch(()=>toast('ไม่สามารถคัดลอกได้','info'));}
+function copyReportSummary(){const d=reportDepts(),work=reportScope(),activities=reportActivityRows(d),issues=reportIssueRows(d),graphic=work.filter(t=>t._source==='graphic');const text=`Company Hub: ${d.map(deptName).join(', ')} | งาน ${work.length} | Graphic ${graphic.length} | กิจกรรม ${activities.length} | ปัญหาหน้างาน ${issues.length}`;navigator.clipboard?.writeText(text).then(()=>toast('คัดลอกสรุปแล้ว')).catch(()=>toast('ไม่สามารถคัดลอกได้','info'));}
 
 /* ===== Date filter helper ===== */
 const d2=s=>s?('2026-'+s):'';
@@ -1524,7 +1543,8 @@ function setKpiActual(c,i,v){let n=parseFloat(v);if(isNaN(n))return;n=Math.max(0
 let REP_PERIOD='week';
 RENDER.reports=function(){
   const isExec=isExecutiveRole(),depts=reportDepts();
-  const scope=reportScope(),activities=reportActivityRows(depts),graphic=scope.filter(t=>t._source==='graphic');
+  const scope=reportScope(),activities=reportActivityRows(depts),issues=reportIssueRows(depts),graphic=scope.filter(t=>t._source==='graphic');
+  const deptMetrics=depts.map(c=>reportDeptMetrics(c,scope,activities,issues)),deptsWithData=deptMetrics.filter(m=>m.total>0).length;
   const activityHours=activities.reduce((sum,row)=>sum+activityCountedDuration(row),0);
   const done=scope.filter(t=>t.status==='done'),ontime=done.filter(t=>t.ontime).length;
   const codes=depts.filter(c=>KPI[c]);
@@ -1552,7 +1572,7 @@ RENDER.reports=function(){
   </div>
   <div class="exec-summary" style="margin-bottom:14px">
     <b>${sic('i-chat')} บทสรุปจากข้อมูลจริง:</b> ${pname} · <b>${unit}</b>${overall==null?' · ยังไม่ได้ตั้ง KPI Production':` ทำคะแนน KPI <b>${overall}/100</b> (เกณฑ์: ${scoreLabel(overall)})`}.
-    งานทั้งหมด <b>${scope.length}</b> งาน · Graphic Production <b>${graphic.length}</b> งาน · ปิดแล้ว <b>${done.length}</b> งาน · Daily Activity <b>${activities.length}</b> รายการ / <b>${nf(activityHours.toFixed(1))}</b> ชม.
+    ข้อมูลจริงครอบคลุม <b>${deptsWithData}/${depts.length}</b> แผนก · งาน Production <b>${scope.length}</b> งาน (Graphic <b>${graphic.length}</b>) · ปิดแล้ว <b>${done.length}</b> งาน · Daily Activity <b>${activities.length}</b> รายการ / <b>${nf(activityHours.toFixed(1))}</b> ชม. · ปัญหาหน้างาน <b>${issues.length}</b> เคส.
     จุดที่ต้องติดตาม: ${blocked.length?blocked.map(t=>t.title).join(' · '):'ไม่มีงานติดปัญหา/เกินกำหนด'}.
     องค์ความรู้ที่บันทึก ${kbList.length} เรื่อง.
   </div>
@@ -1566,14 +1586,13 @@ RENDER.reports=function(){
     <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงาน</h3><span class="act">${unit}</span></div><div class="pad">${statusDonutBlock(scope)}</div></div>
     <div class="card"><div class="card-h"><h3>${sic('i-board')} Graphic Production ตามสถานะ</h3><span class="act">${nf(graphic.length)} งาน</span></div><div class="pad">${graphicStatusRows.length?hbars(graphicStatusRows):'<div class="muted">ไม่มีข้อมูล Graphic ตามสิทธิ์</div>'}</div></div>
   </div>
-  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>${sic('i-trophy')} Production Scorecard ${depts.length>1?'รายแผนก':deptName(depts[0])}</h3><span class="act">${unit} · ${pname}</span></div>
-    <table><thead><tr><th>แผนก</th><th>คะแนน KPI</th><th>งานทั้งหมด</th><th>เสร็จ</th><th>ติดปัญหา</th><th>ส่งตรงเวลา</th><th>สถานะ</th></tr></thead>
-    <tbody>${depts.map(c=>{const dt=scope.filter(t=>t.dept===c);const dn=dt.filter(t=>t.status==='done');const ot=dn.filter(t=>t.ontime).length;const s=KPI[c]?deptScore(c):null;
-      return `<tr onclick="openDashboardDepartment('${c}')"><td><b style="font-weight:500">${deptName(c)}</b></td>
-      <td style="color:${s==null?'var(--muted)':scoreColor(s)};font-weight:600">${s==null?'—':s+'/100'}</td><td>${dt.length}</td><td>${dn.length}</td>
-      <td style="color:${dt.filter(t=>t.status==='block').length?'var(--red)':'inherit'}">${dt.filter(t=>t.status==='block').length}</td>
-      <td>${dn.length?Math.round(ot/dn.length*100):0}%</td>
-      <td>${s==null?'<span class="muted">รอตั้ง KPI</span>':`<span class="pill" style="background:${scoreColor(s)}">${scoreLabel(s)}</span>`}</td></tr>`;}).join('')}
+  <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>${sic('i-trophy')} Company Scorecard ${depts.length>1?'รายแผนก':deptName(depts[0])}</h3><span class="act">รวมงาน · กิจกรรม · ปัญหาจากฐานข้อมูลจริง</span></div>
+    <table><thead><tr><th>แผนก</th><th>คะแนน KPI</th><th>รายการรวม</th><th>เสร็จ/ปิดแล้ว</th><th>ต้องติดตาม</th><th>ชั่วโมงที่นับได้</th><th>แหล่งข้อมูล</th></tr></thead>
+    <tbody>${deptMetrics.map(m=>{const c=m.code,s=KPI[c]?deptScore(c):null;
+      return `<tr onclick="openReportDepartment('${c}')" style="cursor:pointer"><td><b style="font-weight:500">${deptName(c)}</b></td>
+      <td style="color:${s==null?'var(--muted)':scoreColor(s)};font-weight:600">${s==null?'—':s+'/100'}</td><td><b>${nf(m.total)}</b></td><td>${nf(m.completed)}</td>
+      <td style="color:${m.followup?'var(--red)':'inherit'}">${nf(m.followup)}</td><td>${m.activity.length?nf(m.hours.toFixed(1)):'—'}</td>
+      <td>${m.sources.length?`<span class="pill" style="background:var(--blue-700)">${m.sources.join(' · ')}</span>`:'<span class="muted">ยังไม่มีข้อมูลจริง</span>'}</td></tr>`;}).join('')}
     </tbody></table></div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
     <div class="card"><div class="card-h"><h3>${sic('i-block')} ปัญหาที่ต้องติดตาม (${unit})</h3></div><div class="pad">
@@ -2370,7 +2389,7 @@ async function cloudLoadIssues(){
     const bangkokDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'});
     const bangkokTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
     const rows=res.data.map(r=>{const at=new Date(r.occurred_at);return {
-      id:r.id,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||''
+      id:r.id,dept:r.department_code||'',date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||''
     };});
     PROBLEMS.length=0;PROBLEMS.push(...rows);PROB_SRC.file='Supabase · operational_issues';PROB_SRC.asof='อัปเดตจากฐานข้อมูลกลาง';PROB_SRC.n=rows.length;
   }catch(e){console.warn('issue load:',e.message||e);}

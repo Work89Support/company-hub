@@ -28,6 +28,9 @@ const checks = [
   ['Navigation has stable view targets', /data-view="\$\{k\}"/],
   ['Production fails closed without Supabase', /Production fail-closed/],
   ['Reports include Graphic and Daily Activity', /\[ Daily Activity \]/],
+  ['Company Scorecard aggregates every production source', /function reportDeptMetrics\([\s\S]*work\.length\+activity\.length\+problem\.length/],
+  ['Company Scorecard opens real department data', /function openReportDepartment\(code\)/],
+  ['Operational issues retain department ownership', /id:r\.id,dept:r\.department_code\|\|''/],
   ['Employee profile includes position', /position_title/],
 ];
 
