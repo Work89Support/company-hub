@@ -106,6 +106,11 @@ Migration นี้ไม่แก้ตารางหรือกระบว�
 เวลาปิดเคส และ Source Trace สำหรับข้อมูลปัญหาเดือนกรกฎาคม–สิงหาคม
 โดยไม่เปลี่ยน pipeline นำเข้า Graphic หรือ Daily Activity
 
+รัน `supabase/migrations/202609010018_assignee_task_progress.sql` เพื่อให้ผู้รับงาน
+อัปเดตความคืบหน้า ลงเวลา และเสนอวิธีแก้ได้โดยไม่เปิดสิทธิ์แก้ทั้งแผนก หัวหน้ายังคง
+เป็นผู้อนุมัติ/ปิดงาน พร้อมย้ายประกาศ การระบุผู้รับ การรับทราบ และความคิดเห็นจาก
+หน่วยความจำหน้าเว็บเข้าสู่ตาราง Production ที่ควบคุมด้วย RLS
+
 ข้อมูลปัญหาจริงต้องเก็บนอก public repository แล้วสร้าง SQL แบบ idempotent ด้วย
 `scripts/prepare_operational_issue_import.py` สคริปต์จะสร้าง `source_key`, เก็บ
 source trace/quality flags, upsert ตาม Issue ID และแยกรายการทดสอบออกก่อนนำเข้า

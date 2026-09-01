@@ -147,10 +147,11 @@ flowchart LR
 | 011–015 | การล้าง demo, Role/Profile จริง, การเชิญพนักงาน และโครงสร้างรายงานตามสิทธิ์ |
 | 016 | Action Plan จากมติประชุม, Go-live/UAT, หลักฐานผลดำเนินงาน และ Graphic → Marketing reporting roll-up |
 | 017 | แบบรับแจ้งปัญหาสำหรับพนักงาน, ข้อมูลผลกระทบ, เวลา SLA และ Source Trace เดือนกรกฎาคม–สิงหาคม |
+| 018 | ผู้รับงานอัปเดตความคืบหน้า/ลงเวลา/เสนอวิธีแก้แบบจำกัดสิทธิ์ และประกาศ Production พร้อมผู้รับ–การรับทราบ–ความคิดเห็น |
 
 ## 10. ลำดับเปิดใช้งาน Production
 
-1. รัน Migration 001–017 ใน Supabase ตามลำดับ
+1. รัน Migration 001–018 ใน Supabase ตามลำดับ
 2. เตรียมข้อมูลปัญหากรกฎาคม–สิงหาคมด้วย `scripts/prepare_operational_issue_import.py` และนำ SQL ที่สร้างได้เข้าฐาน Production (ไฟล์ต้นทาง/SQL จริงห้าม commit)
 3. Export Google Sheets ทั้ง 4 กลุ่มเป็น XLSX และเตรียม payload ด้วย `scripts/prepare_google_activity_import.py`
 4. นำเข้า snapshot ทั้งชุดผ่าน `import_daily_activities(jsonb)` ด้วยบัญชีผู้ดูแล

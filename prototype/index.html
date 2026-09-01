@@ -816,8 +816,9 @@ const NAV = {
 /* helper: SVG line icon */
 function sic(id){return `<svg class="svic"><use href="#${id}"></use></svg>`;}
 // Filter state
-let F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+let F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
 let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPHIC_PEOPLE=[],GRAPHIC_MEMBERS=[],GRAPHIC_JOB_MEMBERS=[],GRAPHIC_READY=false;
+let TASK_PROFILES=[],TASKS_READY=false;
 let ACCESS_USERS=[],ACCESS_USER_DEPTS=[],ACCESS_USERS_READY=false,ACCESS_USERS_LOADING=false,ACCESS_USER_Q='';
 let IMPLEMENTATION_ACTIONS=[],IMPLEMENTATION_ACTIONS_READY=false,SOP_RECORDS=[];
 let GF={tab:'dashboard',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:''};
@@ -840,25 +841,26 @@ function visibleDepartmentCodes(){
 }
 function canViewDept(code){return !!ACCESS_PROFILE&&(isExecutiveRole()||visibleDepartmentCodes().includes(code));}
 function canAdminAccess(){return ['exec','admin'].includes(AUTH_DB_ROLE);}
-/* เทมเพลตวันที่ไทย: '08-12' -> 'ศ. 12 ส.ค.' */
+/* เทมเพลตวันที่ไทย: รองรับทั้ง YYYY-MM-DD และ MM-DD (ปีปัจจุบัน) */
 const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 const THDAY=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 function fmtDate(mmdd,withYear){
   if(!mmdd)return '-';const p=String(mmdd).split('-').map(Number),full=p.length===3;
-  const y=full?p[0]:2026,m=full?p[1]:p[0],d=full?p[2]:p[1],dt=new Date(y,m-1,d);
+  const y=full?p[0]:Number(TODAY_ISO?.slice(0,4)||new Date().getFullYear()),m=full?p[1]:p[0],d=full?p[2]:p[1],dt=new Date(y,m-1,d);
   return THDAY[dt.getDay()]+' '+d+' '+THMON[m-1]+(withYear?' '+String(y+543).slice(-2):'');
 }
 const normSp=s=>(s||'').replace(/\s+/g,' ').trim();
 /* ระยะเวลาดำเนินการ (SLA) */
-const DFROM=s=>{const p=String(s||'').split('-').map(Number);return p.length===3?new Date(p[0],p[1]-1,p[2]):new Date(2026,p[0]-1,p[1]);};
-const addFrom=(s,n)=>{const d=DFROM(s);d.setDate(d.getDate()+n);return ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);};
+const DFROM=s=>{const p=String(s||'').split('-').map(Number),y=Number(TODAY_ISO?.slice(0,4)||new Date().getFullYear());return p.length===3?new Date(p[0],p[1]-1,p[2]):new Date(y,p[0]-1,p[1]);};
+const dateISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const addFrom=(s,n)=>{const d=DFROM(s);d.setDate(d.getDate()+n);return dateISO(d);};
 const slaUnitTxt=un=>un==='hr'?'ชม.':'วัน';
 const slaOf=t=>t.sla||{n:Math.max(1,Math.round((DFROM(t.due)-DFROM(t.start))/86400000)),unit:'day'};
 const slaText=t=>{const s=slaOf(t);return s.n+' '+slaUnitTxt(s.unit);};
-const slaOverdue=t=>{if(t.status==='done')return false;const s=slaOf(t);if(s.unit!=='day')return false;return addFrom(t.start,s.n)<TODAY_MMDD;};
+const slaOverdue=t=>{if(t.status==='done')return false;const s=slaOf(t);if(s.unit!=='day')return false;return addFrom(t.start,s.n)<TODAY_ISO;};
 function bangkokTodayISO(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:ORG_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=t=>parts.find(p=>p.type===t)?.value;return `${get('year')}-${get('month')}-${get('day')}`;}
 const TODAY_ISO=bangkokTodayISO(),TODAY_MMDD=TODAY_ISO.slice(5);
-function annStatus(a){if(a.until&&a.until<TODAY_MMDD)return{t:'หมดอายุ',c:'var(--gray)'};if(a.from&&a.from>TODAY_MMDD)return{t:'ยังไม่เริ่ม',c:'var(--amber)'};return{t:'กำลังใช้',c:'var(--green)'};}
+function annStatus(a){const from=d2(a.from),until=d2(a.until);if(until&&until<TODAY_ISO)return{t:'หมดอายุ',c:'var(--gray)'};if(from&&from>TODAY_ISO)return{t:'ยังไม่เริ่ม',c:'var(--amber)'};return{t:'กำลังใช้',c:'var(--green)'};}
 function av(id,cls='mini'){const x=u(id);return `<span class="${cls}" style="background:${x.c}">${x.s}</span>`;}
 const statusPill=s=>`<span class="pill" style="background:${STATUS[s].c}">${STATUS[s].t}</span>`;
 const prioPill=p=>`<span class="pill" style="background:${PRIO[p].c}">${PRIO[p].t}</span>`;
@@ -868,13 +870,14 @@ const shortName=id=>u(id).n.split(' (')[0];
 /* ============================================================
    INTERACTIVE STATE (ทำให้ทุกปุ่มทำงานจริง — in-memory)
 ============================================================ */
-const ASSIGNABLE=['a','b','c','d','e','f','lead_gr','lead_crm','lead_mkt'];
-const me=()=>ROLE_META[ROLE].u;
+let ASSIGNABLE=['a','b','c','d','e','f','lead_gr','lead_crm','lead_mkt'];
+const me=()=>ACCESS_PROFILE?.id||ROLE_META[ROLE].u;
 const annAudienceIds=a=>(a.audienceIds&&a.audienceIds.length)?a.audienceIds:ASSIGNABLE;
 const nextAnnId=()=>'A'+(++ANN_SEQ);
 function pendingAcks(){return ANN.filter(a=>annStatus(a).t!=='หมดอายุ'&&annAudienceIds(a).includes(me())&&!(a.acks||[]).includes(me()));}
 function updateBell(){const el=document.getElementById('bell');if(!el)return;const n=pendingAcks().length;el.innerHTML='<svg class="svic"><use href="#i-bell"></use></svg>'+(n?` <span style="background:var(--red);color:#fff;border-radius:20px;padding:0 6px;font-size:10px">${n}</span>`:'');}
-function ackAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;a.acks=a.acks||[];
+async function ackAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;a.acks=a.acks||[];
+  if(CLOUD&&a.dbId){try{const r=await SB.from('announcement_recipients').update({acknowledged_at:new Date().toISOString()}).eq('announcement_id',a.dbId).eq('profile_id',ACCESS_PROFILE.id);if(r.error)throw r.error;}catch(e){toast('บันทึกรับทราบไม่สำเร็จ · '+(e.message||e),'info');return;}}
   if(!a.acks.includes(me())){a.acks.push(me());logFeed('✅','#e6f7f1',`<b>${shortName(me())}</b> รับทราบประกาศ: ${a.title}`);toast('รับทราบประกาศแล้ว');}
   updateBell();saveState();
   if(document.getElementById('ackpop')){ if(pendingAcks().length) showAckPopup(); else { closeModal(); if(VIEW==='ann')RENDER.ann(); } }
@@ -908,7 +911,8 @@ function openAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;const st=annSta
     </div>
   </div>`);
 }
-function addAnnComment(id){const a=ANN.find(x=>x.id===id);const v=normSp(val('annCmt_'+id));if(!v)return;
+async function addAnnComment(id){const a=ANN.find(x=>x.id===id);const v=normSp(val('annCmt_'+id));if(!v)return;
+  if(CLOUD&&a.dbId){try{const r=await SB.from('announcement_comments').insert({announcement_id:a.dbId,author_id:ACCESS_PROFILE.id,body:v});if(r.error)throw r.error;}catch(e){toast('ตอบกลับไม่สำเร็จ · '+(e.message||e),'info');return;}}
   a.comments=a.comments||[];a.comments.push({who:me(),text:v,time:'เมื่อสักครู่'});
   logFeed('💬','#eef2ff',`<b>${shortName(me())}</b> ตอบกลับประกาศ: ${a.title}`);saveState();toast('ตอบกลับแล้ว');
   if(VIEW==='ann')RENDER.ann();openAnn(id);}
@@ -920,53 +924,80 @@ function toast(msg,type='ok'){
   setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300);},2600);
 }
 function refresh(){RENDER[VIEW](BOARD_DEPT);if(typeof saveState==='function')saveState();}
-function nextTaskId(){return 'T-'+(Math.max(...TASKS.map(t=>+t.id.split('-')[1]))+1);}
+function nextTaskId(){const nums=TASKS.map(t=>Number(String(t.id).split('-').pop())).filter(Number.isFinite);return 'T-'+((nums.length?Math.max(...nums):0)+1);}
 function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'เมื่อสักครู่'});}
 
-function createTask(d){
+function canCreateTask(dept){return !!SB&&!!ACCESS_PROFILE&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(dept)));}
+function canManageTaskUi(t){return !!t&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(t.dept)));}
+function isMyTaskAssignee(t){return !!t&&!!ACCESS_PROFILE&&assigneesOf(t).includes(ACCESS_PROFILE.id);}
+function canProgressTaskUi(t){return canManageTaskUi(t)||isMyTaskAssignee(t);}
+function taskSlaMinutes(s){if(!s)return null;return Math.max(1,Number(s.n)||1)*(s.unit==='hr'?60:1440);}
+async function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
+  if(CLOUD){
+    if(!canCreateTask(d.dept))throw new Error('บัญชีนี้ไม่มีสิทธิ์สร้างงานในแผนก '+deptName(d.dept));
+    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[]};
+    const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:(d.due||addFrom(TODAY_ISO,5))+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),prototype_payload:payload}).select('id,task_no').single();
+    if(inserted.error)throw inserted.error;
+    const validAssignees=assignees.filter(id=>TASK_PROFILES.some(p=>p.id===id));
+    if(validAssignees.length){const assigned=await SB.from('task_assignees').insert(validAssignees.map(user_id=>({task_id:inserted.data.id,user_id,assigned_by:ACCESS_PROFILE.id})));if(assigned.error)throw assigned.error;}
+    await cloudLoadTasks();
+    return TASKS.find(t=>t.dbId===inserted.data.id);
+  }
   const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,
-    status:'todo',prio:d.prio||'mid',start:'08-07',due:d.due||'08-12',spent:0,ontime:true,sla:d.sla||null,
+    status:'todo',prio:d.prio||'mid',start:TODAY_ISO,due:d.due||addFrom(TODAY_ISO,5),spent:0,ontime:true,sla:d.sla||null,
     tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
   TASKS.unshift(t);
   logFeed('🆕','#eef2ff',`<b>${shortName(t.creator)}</b> สร้างงาน <b>${t.id}</b> ${t.title} · มอบ ${assignees.map(shortName).join(', ')}`);
   return t;
 }
-function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.status===st)return;
+async function cloudUpdateTask(t,changes){if(!CLOUD||!t.dbId)return;const r=await SB.from('tasks').update(changes).eq('id',t.dbId).select('id').single();if(r.error)throw r.error;}
+async function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.status===st)return;
+  if(CLOUD&&!canProgressTaskUi(t)){toast('คุณไม่มีสิทธิ์อัปเดตงานนี้','info');return;}
+  if(CLOUD&&!canManageTaskUi(t)&&st==='done'){toast('ผู้รับงานส่งตรวจได้ แต่การปิดงานต้องให้หัวหน้าอนุมัติ','info');return;}
+  try{if(CLOUD&&!canManageTaskUi(t)){const r=await SB.rpc('update_my_task_progress',{p_task:t.dbId,p_status:st});if(r.error)throw r.error;}else await cloudUpdateTask(t,{status:st,closed_at:st==='done'?new Date().toISOString():null});}catch(e){toast('อัปเดตสถานะไม่สำเร็จ · '+(e.message||e),'info');return;}
   t.status=st;(t.log=t.log||[]).unshift({who:ROLE_META[ROLE].u,txt:'เปลี่ยนสถานะเป็น '+STATUS[st].t,time:'เมื่อสักครู่'});
   logFeed('🔄','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> เปลี่ยน <b>${id}</b> เป็น ${STATUS[st].t}`);
   toast('อัปเดต '+id+' → '+STATUS[st].t);refresh();openTask(id);}
 function setAssignee(id,v){const t=TASKS.find(x=>x.id===id);t.assignee=v;
   toast('เปลี่ยนผู้รับผิดชอบเป็น '+shortName(v));refresh();openTask(id);}
-function setPrio(id,v){TASKS.find(x=>x.id===id).prio=v;toast('ปรับความสำคัญเป็น '+PRIO[v].t);refresh();openTask(id);}
-function setDue(id,v){const t=TASKS.find(x=>x.id===id);if(!v)return;t.due=v.slice(5);if(t.due<t.start)t.start=t.due;t.ontime=(t.due>='08-07');toast('เปลี่ยนกำหนดส่งเป็น '+fmtDate(t.due));refresh();openTask(id);}
-function setSpent(id){const t=TASKS.find(x=>x.id===id);t.spent=Math.max(0,parseFloat(val('spent_'+id))||0);toast('บันทึกเวลาที่ใช้ '+t.spent+' ชม.');refresh();openTask(id);}
-function addSpent(id,h){const t=TASKS.find(x=>x.id===id);t.spent=Math.round(((t.spent||0)+h)*10)/10;toast('บันทึกเวลา +'+h+' ชม. (รวม '+t.spent+' ชม.)');refresh();openTask(id);}
-function setSla(id){const t=TASKS.find(x=>x.id===id);t.sla={n:Math.max(1,parseInt(val('sla_n_'+id))||1),unit:val('sla_u_'+id)||'day'};toast('บันทึกระยะเวลาดำเนินการ '+slaText(t));refresh();openTask(id);}
-function addSub(id){
+async function setPrio(id,v){const t=TASKS.find(x=>x.id===id);try{await cloudUpdateTask(t,{priority:v});}catch(e){toast('ปรับความสำคัญไม่สำเร็จ · '+(e.message||e),'info');return;}t.prio=v;toast('ปรับความสำคัญเป็น '+PRIO[v].t);refresh();openTask(id);}
+async function setDue(id,v){const t=TASKS.find(x=>x.id===id);if(!v)return;const start=d2(v)<d2(t.start)?v:t.start;try{await cloudUpdateTask(t,{due_at:v+'T23:59:59+07:00',start_at:start?d2(start)+'T00:00:00+07:00':null});}catch(e){toast('เปลี่ยนกำหนดส่งไม่สำเร็จ · '+(e.message||e),'info');return;}t.due=v;t.start=start;t.ontime=!dashboardIsOverdue(t);toast('เปลี่ยนกำหนดส่งเป็น '+fmtDate(t.due));refresh();openTask(id);}
+async function recordTaskTime(id,h){const t=TASKS.find(x=>x.id===id),hours=Math.round(Math.max(0,Number(h)||0)*10)/10;if(!hours){toast('กรุณาระบุเวลาที่ต้องการเพิ่ม','info');return;}
+  if(CLOUD){if(!isMyTaskAssignee(t)){toast('ลงเวลาได้เฉพาะงานที่มอบหมายให้คุณ','info');return;}try{const r=await SB.from('time_entries').insert({task_id:t.dbId,user_id:ACCESS_PROFILE.id,minutes:Math.round(hours*60),note:'บันทึกผ่าน Company Hub'});if(r.error)throw r.error;}catch(e){toast('บันทึกเวลาไม่สำเร็จ · '+(e.message||e),'info');return;}}
+  t.spent=Math.round(((t.spent||0)+hours)*10)/10;toast('บันทึกเวลา +'+hours+' ชม. (รวม '+t.spent+' ชม.)');refresh();openTask(id);}
+function setSpent(id){return recordTaskTime(id,val('spent_'+id));}
+function addSpent(id,h){return recordTaskTime(id,h);}
+async function setSla(id){const t=TASKS.find(x=>x.id===id),sla={n:Math.max(1,parseInt(val('sla_n_'+id))||1),unit:val('sla_u_'+id)||'day'};try{await cloudUpdateTask(t,{sla_minutes:taskSlaMinutes(sla)});}catch(e){toast('บันทึก SLA ไม่สำเร็จ · '+(e.message||e),'info');return;}t.sla=sla;toast('บันทึกระยะเวลาดำเนินการ '+slaText(t));refresh();openTask(id);}
+function taskPayload(t,extra={}){return {...(t._payload||{}),tags:t.tags||[],sop:t.sop||sopForDept(t.dept),sub:t.sub||[],...extra};}
+async function saveTaskPayload(t,extra={}){if(CLOUD&&t.dbId){const payload=taskPayload(t,extra);await cloudUpdateTask(t,{prototype_payload:payload});t._payload=payload;}}
+async function addSub(id){
   const name=val('subName').trim(),who=val('subWho');
   if(!name){toast('กรุณาระบุชื่องานย่อยก่อน','info');return;}
-  const t=TASKS.find(x=>x.id===id);t.sub.push({t:name,who,st:'todo'});
+  const t=TASKS.find(x=>x.id===id);if(CLOUD&&!canManageTaskUi(t)){toast('เฉพาะหัวหน้าหรือผู้ดูแลเท่านั้นที่มอบงานย่อยได้','info');return;}t.sub.push({t:name,who,st:'todo'});
+  try{await saveTaskPayload(t);}catch(e){t.sub.pop();toast('บันทึกงานย่อยไม่สำเร็จ · '+(e.message||e),'info');return;}
   logFeed('🔀','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> มอบงานย่อยใน <b>${id}</b> ให้ ${shortName(who)}`);
   toast('มอบงานต่อให้ '+shortName(who)+' แล้ว');refresh();openTask(id);}
-function toggleSub(id,i){const t=TASKS.find(x=>x.id===id),o=['todo','doing','review','done'];
-  t.sub[i].st=o[(o.indexOf(t.sub[i].st)+1)%o.length];saveState();openTask(id);}
-function saveSolution(id){const t=TASKS.find(x=>x.id===id),sol=val('solIn').trim();
-  if(!sol){toast('ยังไม่ได้กรอกวิธีแก้','info');return;}t.solution=sol;saveState();toast('บันทึกวิธีแก้แล้ว');openTask(id);}
-function closeTaskWithSolution(id){
-  const t=TASKS.find(x=>x.id===id),sol=(val('solIn')||t.solution||'').trim();t.status='done';
+async function toggleSub(id,i){const t=TASKS.find(x=>x.id===id),o=['todo','doing','review','done'];if(CLOUD&&!canManageTaskUi(t)){toast('เฉพาะหัวหน้าหรือผู้ดูแลเท่านั้นที่เปลี่ยนงานย่อยได้','info');return;}
+  const before=t.sub[i].st;t.sub[i].st=o[(o.indexOf(t.sub[i].st)+1)%o.length];try{await saveTaskPayload(t);}catch(e){t.sub[i].st=before;toast('อัปเดตงานย่อยไม่สำเร็จ · '+(e.message||e),'info');return;}saveState();openTask(id);}
+async function saveSolution(id){const t=TASKS.find(x=>x.id===id),sol=val('solIn').trim();
+  if(!sol){toast('ยังไม่ได้กรอกวิธีแก้','info');return;}if(CLOUD&&t.dbId){try{if(canManageTaskUi(t)){const r=await SB.from('knowledge_articles').insert({source_task_id:t.dbId,department_code:t.dept,title:t.title,problem:t.desc||t.title,solution:sol,status:'review',created_by:ACCESS_PROFILE.id,prototype_payload:{tags:t.tags||[]}});if(r.error)throw r.error;await saveTaskPayload(t,{solution_proposal:sol});}else{const r=await SB.rpc('submit_my_task_solution',{p_task:t.dbId,p_solution:sol});if(r.error)throw r.error;}await cloudLoadKnowledge();}catch(e){toast('บันทึกวิธีแก้ไม่สำเร็จ · '+(e.message||e),'info');return;}}t.solution=sol;saveState();toast('บันทึกวิธีแก้เข้าคิวตรวจคลังความรู้แล้ว');openTask(id);}
+async function closeTaskWithSolution(id){
+  const t=TASKS.find(x=>x.id===id),sol=(val('solIn')||t.solution||'').trim(),before=t.status;t.status='done';
+  if(CLOUD&&t.dbId){try{await cloudUpdateTask(t,{status:'done',closed_at:new Date().toISOString()});if(sol&&!t.solution){const r=await SB.from('knowledge_articles').insert({source_task_id:t.dbId,department_code:t.dept,title:t.title,problem:t.desc||t.title,solution:sol,status:'review',created_by:ACCESS_PROFILE.id,prototype_payload:{tags:t.tags||[]}});if(r.error)throw r.error;await cloudLoadKnowledge();}if(sol)await saveTaskPayload(t,{solution_proposal:sol});t.solution=sol;toast(sol?'ปิดงานแล้ว และส่งวิธีแก้เข้าคิวตรวจคลังความรู้':'ปิดงาน '+id+' แล้ว');closeModal();refresh();return;}catch(e){t.status=before;toast('ปิดงานไม่สำเร็จ · '+(e.message||e),'info');return;}}
   if(sol){t.solution=sol;const kbid='KB-'+String(KB.length+9).padStart(2,'0');
     KB.unshift({id:kbid,dept:t.dept,title:t.title.length>44?t.title.slice(0,44)+'…':t.title,problem:t.desc||t.title,solution:sol,from:t.id,tags:t.tags});
     logFeed('✅','#e6f7f1',`<b>${shortName(ROLE_META[ROLE].u)}</b> ปิดงาน <b>${id}</b> + บันทึก ${kbid} ลงคลังความรู้`);
     toast('ปิดงานแล้ว + สร้างบทความ '+kbid+' ในคลังความรู้');
   }else{logFeed('✅','#e6f7f1',`<b>${shortName(ROLE_META[ROLE].u)}</b> ปิดงาน <b>${id}</b>`);toast('ปิดงาน '+id+' แล้ว');}
   closeModal();refresh();}
-function addComment(id){const v=val('cmtIn').trim();if(!v)return;
-  const t=TASKS.find(x=>x.id===id);(t.log=t.log||[]).unshift({who:ROLE_META[ROLE].u,txt:v,time:'เมื่อสักครู่'});
+async function addComment(id){const v=val('cmtIn').trim();if(!v)return;
+  const t=TASKS.find(x=>x.id===id);if(CLOUD&&t.dbId){try{const r=await SB.from('task_comments').insert({task_id:t.dbId,author_id:ACCESS_PROFILE.id,body:v});if(r.error)throw r.error;}catch(e){toast('เพิ่มความคิดเห็นไม่สำเร็จ · '+(e.message||e),'info');return;}}
+  (t.log=t.log||[]).unshift({who:ACCESS_PROFILE?.id||ROLE_META[ROLE].u,txt:v,time:'เมื่อสักครู่'});
   logFeed('💬','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> คอมเมนต์ใน <b>${id}</b>`);
   saveState();toast('เพิ่มความคิดเห็นแล้ว');openTask(id);}
 function assigneeOptions(sel){return ASSIGNABLE.map(a=>`<option value="${a}" ${sel===a?'selected':''}>${shortName(a)}</option>`).join('');}
-function deptOptions(sel){return DEPTS.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
+function deptOptions(sel){const allowed=CLOUD&&!canAdminAccess()?DEPTS.filter(d=>MANAGE_DEPTS.includes(d.code)):DEPTS;return allowed.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
 
 /* Announcements */
 function openAnnForm(){PICK=new Set();showModal(`<div class="modal-h"><div><h3>${sic('i-megaphone')} ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
@@ -974,18 +1005,19 @@ function openAnnForm(){PICK=new Set();showModal(`<div class="modal-h"><div><h3>$
     <div class="field"><label>หัวข้อ</label><input class="fin" id="annT" placeholder="เช่น ปรับเป้าหมายทีมสัปดาห์นี้"></div>
     <div class="field"><label>รายละเอียด (พิมพ์หรือพูด)</label><textarea class="fin" id="annB" rows="3" placeholder="เนื้อหาประกาศ"></textarea>
       <button class="tbtn sm" style="margin-top:6px" onclick="voiceDictate('annB')">${sic('i-mic')} พูดใส่</button></div>
-    <div class="two"><div class="field"><label>มีผลตั้งแต่</label><input type="date" class="fin" id="annFrom" value="2026-08-07"></div>
+    <div class="two"><div class="field"><label>มีผลตั้งแต่</label><input type="date" class="fin" id="annFrom" value="${TODAY_ISO}"></div>
       <div class="field"><label>ถึงวันที่ (เว้นว่าง = ไม่มีกำหนดสิ้นสุด)</label><input type="date" class="fin" id="annUntil"></div></div>
     <label class="checkbox" style="margin-bottom:12px"><input type="checkbox" id="annPin"> 📌 ปักหมุดไว้ด้านบน</label>
     <div class="field"><label>ส่งถึง (เลือกกลุ่ม/หลายคน — ไม่เลือก = ทั้งบริษัท)</label><div id="pickerBox"></div></div>
     <button class="tbtn primary" onclick="postAnn()">${sic('i-megaphone')} โพสต์ & แจ้งเตือน</button></div>`);renderPicker();}
-function postAnn(){const t=normSp(val('annT'));
+async function postAnn(){const t=normSp(val('annT'));
   if(!t){toast('กรุณาใส่หัวข้อประกาศ','info');return;}
-  const sel=[...PICK];const all=(!sel.length||sel.length>=ASSIGNABLE.length);
-  const audience=all?'ทั้งบริษัท':sel.map(shortName).join(', ');
-  const from=(val('annFrom')||'').slice(5)||TODAY_MMDD, until=(val('annUntil')||'').slice(5);
-  ANN.unshift({id:nextAnnId(),who:ROLE_META[ROLE].u,pin:document.getElementById('annPin').checked,title:t,body:normSp(val('annB')),time:'เมื่อสักครู่',audience,from,until,audienceIds:all?[]:sel,acks:[],comments:[]});
-  logFeed('📢','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> ประกาศ: ${t} → ${audience}`);
+  const sel=[...PICK];const all=(!sel.length||sel.length>=ASSIGNABLE.length),targetIds=all?[...ASSIGNABLE]:sel;
+  const audience=all?(canAdminAccess()?'ทั้งบริษัท':'ทุกคนในแผนกที่จัดการ'):sel.map(shortName).join(', ');
+  const from=val('annFrom')||TODAY_ISO,until=val('annUntil')||'';
+  if(CLOUD){try{const r=await SB.rpc('post_announcement',{p_title:t,p_body:normSp(val('annB')),p_starts_on:from,p_ends_on:until||null,p_pinned:document.getElementById('annPin').checked,p_recipients:targetIds});if(r.error)throw r.error;await cloudLoadAnnouncements();}catch(e){toast('โพสต์ประกาศไม่สำเร็จ · '+(e.message||e),'info');return;}}
+  else ANN.unshift({id:nextAnnId(),who:me(),pin:document.getElementById('annPin').checked,title:t,body:normSp(val('annB')),time:'เมื่อสักครู่',audience,from,until,audienceIds:targetIds,acks:[],comments:[]});
+  logFeed('📢','#eef2ff',`<b>${shortName(me())}</b> ประกาศ: ${t} → ${audience}`);
   closeModal();toast('โพสต์ประกาศ & แจ้งเตือนถึง '+(all?'ทั้งบริษัท':sel.length+' คน'));go('ann');}
 
 /* Export */
@@ -1053,7 +1085,7 @@ function printReport(){toast('เปิดหน้าต่างพิมพ�
 function copyReportSummary(){const d=reportDepts(),work=reportScope(),activities=reportActivityRows(d),issues=reportIssueRows(d),graphic=work.filter(t=>t._source==='graphic');const text=`Company Hub: ${d.map(deptName).join(', ')} | งาน ${work.length} | Graphic ${graphic.length} | กิจกรรม ${activities.length} | ปัญหาหน้างาน ${issues.length}`;navigator.clipboard?.writeText(text).then(()=>toast('คัดลอกสรุปแล้ว')).catch(()=>toast('ไม่สามารถคัดลอกได้','info'));}
 
 /* ===== Date filter helper ===== */
-const d2=s=>s?(String(s).length===10?String(s):'2026-'+s):'';
+const d2=s=>s?(String(s).length===10?String(s):TODAY_ISO.slice(0,4)+'-'+s):'';
 
 /* ===== Voice command (Web Speech API) ===== */
 function speechOK(){return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;}
@@ -1118,14 +1150,15 @@ function openAssigneePicker(taskId){
   const t=TASKS.find(x=>x.id===taskId);PICK=new Set(assigneesOf(t));
   showModal(`<div class="modal-h"><div><h3>เลือกผู้รับผิดชอบ</h3><div class="muted" style="font-size:11.5px">${t.id} · เลือกได้หลายคน หรือทั้งกลุ่ม</div></div><button class="x" onclick="openTask('${taskId}')">×</button></div>
     <div class="pad"><div id="pickerBox"></div><button class="tbtn primary" style="margin-top:12px" onclick="saveAssignees('${taskId}')">บันทึกผู้รับผิดชอบ</button></div>`);renderPicker();}
-function saveAssignees(id){const t=TASKS.find(x=>x.id===id);if(!PICK.size){toast('เลือกอย่างน้อย 1 คน','info');return;}
-  t.assignees=[...PICK];t.assignee=t.assignees[0];
+async function saveAssignees(id){const t=TASKS.find(x=>x.id===id);if(!PICK.size){toast('เลือกอย่างน้อย 1 คน','info');return;}
+  const selected=[...PICK];if(CLOUD&&t.dbId){try{const current=new Set(assigneesOf(t)),toAdd=selected.filter(x=>!current.has(x)),toRemove=[...current].filter(x=>!selected.includes(x));if(toAdd.length){const added=await SB.from('task_assignees').insert(toAdd.map(user_id=>({task_id:t.dbId,user_id,assigned_by:ACCESS_PROFILE.id})));if(added.error)throw added.error;}if(toRemove.length){const removed=await SB.from('task_assignees').delete().eq('task_id',t.dbId).in('user_id',toRemove);if(removed.error)throw removed.error;}}catch(e){toast('บันทึกผู้รับผิดชอบไม่สำเร็จ · '+(e.message||e),'info');return;}}
+  t.assignees=selected;t.assignee=t.assignees[0];
   logFeed('👥','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> ตั้งผู้รับผิดชอบ <b>${id}</b>: ${t.assignees.map(shortName).join(', ')}`);
   toast('บันทึกผู้รับผิดชอบ '+t.assignees.length+' คน');refresh();openTask(id);}
 
 /* ===== AI วิเคราะห์คำสั่ง (เก่งขึ้น) ===== */
-function addDays(n){const d=new Date(2026,7,7);d.setDate(d.getDate()+n);return ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
-function nextWeekday(target){const d=new Date(2026,7,7);let diff=(target-d.getDay()+7)%7;if(diff===0)diff=7;d.setDate(d.getDate()+diff);return ('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function addDays(n){const d=DFROM(TODAY_ISO);d.setDate(d.getDate()+n);return dateISO(d);}
+function nextWeekday(target){const d=DFROM(TODAY_ISO);let diff=(target-d.getDay()+7)%7;if(diff===0)diff=7;d.setDate(d.getDate()+diff);return dateISO(d);}
 function analyzeCommand(raw){
   const s=raw.toLowerCase();
   const dmap=[['GRAPHIC',/แบนเนอร์|ออกแบบ|กราฟิก|โลโก้|วิดีโอ|ภาพ|อาร์ต|โมชั่น/],['CRM',/โทร|ลูกค้า|retention|วินแบ็ก|win-?back|ดูแลลูกค้า|เติมเงิน/],['MKT',/คอนเทนต์|โพสต์|แคมเปญ|การตลาด|โฆษณา|engagement|โปรโมชั่น/],['FIN',/เบิก|โอน|การเงิน|สรุปเดือน|กระทบยอด|เงินสด/],['ADMIN',/แชท|ตอบลูกค้า|เคส|แอดมิน/],['QC',/ตรวจแชท|คุณภาพ|นายหน้า|บัญชีหน้าเว็บ|qc/]];
@@ -1133,16 +1166,16 @@ function analyzeCommand(raw){
   let prio='mid';if(/ด่วน|เร่ง|ทันที|วันนี้/.test(s))prio='high';else if(/ไม่เร่ง|เมื่อว่าง|ไม่รีบ/.test(s))prio='low';
   let due=addDays(5);const wd={'อาทิตย์':0,'จันทร์':1,'อังคาร':2,'พุธ':3,'พฤหัส':4,'ศุกร์':5,'เสาร์':6};const mIn=s.match(/ภายใน\s*(\d+)\s*วัน/);
   if(/วันนี้/.test(s))due=addDays(0);else if(/พรุ่งนี้/.test(s))due=addDays(1);else if(/มะรืน/.test(s))due=addDays(2);
-  else if(/สัปดาห์หน้า/.test(s))due=addDays(7);else if(/สิ้นเดือน/.test(s))due='08-31';else if(mIn)due=addDays(+mIn[1]);
+  else if(/สัปดาห์หน้า/.test(s))due=addDays(7);else if(/สิ้นเดือน/.test(s)){const d=DFROM(TODAY_ISO);d.setMonth(d.getMonth()+1,0);due=dateISO(d);}else if(mIn)due=addDays(+mIn[1]);
   else{for(const k in wd){if(s.includes(k)){due=nextWeekday(wd[k]);break;}}}
   let title=normSp(raw.replace(/ส่ง\s*(วันนี้|พรุ่งนี้|มะรืน|สัปดาห์หน้า|สิ้นเดือน|ภายใน\s*\d+\s*วัน)/g,'').replace(/(อาทิตย์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เสาร์)นี้?/g,'').replace(/ภายใน\s*\d+\s*วัน|ด่วนที่สุด|เร่งด่วน|ด่วน/g,''))||raw;
-  const grp=GROUPS.find(g=>g.dept===dept);const members=grp?grp.members:['a'];
+  const grp=GROUPS.find(g=>g.dept===dept);const members=CLOUD?TASK_PROFILES.filter(p=>p.department_code===dept).map(p=>p.id):(grp?grp.members:['a']);
   const load=id=>TASKS.filter(t=>assigneesOf(t).includes(id)&&t.status!=='done').length;
-  const assignee=members.slice().sort((a,b)=>load(a)-load(b))[0];
+  const assignee=members.slice().sort((a,b)=>load(a)-load(b))[0]||ACCESS_PROFILE?.id||ASSIGNABLE[0]||'';
   const sop=SOPS.find(x=>x.dept===dept);const checklist=sop?sop.steps.slice(0,4):['ดำเนินการ','ตรวจสอบ','ส่งอนุมัติ'];
   const desc='ดำเนินการ "'+title+'" ตามมาตรฐานแผนก'+deptName(dept)+' พร้อมตรวจสอบความถูกต้องก่อนส่ง';
   const kb=KB.find(k=>k.dept===dept);
-  const slaN=Math.max(1,Math.round((DFROM(due)-new Date(2026,7,7))/86400000));
+  const slaN=Math.max(1,Math.round((DFROM(due)-DFROM(TODAY_ISO))/86400000));
   return {title,dept,prio,due,assignee,checklist,desc,kb,sla:{n:slaN,unit:'day'}};
 }
 function printReport(){toast('เปิดหน้าต่างพิมพ์ / บันทึกเป็น PDF');setTimeout(()=>window.print(),200);}
@@ -1151,7 +1184,7 @@ function printReport(){toast('เปิดหน้าต่างพิมพ�
    SHELL
 ============================================================ */
 function setRole(r){
-  ROLE=r; F={q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+  ROLE=r; F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
   REP_GROUP='';REP_DEPT='';REP_MONTH='08';TRACK_GROUP='';TRACK_DEPT='';TRACK_LEVEL='';TRACK_MONTH='08';
   const m=ROLE_META[r], usr=u(m.u);
   sideAvatar.textContent=usr.s; topAvatar.textContent=usr.s;
@@ -1201,7 +1234,7 @@ function buildNav(){
   deptNav.innerHTML=visibleDeptList.map(d=>`<button type="button" class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
 function go(v,arg){VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
-function navGo(v){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
+function navGo(v){F={...F,q:'',source:v==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
 function myTasks(){const m=ROLE_META[ROLE].u;if(isExecutiveRole())return TASKS;return TASKS.filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
 function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}
 
@@ -1215,7 +1248,7 @@ function donut(data,total,centerLabel){
     <text x="70" y="66" text-anchor="middle" font-size="26" font-weight="600" fill="#182338">${total}</text>
     <text x="70" y="86" text-anchor="middle" font-size="11" fill="#67769a">${centerLabel}</text></svg>`;
 }
-function goBoardFiltered(o={}){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};Object.assign(F,o);go('board');}
+function goBoardFiltered(o={}){F={...F,q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};Object.assign(F,o);go('board');}
 function hbars(rows,unit=''){const max=Math.max(...rows.map(r=>r.v),1);
   return rows.map(r=>`<div class="hbar${r.click?' hlink':''}" ${r.click?`onclick="${r.click}" title="ดูรายละเอียด"`:''}><span style="display:flex;align-items:center;gap:6px">${r.dot?`<span class="dot" style="background:${r.dot}"></span>`:''}${r.label}</span>
     <span class="track"><i style="width:${Math.max(r.v/max*100,2)}%;${r.color?`background:${r.color}`:''}"></i></span>
@@ -1248,12 +1281,14 @@ function statusDonutBlock(list,dashboard=false){
 function applyFilters(list){
   let r=list.filter(t=>{
     if(F.q){const q=F.q.toLowerCase();if(!(t.title.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.tags.join(' ').toLowerCase().includes(q)))return false;}
+    if(F.source==='work'&&!['task','graphic'].includes(t._source))return false;
+    if(F.source&&F.source!=='work'&&t._source!==F.source)return false;
     if(F.dept&&t.dept!==F.dept)return false;
     if(F.status&&t.status!==F.status)return false;
     if(F.prio&&t.prio!==F.prio)return false;
     if(F.assignee&&t.assignee!==F.assignee)return false;
     if(F.period==='today'&&d2(t.due)!==TODAY_ISO)return false;
-    if(F.period==='overdue'&&!(d2(t.due)<TODAY_ISO&&t.status!=='done'))return false;
+    if(F.period==='overdue'&&!(t._deadline!==false&&t.due&&d2(t.due)<TODAY_ISO&&t.status!=='done'))return false;
     if(F.period==='active'&&t.status==='done')return false;
     if(F.dateFrom&&d2(t.due)<F.dateFrom)return false;
     if(F.dateTo&&d2(t.start)>F.dateTo)return false;
@@ -1272,6 +1307,7 @@ function activeFilterChips(){
   const chips=[];
   const add=(k,label,val)=>chips.push(`<button class="fchip"><b>${label}:</b> ${val} <span class="rm" onclick="clearFilter('${k}')">✕</span></button>`);
   if(F.q)add('q','ค้นหา',F.q);
+  if(F.source)add('source','ประเภท',F.source==='work'?'งานตามกำหนด':boardSourceLabel({_source:F.source}));
   if(F.dept)add('dept','แผนก',deptName(F.dept));
   if(F.status)add('status','สถานะ',STATUS[F.status].t);
   if(F.prio)add('prio','ความสำคัญ',PRIO[F.prio].t);
@@ -1284,7 +1320,7 @@ function activeFilterChips(){
 }
 function setF(k,v){F[k]=v;RENDER[VIEW](BOARD_DEPT);}
 function clearFilter(k){F[k]='';RENDER[VIEW](BOARD_DEPT);}
-function clearAllFilters(){F={...F,q:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};RENDER[VIEW](BOARD_DEPT);}
+function clearAllFilters(){F={...F,q:'',source:VIEW==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};RENDER[VIEW](BOARD_DEPT);}
 function toggleSort(k){if(F.sort===k)F.dir*=-1;else{F.sort=k;F.dir=1;}RENDER[VIEW](BOARD_DEPT);}
 function filterBarLite(ph){
   const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
@@ -1300,6 +1336,7 @@ function filterBar(lockDept){
   const opt=(cur,val,txt)=>`<option value="${esc(val)}" ${cur===val?'selected':''}>${esc(txt)}</option>`;
   return `<div class="filterbar">
     <div class="fsearch"><input placeholder="ค้นหางาน / รหัส / แท็ก" value="${F.q}" oninput="F.q=this.value;clearTimeout(window._t);window._t=setTimeout(()=>RENDER[VIEW](BOARD_DEPT),250)"></div>
+    <div class="fsel"><label>ประเภทข้อมูล</label><select onchange="setF('source',this.value)">${opt(F.source,'','ทั้งหมด')}${opt(F.source,'work','งานตามกำหนด')}${opt(F.source,'graphic','Graphic Production')}${opt(F.source,'task','งานที่มอบหมาย')}${opt(F.source,'issue','ศูนย์ปัญหา')}${opt(F.source,'activity','บันทึกกิจกรรม')}</select></div>
     ${lockDept?'':`<div class="fsel"><label>แผนก</label><select onchange="setF('dept',this.value)">${opt(F.dept,'','ทั้งหมด')}${DEPTS.map(d=>opt(F.dept,d.code,d.name)).join('')}</select></div>`}
     <div class="fsel"><label>สถานะ</label><select onchange="setF('status',this.value)">${opt(F.status,'','ทั้งหมด')}${Object.keys(STATUS).map(s=>opt(F.status,s,STATUS[s].t)).join('')}</select></div>
     <div class="fsel"><label>ความสำคัญ</label><select onchange="setF('prio',this.value)">${opt(F.prio,'','ทั้งหมด')}${Object.keys(PRIO).map(p=>opt(F.prio,p,PRIO[p].t)).join('')}</select></div>
@@ -1416,11 +1453,11 @@ function boardActivityStatus(row){
 function boardActivityRows(){
   if(typeof ACTIVITY_READY==='undefined'||!ACTIVITY_READY||!Array.isArray(ACTIVITY_ROWS))return[];
   return ACTIVITY_ROWS.map(row=>{const owner=String(row.employee_name||'ยังไม่ระบุ').trim(),date=boardMmdd(row.activity_date),quality=typeof activityReviewFlags==='function'?activityReviewFlags(row):[];return {
-    id:'ACT-'+row.id,sourceId:String(row.id),_source:'activity',dept:row.department_code||'',title:row.activity||row.category||'บันทึกกิจกรรม',creator:owner,assignee:owner,assignees:[owner],status:boardActivityStatus(row),prio:(row.operational_issue||quality.length)?'high':'mid',start:date,due:date,spent:row.time_flag==='ok'?Number(row.duration_minutes||0)/60:0,ontime:true,tags:[row.category,row.time_flag!=='ok'?'ต้องตรวจเวลา':'',...quality].filter(Boolean),desc:row.result_note||row.operational_issue||'',sourceRow:row
+    id:'ACT-'+row.id,sourceId:String(row.id),_source:'activity',_deadline:false,dept:row.department_code||'',title:row.activity||row.category||'บันทึกกิจกรรม',creator:owner,assignee:owner,assignees:[owner],status:boardActivityStatus(row),prio:(row.operational_issue||quality.length)?'high':'mid',start:date,due:date,spent:row.time_flag==='ok'?Number(row.duration_minutes||0)/60:0,ontime:true,tags:[row.category,row.time_flag!=='ok'?'ต้องตรวจเวลา':'',...quality].filter(Boolean),desc:row.result_note||row.operational_issue||'',sourceRow:row
   };});
 }
 function boardIssueRows(){return PROBLEMS.map(p=>{const date=boardMmdd(p.date),owner=String(p.owner||p.reporter||'ยังไม่มอบหมาย').trim(),priority=String(p.prio||'').toLowerCase();return {
-  id:'ISSUE-'+p.id,sourceId:String(p.id),_source:'issue',dept:p.dept||'',title:(p.cat?p.cat+' — ':'')+(p.problem||p.project||'ปัญหาหน้างาน'),creator:p.reporter||'',assignee:owner,assignees:[owner],status:p.status==='Resolved'?'done':p.status==='In Progress'?'doing':'block',prio:/critical|high|สูง|ด่วน/.test(priority)?'high':/low|ต่ำ/.test(priority)?'low':'mid',start:date,due:date,spent:p.resmin?Number(p.resmin)/60:0,ontime:p.status==='Resolved',tags:[p.project,p.cat,p.solution?'มีวิธีแก้แล้ว':'ยังไม่มีวิธีแก้'].filter(Boolean),desc:p.solution||p.problem||'',sourceRow:p
+  id:'ISSUE-'+p.id,sourceId:String(p.id),_source:'issue',_deadline:false,dept:p.dept||'',title:(p.cat?p.cat+' — ':'')+(p.problem||p.project||'ปัญหาหน้างาน'),creator:p.reporter||'',assignee:owner,assignees:[owner],status:p.status==='Resolved'?'done':p.status==='In Progress'?'doing':'block',prio:/critical|high|สูง|ด่วน/.test(priority)?'high':/low|ต่ำ/.test(priority)?'low':'mid',start:date,due:date,spent:p.resmin?Number(p.resmin)/60:0,ontime:p.status==='Resolved',tags:[p.project,p.cat,p.solution?'มีวิธีแก้แล้ว':'ยังไม่มีวิธีแก้'].filter(Boolean),desc:p.solution||p.problem||'',sourceRow:p
   };});}
 function boardAllWork(){return [...TASKS.map(t=>({...t,_source:'task',sourceId:t.id})),...dashboardGraphicRows().map(t=>({...t,sourceId:t.id})),...boardActivityRows(),...boardIssueRows()].filter(t=>t.dept&&canViewDept(t.dept));}
 const BOARD_SOURCE_LABEL={task:'งานที่มอบหมาย',graphic:'Graphic Production',activity:'บันทึกกิจกรรม',issue:'ศูนย์ปัญหา'};
@@ -1574,35 +1611,37 @@ function boardTableInner(list,showDept=true){
       ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
       <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${esc(shortName(assigneesOf(t)[0]))}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
       <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>
-      <td class="nowrap">${fmtDate(t.due)} ${t.due<'08-07'&&t.status!=='done'?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
+      <td class="nowrap">${fmtDate(t.due)} ${t._deadline!==false&&dashboardIsOverdue(t)?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="${showDept?6:5}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
 }
 
 RENDER.timeline=function(){
   const base=applyFilters(boardAllWork()).filter(t=>t.status!=='done'),dated=base.filter(t=>t.start&&t.due),undated=base.filter(t=>!t.start||!t.due);
   const list=dated.slice().sort((a,b)=>d2(a.due).localeCompare(d2(b.due))||d2(a.start).localeCompare(d2(b.start))).slice(0,300);
-  const today=DFROM(TODAY_ISO),dayMs=86400000,overdue=base.filter(t=>t.due&&DFROM(t.due)<today).length;
-  const due7=base.filter(t=>{if(!t.due)return false;const n=(DFROM(t.due)-today)/dayMs;return n>=0&&n<=7;}).length;
+  const today=DFROM(TODAY_ISO),dayMs=86400000,deadlineRows=base.filter(t=>t._deadline!==false),overdue=deadlineRows.filter(t=>t.due&&DFROM(t.due)<today).length;
+  const due7=deadlineRows.filter(t=>{if(!t.due)return false;const n=(DFROM(t.due)-today)/dayMs;return n>=0&&n<=7;}).length;
   const all=list.flatMap(t=>[t.start,t.due]).filter(Boolean).map(DFROM).sort((a,b)=>a-b);
   const sD=all[0]||today,eD=all[all.length-1]||new Date(today.getTime()+7*dayMs);
   const span=Math.max(Math.round((eD-sD)/dayMs)+1,1),idx=s=>Math.max(0,Math.min(span-1,Math.round((DFROM(s)-sD)/dayMs)));
   const tickStep=Math.max(1,Math.ceil(span/10)),ticks=[];
   for(let i=0;i<span;i+=tickStep){const d=new Date(sD);d.setDate(d.getDate()+i);ticks.push(fmtDate(`${d.getFullYear()}-${('0'+(d.getMonth()+1)).slice(-2)}-${('0'+d.getDate()).slice(-2)}`));}
   const todayPos=(today-sD)/dayMs/span*100,showToday=today>=sD&&today<=eD;
-  const urgent=list.filter(t=>DFROM(t.due)<today||((DFROM(t.due)-today)/dayMs<=7)).slice(0,12);
+  const urgent=list.filter(t=>t._deadline!==false&&(DFROM(t.due)<today||((DFROM(t.due)-today)/dayMs<=7))).slice(0,12);
+  const sourceUniverse=boardAllWork().filter(t=>t.status!=='done'),sourceCounts=Object.entries(BOARD_SOURCE_LABEL).map(([key,label])=>({key,label,n:sourceUniverse.filter(t=>t._source===key).length})).filter(x=>x.n);
   main.innerHTML=`${crumb('หน้าแรก','ไทม์ไลน์งาน')}
-  <div class="page-h"><div><h1>ไทม์ไลน์งาน</h1><p>เรียงตามกำหนดส่ง · แถบสีแสดงวันเริ่มถึงวันส่ง · คลิกงานเพื่อเปิดรายละเอียด</p></div><button class="tbtn" onclick="go('board')">${sic('i-board')} เปิดบอร์ดงาน</button></div>
+  <div class="page-h"><div><h1>ไทม์ไลน์งาน</h1><p>ค่าเริ่มต้นแสดงเฉพาะงานที่มีกำหนดส่ง · ปัญหาและบันทึกกิจกรรมเลือกดูย้อนหลังได้จาก “ประเภทข้อมูล”</p></div><button class="tbtn" onclick="go('board')">${sic('i-board')} เปิดบอร์ดงาน</button></div>
   ${filterBar(false)}${activeFilterChips()}
+  <div class="source-row" style="margin:0 0 12px">${sourceCounts.map(x=>`<button class="source-badge imported" onclick="setF('source','${x.key}')">${esc(x.label)} ${nf(x.n)}</button>`).join('')}<button class="source-badge live" onclick="setF('source','work')">งานตามกำหนด</button></div>
   <div class="stats" style="margin-bottom:14px;grid-template-columns:repeat(4,minmax(160px,1fr))">
-    <div class="stat accent"><div class="lbl">งานที่กำลังดำเนิน</div><div class="val">${nf(base.length)}</div><div class="sub">ตามสิทธิ์และตัวกรอง</div></div>
-    <div class="stat click" onclick="setF('period','overdue')"><div class="lbl">เกินกำหนด</div><div class="val" style="color:var(--red)">${nf(overdue)}</div><div class="sub down">คลิกเพื่อกรอง</div></div>
+    <div class="stat accent"><div class="lbl">รายการที่ยังไม่เสร็จ</div><div class="val">${nf(base.length)}</div><div class="sub">ตามประเภทและตัวกรอง</div></div>
+    <div class="stat click" onclick="setF('period','overdue')"><div class="lbl">งานเกินกำหนดจริง</div><div class="val" style="color:var(--red)">${nf(overdue)}</div><div class="sub down">ไม่นับวันที่เกิดปัญหา/วันที่บันทึก</div></div>
     <div class="stat"><div class="lbl">ครบกำหนดใน 7 วัน</div><div class="val" style="color:var(--amber)">${nf(due7)}</div><div class="sub">ควรจัดลำดับก่อน</div></div>
-    <div class="stat"><div class="lbl">วันที่ไม่ครบ</div><div class="val">${nf(undated.length)}</div><div class="sub ${undated.length?'down':'up'}">ต้องระบุเริ่มต้น/สิ้นสุด</div></div>
+    <div class="stat"><div class="lbl">วันที่ไม่ครบ</div><div class="val">${nf(undated.length)}</div><div class="sub ${undated.length?'down':'up'}">เฉพาะรายการตามตัวกรอง</div></div>
   </div>
   ${list.length?`<div class="card pad">
     <div class="tl-help"><b>วิธีอ่าน:</b><span>ซ้าย = งาน/ผู้รับผิดชอบ</span><span>แถบ = ช่วงทำงาน</span><span style="color:var(--red)">เส้นแดง = วันนี้</span><span>สี = สถานะ</span></div>
     <div class="tl-wrap"><div class="tl-canvas"><div class="tl-scale">${ticks.map(d=>`<span>${d}</span>`).join('')}</div>
-    ${list.map(t=>{const l=idx(t.start)/span*100,w=Math.max((idx(t.due)-idx(t.start)+1)/span*100,1.2),isLate=DFROM(t.due)<today;
+    ${list.map(t=>{const l=idx(t.start)/span*100,w=Math.max((idx(t.due)-idx(t.start)+1)/span*100,1.2),isLate=t._deadline!==false&&DFROM(t.due)<today;
       return `<div class="tl-row"><div class="tl-label" onclick="openBoardWork('${t._source||'task'}','${t.sourceId||t.id}')"><div class="tl-title">${deptPill(t.dept)} ${esc(t.title)}</div><div class="tl-meta"><span>${esc(boardSourceLabel(t))}</span><span>• ${esc(shortName(assigneesOf(t)[0]))}</span><span>• ${fmtDate(t.start)} → ${fmtDate(t.due)}</span>${isLate?'<span style="color:var(--red);font-weight:600">เกินกำหนด</span>':''}</div></div>
         <div class="tl-track">${showToday?`<i class="tl-today" style="left:${todayPos}%"></i>`:''}<div class="tl-bar" style="left:${l}%;width:${w}%;background:${STATUS[t.status].c}" onclick="openBoardWork('${t._source||'task'}','${t.sourceId||t.id}')" title="${esc(t.title)} (${fmtDate(t.start)} → ${fmtDate(t.due)})">${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)}</div></div></div>`;}).join('')}
     </div></div>
@@ -1648,7 +1687,7 @@ RENDER.reports=function(){
   const done=scope.filter(t=>t.status==='done'),ontime=done.filter(t=>t.ontime).length;
   const codes=depts.filter(c=>KPI[c]);
   const overall=codes.length?Math.round(codes.reduce((s,c)=>s+deptScore(c),0)/codes.length):null;
-  const blocked=scope.filter(t=>t.status==='block'||(t.due<'08-07'&&t.status!=='done'));
+  const blocked=scope.filter(t=>t.status==='block'||(t._deadline!==false&&dashboardIsOverdue(t)));
   const kbList=KB.filter(k=>depts.includes(k.dept));
   const graphicStatusRows=Object.entries(STATUS).map(([key,meta])=>({label:meta.t,v:graphic.filter(t=>t.status===key).length,color:meta.c})).filter(x=>x.v);
   const unit=REP_DEPT?(REP_DEPT==='MKT'?'การตลาด + Graphic Production':reportingDeptName(REP_DEPT)):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?reportingDeptName(currentDept()):'ภาพรวมบริษัท');
@@ -1712,7 +1751,7 @@ function monthlyData(){
   const codes=depts.filter(c=>KPI[c]);
   const score=Math.round(codes.reduce((s,c)=>s+deptScore(c),0)/(codes.length||1));
   const done=scope.filter(t=>t.status==='done'),blocked=scope.filter(t=>t.status==='block');
-  const overdue=scope.filter(t=>t.due<'08-07'&&t.status!=='done'),open=scope.filter(t=>t.status!=='done');
+  const overdue=scope.filter(t=>t._deadline!==false&&dashboardIsOverdue(t)),open=scope.filter(t=>t.status!=='done');
   const company=depts.length>1;
   const unit=REP_DEPT?(REP_DEPT==='MKT'?'การตลาด + Graphic Production':reportingDeptName(REP_DEPT)):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?reportingDeptName(currentDept()):'ภาพรวมบริษัท');
   const monthLabel=REP_MONTH==='09'?'กันยายน 2569':'สิงหาคม 2569';
@@ -1974,7 +2013,7 @@ RENDER.kb=function(){
 RENDER.ann=function(){
   main.innerHTML=`${crumb('หน้าแรก','ประกาศ & อัปเดต')}
   <div class="page-h"><div><h1>ประกาศ & บอร์ดอัปเดต</h1><p>บอร์ดกลางของบริษัท — ประกาศจากผู้บริหาร/หัวหน้า และความเคลื่อนไหวงาน</p></div>
-    ${ROLE!=='staff'?'<button class="tbtn primary" onclick="openAnnForm()">+ ประกาศใหม่</button>':''}</div>
+    ${['lead','exec','admin'].includes(AUTH_DB_ROLE)?'<button class="tbtn primary" onclick="openAnnForm()">+ ประกาศใหม่</button>':''}</div>
   <div class="grid" style="grid-template-columns:1.4fr 1fr">
     <div class="card"><div class="card-h"><h3>${sic('i-megaphone')} ประกาศ</h3></div><div class="pad">
       ${ANN.map(a=>{const st=annStatus(a);const aud=annAudienceIds(a);const ack=(a.acks||[]).length;const meNeed=aud.includes(me())&&!(a.acks||[]).includes(me())&&st.t!=='หมดอายุ';return `<div class="ann ${a.pin?'pin':''}" style="cursor:pointer" onclick="openAnn('${a.id}')"><div class="who" style="background:${u(a.who).c}">${u(a.who).s}</div>
@@ -2360,12 +2399,12 @@ function actAnswer(q){
 function showModal(html){modal.innerHTML=html;overlay.classList.add('show');}
 function closeModal(){overlay.classList.remove('show');}
 function openTask(id){
-  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop);
-  const sSel=`<div class="statusbtns">${Object.keys(STATUS).map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`;
-  const aBox=`<div style="display:flex;align-items:center;gap:8px;padding-top:4px">${avStack(assigneesOf(t))}<span style="font-size:12.5px">${assigneesOf(t).map(shortName).join(', ')}</span><button class="tbtn sm" style="margin-left:auto" onclick="openAssigneePicker('${t.id}')">แก้ / เพิ่มคน</button></div>`;
-  const pSel=`<div class="statusbtns">${Object.keys(PRIO).map(pk=>`<button class="stbtn ${t.prio===pk?'active':''}" style="--c:${PRIO[pk].c}" onclick="setPrio('${t.id}','${pk}')">${PRIO[pk].t}</button>`).join('')}</div>`;
-  const _D=s=>new Date(2026,+s.split('-')[0]-1,+s.split('-')[1]);
-  const dl=Math.round((_D(t.due)-new Date(2026,7,7))/86400000);
+  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),progress=canProgressTaskUi(t),logTime=!CLOUD||isMyTaskAssignee(t);
+  const allowedStatus=edit?Object.keys(STATUS):['todo','doing','review','block'];
+  const sSel=progress?`<div class="statusbtns">${allowedStatus.map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`:statusPill(t.status);
+  const aBox=`<div style="display:flex;align-items:center;gap:8px;padding-top:4px">${avStack(assigneesOf(t))}<span style="font-size:12.5px">${assigneesOf(t).map(shortName).join(', ')||'ยังไม่มอบหมาย'}</span>${edit?`<button class="tbtn sm" style="margin-left:auto" onclick="openAssigneePicker('${t.id}')">แก้ / เพิ่มคน</button>`:''}</div>`;
+  const pSel=edit?`<div class="statusbtns">${Object.keys(PRIO).map(pk=>`<button class="stbtn ${t.prio===pk?'active':''}" style="--c:${PRIO[pk].c}" onclick="setPrio('${t.id}','${pk}')">${PRIO[pk].t}</button>`).join('')}</div>`:prioPill(t.prio);
+  const dl=Math.round((DFROM(t.due)-DFROM(TODAY_ISO))/86400000);
   const dueNote=t.status==='done'?'ปิดงานแล้ว':dl>0?('เหลืออีก '+dl+' วัน'):dl===0?'ครบกำหนดวันนี้':('เกินกำหนด '+(-dl)+' วัน');
   const dueColor=t.status==='done'?'var(--green)':dl<0?'var(--red)':dl===0?'var(--amber)':'var(--muted)';
   const _sla=slaOf(t);
@@ -2374,33 +2413,31 @@ function openTask(id){
     <h3>${t.title}</h3><div class="muted" style="font-size:11.5px">${t.id} · สั่งโดย ${shortName(t.creator)}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>รายละเอียดงาน</label><div class="v">${t.desc||'-'}</div></div>
-    <div class="field" style="margin-top:6px"><label>สถานะ (คลิกเพื่อเปลี่ยน)</label>${sSel}</div>
+    <div class="field" style="margin-top:6px"><label>${progress?'สถานะ (ผู้รับงานอัปเดตความคืบหน้า / หัวหน้าปิดงาน)':'สถานะ'}</label>${sSel}</div>
     <div class="field"><label>ความสำคัญ</label>${pSel}</div>
     <div class="field"><label>ผู้รับผิดชอบ (${assigneesOf(t).length} คน)</label>${aBox}</div>
     <div class="two">
       <div class="field"><label>กำหนดส่ง</label>
-        <input type="date" class="fin" value="2026-${t.due}" onchange="setDue('${t.id}',this.value)">
+        <input type="date" class="fin" value="${d2(t.due)}" ${edit?'':'disabled'} onchange="setDue('${t.id}',this.value)">
         <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}</div></div>
       <div class="field"><label>เวลาที่ใช้ (ชม.)</label>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input type="number" min="0" step="0.5" class="fin" id="spent_${t.id}" value="${t.spent||0}" style="max-width:90px">
-          <button class="tbtn sm" onclick="setSpent('${t.id}')">บันทึก</button>
-          <button class="tbtn sm" onclick="addSpent('${t.id}',1)">+1 ชม.</button></div></div>
+        <div style="display:flex;gap:6px;align-items:center"><b>${t.spent||0}</b><span class="muted">ชม. รวม</span>
+          ${logTime?`<input type="number" min="0.1" step="0.5" class="fin" id="spent_${t.id}" placeholder="เพิ่มครั้งนี้" style="max-width:105px"><button class="tbtn sm" onclick="setSpent('${t.id}')">+ บันทึก</button><button class="tbtn sm" onclick="addSpent('${t.id}',1)">+1 ชม.</button>`:'<span class="muted" style="font-size:11px">ผู้รับงานเป็นผู้ลงเวลา</span>'}</div></div>
     </div>
     <div class="field"><label>ระยะเวลาดำเนินการที่กำหนด (SLA)</label>
       <div style="display:flex;gap:6px;align-items:center">
-        <input type="number" min="1" class="fin" id="sla_n_${t.id}" value="${_sla.n}" style="max-width:80px">
-        <select class="fin" id="sla_u_${t.id}" style="max-width:110px"><option value="day" ${_sla.unit==='day'?'selected':''}>วัน</option><option value="hr" ${_sla.unit==='hr'?'selected':''}>ชั่วโมง</option></select>
-        <button class="tbtn sm" onclick="setSla('${t.id}')">บันทึก</button></div>
+        <input type="number" min="1" class="fin" id="sla_n_${t.id}" value="${_sla.n}" ${edit?'':'disabled'} style="max-width:80px">
+        <select class="fin" id="sla_u_${t.id}" ${edit?'':'disabled'} style="max-width:110px"><option value="day" ${_sla.unit==='day'?'selected':''}>วัน</option><option value="hr" ${_sla.unit==='hr'?'selected':''}>ชั่วโมง</option></select>
+        ${edit?`<button class="tbtn sm" onclick="setSla('${t.id}')">บันทึก</button>`:''}</div>
       <div class="muted" style="font-size:11px;margin-top:4px">${_slaNote}</div></div>
     <div class="field"><label>แท็ก</label><span>${t.tags.map(x=>`<span class="tag">${x}</span>`).join('')||'-'}</span></div>
 
     <div class="field"><label>งานย่อย / มอบต่อ (Delegation) — คลิกเพื่อเปลี่ยนสถานะงานย่อย</label>
-      ${(t.sub||[]).map((s,i)=>`<div class="sub-item" onclick="toggleSub('${t.id}',${i})" title="คลิกเพื่อเปลี่ยนสถานะ"><span class="mini" style="background:${u(s.who).c}">${u(s.who).s}</span><div style="flex:1">${s.t} <span class="muted" style="font-size:11px">· ${shortName(s.who)}</span></div>${statusPill(s.st)}<span class="cyc">↻ เปลี่ยน</span></div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีงานย่อย</div>'}
-      <div style="display:flex;gap:6px;margin-top:8px">
+      ${(t.sub||[]).map((s,i)=>`<div class="sub-item" ${edit?`onclick="toggleSub('${t.id}',${i})" title="คลิกเพื่อเปลี่ยนสถานะ"`:''}><span class="mini" style="background:${u(s.who).c}">${u(s.who).s}</span><div style="flex:1">${s.t} <span class="muted" style="font-size:11px">· ${shortName(s.who)}</span></div>${statusPill(s.st)}${edit?'<span class="cyc">↻ เปลี่ยน</span>':''}</div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีงานย่อย</div>'}
+      ${edit?`<div style="display:flex;gap:6px;margin-top:8px">
         <input class="fin" id="subName" placeholder="ชื่องานย่อยที่มอบต่อ" style="flex:1">
         <select class="fin" id="subWho" style="width:110px">${assigneeOptions(t.assignee)}</select>
-        <button class="tbtn" onclick="addSub('${t.id}')">+ มอบต่อ</button></div></div>
+        <button class="tbtn" onclick="addSub('${t.id}')">+ มอบต่อ</button></div>`:''}</div>
 
     ${sop?`<div class="field"><label>SOP ที่ผูกกับงานนี้ — ${sop.title}</label>
       ${sop.steps.slice(0,4).map((s,i)=>`<div class="step"><span class="n">${i+1}</span>${s}</div>`).join('')}
@@ -2410,8 +2447,8 @@ function openTask(id){
       `<div class="field"><label>วิธีแก้ปัญหา / ผลการดำเนินงาน</label><textarea id="solIn" rows="2" placeholder="พิมพ์วิธีแก้ แล้วกด 'อนุมัติ/ปิดงาน' → ระบบเก็บเข้าคลังความรู้อัตโนมัติ"></textarea></div>`}
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
       ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">${sic('i-save')} บันทึกวิธีแก้</button>`:''}
-      ${ROLE!=='staff'&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button>`:''}
-      ${t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
+      ${edit&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button>`:''}
+      ${edit&&t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
 
     <div class="field" style="margin-top:14px"><label>ความเคลื่อนไหว / ความคิดเห็น</label>
       <div style="display:flex;gap:6px;margin-bottom:8px"><input class="fin" id="cmtIn" placeholder="เขียนความคิดเห็น..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${t.id}')"><button class="tbtn" onclick="addComment('${t.id}')">ส่ง</button></div>
@@ -2446,7 +2483,9 @@ function openKB(id){
     <div class="field"><label>แท็ก</label>${k.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div></div>`);
 }
 function openCompose(){
-  const defDept=isExecutiveRole()?'GRAPHIC':currentDept();
+  const manageable=canAdminAccess()?visibleDepartmentCodes():MANAGE_DEPTS;
+  if(CLOUD&&!manageable.length){toast('บัญชีนี้ดูงานได้ แต่ไม่มีสิทธิ์สร้างงาน กรุณาให้ผู้ดูแลเพิ่มสิทธิ์ “จัดการแผนก”','info');return;}
+  const defDept=isExecutiveRole()?(manageable.includes('GRAPHIC')?'GRAPHIC':manageable[0]):(MANAGE_DEPTS.includes(currentDept())?currentDept():manageable[0]);
   showModal(`<div class="modal-h"><div><h3>${sic('i-sparkle')} สร้างงานด้วย AI</h3><div class="muted" style="font-size:11.5px">พิมพ์สั้น ๆ AI จะจัดรูปให้อ่านง่าย แล้วกดสร้าง</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>สั่งงานแบบสั้น (พิมพ์หรือพูดก็ได้)</label><textarea id="cmpIn" rows="2">ทำแบนเนอร์โปรฯ ฝากครั้งแรกให้ 3XBET ส่งศุกร์นี้</textarea></div>
@@ -2465,7 +2504,7 @@ function aiCompose(defDept){
     <div class="field"><label>รายละเอียด</label><textarea class="fin" id="f_desc" rows="2">${a.desc}</textarea></div>
     <div class="two">
       <div class="field"><label>ความสำคัญ</label><select class="fin" id="f_prio">${Object.keys(PRIO).map(pk=>`<option value="${pk}" ${a.prio===pk?'selected':''}>${PRIO[pk].t}</option>`).join('')}</select></div>
-      <div class="field"><label>กำหนดส่ง</label><input type="date" class="fin" id="f_due" value="2026-${a.due}"></div></div>
+      <div class="field"><label>กำหนดส่ง</label><input type="date" class="fin" id="f_due" value="${d2(a.due)}"></div></div>
     <div class="field"><label>ระยะเวลาดำเนินการ (SLA) — ต้องเสร็จภายใน</label><div style="display:flex;gap:6px"><input type="number" min="1" class="fin" id="f_sla_n" value="${a.sla.n}" style="max-width:90px"><select class="fin" id="f_sla_u" style="max-width:120px"><option value="day">วัน</option><option value="hr">ชั่วโมง</option></select></div></div>
     <div class="field"><label>ผู้รับผิดชอบ — เลือกได้หลายคน หรือกดทั้งกลุ่ม</label><div id="pickerBox"></div></div>
     <div class="field"><label>Checklist (AI แตกจาก SOP ${deptName(a.dept)})</label>${a.checklist.map((c,i)=>`<div class="step"><span class="n">${i+1}</span>${c}</div>`).join('')}</div>
@@ -2473,13 +2512,14 @@ function aiCompose(defDept){
     <button class="tbtn primary" style="margin-top:12px" onclick="submitCompose()">✓ สร้างงานนี้</button>`;
   renderPicker();
 }
-function submitCompose(){
+async function submitCompose(){
   const title=normSp(val('f_title'));if(!title){toast('กรุณาระบุหัวข้องาน','info');return;}
   if(!PICK.size){toast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน','info');return;}
-  const due=(val('f_due')||'').slice(5)||'08-12';const assignees=[...PICK];
+  const due=val('f_due')||addFrom(TODAY_ISO,5);const assignees=[...PICK];
   const sla={n:Math.max(1,parseInt(val('f_sla_n'))||1),unit:val('f_sla_u')||'day'};
-  const t=createTask({title,dept:val('f_dept'),assignees,prio:val('f_prio'),due,sla,desc:val('f_desc'),tags:['งานใหม่']});
-  closeModal();F.dept='';go('board');toast('สร้างงาน '+t.id+' ให้ '+assignees.length+' คน (ส่ง '+fmtDate(due)+')');
+  try{const t=await createTask({title,dept:val('f_dept'),assignees,prio:val('f_prio'),due,sla,desc:val('f_desc'),tags:['งานใหม่']});
+    closeModal();F.dept='';go('board');toast('สร้างงาน '+t.id+' ให้ '+assignees.length+' คน (ส่ง '+fmtDate(due)+')');
+  }catch(e){toast('สร้างงานไม่สำเร็จ · '+(e.message||e),'info');}
 }
 
 /* ===== Persistence (localStorage) ===== */
@@ -2567,6 +2607,9 @@ async function loadAuthenticatedProfile(session){
 async function cloudLoad(){
   try{
     TASKS.length=0;KB.length=0;ANN.length=0;GROUPS.length=0;
+    await cloudLoadTasks();
+    await cloudLoadKnowledge();
+    await cloudLoadAnnouncements();
     await cloudLoadKpis();
     if(canAdminAccess()){
       const res=await SB.from('company_hub_state').select('data').eq('id','main').maybeSingle();
@@ -2575,6 +2618,47 @@ async function cloudLoad(){
     await cloudLoadIssues();
     await cloudLoadImplementationActions();
   }catch(e){console.warn(e);}
+}
+async function cloudLoadAnnouncements(){
+  if(!SB)return;ANN.length=0;
+  try{
+    const [ann,recipients,comments]=await Promise.all([
+      SB.from('announcements').select('id,creator_id,title,body,starts_on,ends_on,pinned,created_at').order('pinned',{ascending:false}).order('created_at',{ascending:false}),
+      SB.from('announcement_recipients').select('announcement_id,profile_id,acknowledged_at'),
+      SB.from('announcement_comments').select('announcement_id,author_id,body,created_at').order('created_at',{ascending:true})
+    ]);
+    if(ann.error)throw ann.error;
+    const recBy=new Map(),ackBy=new Map(),commentBy=new Map();
+    if(!recipients.error)(recipients.data||[]).forEach(x=>{if(!recBy.has(x.announcement_id))recBy.set(x.announcement_id,[]);recBy.get(x.announcement_id).push(x.profile_id);if(x.acknowledged_at){if(!ackBy.has(x.announcement_id))ackBy.set(x.announcement_id,[]);ackBy.get(x.announcement_id).push(x.profile_id);}});
+    if(!comments.error)(comments.data||[]).forEach(x=>{if(!commentBy.has(x.announcement_id))commentBy.set(x.announcement_id,[]);commentBy.get(x.announcement_id).push({who:x.author_id,text:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
+    (ann.data||[]).forEach(x=>{const audienceIds=recBy.get(x.id)||[];ANN.push({id:x.id,dbId:x.id,who:x.creator_id,pin:x.pinned,title:x.title,body:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),audience:audienceIds.length?audienceIds.map(shortName).join(', '):'ทั้งบริษัท',from:x.starts_on,until:x.ends_on||'',audienceIds,acks:ackBy.get(x.id)||[],comments:commentBy.get(x.id)||[]});});
+  }catch(e){console.warn('announcement load:',e.message||e);}
+}
+async function cloudLoadKnowledge(){
+  if(!SB)return;KB.length=0;
+  try{const r=await SB.from('knowledge_articles').select('id,source_task_id,department_code,title,problem,solution,status,prototype_payload,created_at,updated_at').order('updated_at',{ascending:false});if(r.error)throw r.error;(r.data||[]).forEach((x,i)=>KB.push({id:'KB-'+String(i+1).padStart(3,'0'),dbId:x.id,dept:x.department_code,title:x.title,problem:x.problem||'',solution:x.solution||'',from:x.source_task_id||'',tags:Array.isArray(x.prototype_payload?.tags)?x.prototype_payload.tags:[],status:x.status}));}catch(e){console.warn('knowledge load:',e.message||e);}
+}
+async function cloudLoadTasks(){
+  if(!SB)return;
+  TASKS_READY=false;TASKS.length=0;TASK_PROFILES.length=0;
+  try{
+    const [tasks,assignments,profiles,timeEntries,comments]=await Promise.all([
+      SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,prototype_payload,created_at,updated_at').order('due_at',{ascending:true}),
+      SB.from('task_assignees').select('task_id,user_id,assigned_at'),
+      SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('active',true).order('display_name'),
+      SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),
+      SB.from('task_comments').select('task_id,author_id,body,created_at').order('created_at',{ascending:false})
+    ]);
+    if(tasks.error)throw tasks.error;if(assignments.error)throw assignments.error;if(profiles.error)throw profiles.error;
+    TASK_PROFILES.push(...(profiles.data||[]));
+    TASK_PROFILES.forEach((p,i)=>{const name=p.display_name||p.email||'ผู้ใช้',colors=['#2563eb','#0f766e','#7c3aed','#c2410c','#be185d','#0369a1'];USERS[p.id]={n:name,s:name.slice(0,1).toUpperCase(),c:colors[i%colors.length]};});
+    ASSIGNABLE=TASK_PROFILES.filter(p=>canAdminAccess()||MANAGE_DEPTS.includes(p.department_code)||p.id===ACCESS_PROFILE?.id).map(p=>p.id);
+    const byTask=new Map();(assignments.data||[]).forEach(a=>{if(!byTask.has(a.task_id))byTask.set(a.task_id,[]);byTask.get(a.task_id).push(a.user_id);});
+    const spent=new Map();if(!timeEntries.error)(timeEntries.data||[]).forEach(x=>spent.set(x.task_id,(spent.get(x.task_id)||0)+Number(x.minutes||0)));
+    const taskLog=new Map();if(!comments.error)(comments.data||[]).forEach(x=>{if(!taskLog.has(x.task_id))taskLog.set(x.task_id,[]);taskLog.get(x.task_id).push({who:x.author_id,txt:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
+    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,status:row.status,prio:row.priority,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
+    TASKS_READY=true;
+  }catch(e){console.warn('task load:',e.message||e);TASKS.length=0;TASKS_READY=false;}
 }
 async function cloudLoadImplementationActions(){
   if(!SB)return;

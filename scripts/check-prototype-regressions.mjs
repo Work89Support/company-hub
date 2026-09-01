@@ -7,6 +7,7 @@ const activity = fs.readFileSync(new URL('../prototype/activity-module.js', impo
 const migration15 = fs.readFileSync(new URL('../supabase/migrations/202608300015_profile_roles_and_reporting.sql', import.meta.url), 'utf8');
 const migration16 = fs.readFileSync(new URL('../supabase/migrations/202609010016_meeting_action_plan.sql', import.meta.url), 'utf8');
 const migration17 = fs.readFileSync(new URL('../supabase/migrations/202609010017_issue_intake_and_source_trace.sql', import.meta.url), 'utf8');
+const migration18 = fs.readFileSync(new URL('../supabase/migrations/202609010018_assignee_task_progress.sql', import.meta.url), 'utf8');
 const issueImporter = fs.readFileSync(new URL('./prepare_operational_issue_import.py', import.meta.url), 'utf8');
 const checks = [
   ['production activity module is loaded', /<script src="activity-module\.js\?v=[^"]+"><\/script>/],
@@ -57,6 +58,11 @@ const checks = [
   ['Executive dashboard shows rollout stop criteria', /Go-live Control[\s\S]*เกณฑ์หยุด/],
   ['Timeline uses the current Bangkok date', /const TODAY_ISO=bangkokTodayISO\(\),TODAY_MMDD=TODAY_ISO\.slice\(5\)/],
   ['Timeline explains start, due, status, and today marker', /วิธีอ่าน:[\s\S]*เส้นแดง = วันนี้[\s\S]*งานที่ต้องจัดการก่อน/],
+  ['Timeline separates event dates from real deadlines', /_deadline:false[\s\S]*ไม่นับวันที่เกิดปัญหา\/วันที่บันทึก/],
+  ['Normalized task creation writes to Supabase', /async function createTask\([\s\S]*SB\.from\('tasks'\)\.insert/],
+  ['Assignees record additive time entries', /async function recordTaskTime\([\s\S]*SB\.from\('time_entries'\)\.insert/],
+  ['Task comments reload from Supabase', /SB\.from\('task_comments'\)\.select/],
+  ['Production announcements reload from Supabase', /async function cloudLoadAnnouncements\([\s\S]*SB\.from\('announcements'\)/],
 ];
 
 const failed = checks.filter(([, pattern]) => !pattern.test(html));
@@ -67,6 +73,8 @@ if (!/pd\.can_manage/.test(migration15) || /p\.department_code=dept/.test(migrat
 if (!/create table if not exists public\.implementation_actions/.test(migration16) || !/enable row level security/.test(migration16)) failed.push(['Meeting actions must be normalized and RLS protected', /implementation_actions/]);
 if (!/reporting_parent_code='MKT'/.test(migration16)) failed.push(['Graphic reports under Marketing without changing source ownership', /reporting_parent_code/]);
 if (!/source_key/.test(migration17) || !/created_by=auth\.uid\(\)/.test(migration17)) failed.push(['Issue intake needs idempotent source trace and employee RLS', /source_key/]);
+if (!/update_my_task_progress/.test(migration18) || !/manager approval required/.test(migration18)) failed.push(['Assignee progress is constrained by a database RPC', /update_my_task_progress/]);
+if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
 if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(html)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);
 
