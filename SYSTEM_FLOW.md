@@ -144,10 +144,13 @@ flowchart LR
 | 008 | Daily Activities + duration normalization + RLS |
 | 009 | ตรวจ/แก้เวลา, เก็บค่าต้นทาง และรองรับเวลาแบบทศนิยมจากชีต |
 | 010 | Google Sheets sync, data-quality flags, source trace และเก็บแถวเก่าแบบ stale |
+| 011–015 | การล้าง demo, Role/Profile จริง, การเชิญพนักงาน และโครงสร้างรายงานตามสิทธิ์ |
+| 016 | Action Plan จากมติประชุม, Go-live/UAT, หลักฐานผลดำเนินงาน และ Graphic → Marketing reporting roll-up |
+| 017 | แบบรับแจ้งปัญหาสำหรับพนักงาน, ข้อมูลผลกระทบ, เวลา SLA และ Source Trace เดือนกรกฎาคม–สิงหาคม |
 
 ## 10. ลำดับเปิดใช้งาน Production
 
-1. รัน Migration 001–010 ใน Supabase ตามลำดับ
+1. รัน Migration 001–017 ใน Supabase ตามลำดับ
 2. Export Google Sheets ทั้ง 4 กลุ่มเป็น XLSX และเตรียม payload ด้วย `scripts/prepare_google_activity_import.py`
 3. นำเข้า snapshot ทั้งชุดผ่าน `import_daily_activities(jsonb)` ด้วยบัญชีผู้ดูแล
 4. เรียก `finalize_daily_activity_sync(jsonb,text,jsonb)` ด้วย source key ครบทั้ง snapshot เพื่อเก็บแถวที่หายไปเป็น `stale` โดยไม่ลบประวัติ
@@ -167,5 +170,8 @@ flowchart LR
 - [ ] หัวหน้าจัดการได้เฉพาะแผนกที่ `can_manage`
 - [ ] ผู้บริหารเห็น Dashboard รวมและหน้าจัดการสิทธิ์
 - [ ] Issue สามารถสร้าง SOP Draft ได้หลังมี Root Cause และ Preventive Action
+- [ ] Action Plan แสดงเจ้าของงาน กำหนดส่ง สถานะ และหลักฐานครบตามมติประชุม
+- [ ] รายงานการตลาดรวมผลงาน Graphic แต่สิทธิ์ผู้ใช้ยังยึดแผนกจริงจาก Profile/RLS
+- [ ] เกณฑ์หยุด Go-live แจ้งเตือนเมื่อข้อมูลข้ามแผนก ชั่วโมงสูญหาย งาน 3X ค้างเพิ่ม หรือยอดผู้บริหารไม่ตรง
 - [ ] รายการเวลา all-day หรือเกิน 16 ชั่วโมงไม่ถูกรวมในยอดชั่วโมง
 - [ ] ไม่มี JavaScript error ใน Desktop และ Mobile

@@ -5,6 +5,8 @@ const file = new URL('../prototype/index.html', import.meta.url);
 const html = fs.readFileSync(file, 'utf8');
 const activity = fs.readFileSync(new URL('../prototype/activity-module.js', import.meta.url), 'utf8');
 const migration15 = fs.readFileSync(new URL('../supabase/migrations/202608300015_profile_roles_and_reporting.sql', import.meta.url), 'utf8');
+const migration16 = fs.readFileSync(new URL('../supabase/migrations/202609010016_meeting_action_plan.sql', import.meta.url), 'utf8');
+const migration17 = fs.readFileSync(new URL('../supabase/migrations/202609010017_issue_intake_and_source_trace.sql', import.meta.url), 'utf8');
 const checks = [
   ['production activity module is loaded', /<script src="activity-module\.js\?v=[^"]+"><\/script>/],
   ['Graphic navigation entry', /graphic:\{ic:'i-grid',t:'Graphic Production'\}/],
@@ -36,6 +38,9 @@ const checks = [
   ['Problem Center shows solution coverage', /มีวิธีแก้แล้ว[\s\S]*ยังไม่มีวิธีแก้/],
   ['Problem Center solution filter', /PF\.solution==='yes'\?hasIssueSolution/],
   ['Problem Center analysis-to-SOP flow', /function problemAnalysisHTML\(all\)[\s\S]*จัดทำ SOP/],
+  ['Employee problem intake form', /function openNewIssue\(\)[\s\S]*บันทึกและส่งให้ทีมแก้ไข/],
+  ['Problem intake persists analysis fields', /function saveNewIssue\(\)[\s\S]*impact_scope[\s\S]*affected_transaction_count[\s\S]*workaround/],
+  ['Issue loader supports pre-migration fallback', /extraFields[\s\S]*if\(res\.error&&\/column\|schema cache/],
   ['Strict database admin role', /function canAdminAccess\(\)\{return \['exec','admin'\]\.includes\(AUTH_DB_ROLE\);\}/],
   ['Navigation has stable view targets', /data-view="\$\{k\}"/],
   ['Production fails closed without Supabase', /Production fail-closed/],
@@ -44,6 +49,10 @@ const checks = [
   ['Company Scorecard opens real department data', /function openReportDepartment\(code\)/],
   ['Operational issues retain department ownership', /id:r\.id,dept:r\.department_code\|\|''/],
   ['Employee profile includes position', /position_title/],
+  ['Meeting Action Tracker loads normalized production rows', /async function cloudLoadImplementationActions\(\)[\s\S]*implementation_actions/],
+  ['Meeting Action Tracker persists status and evidence', /function saveImplementationAction\(id\)[\s\S]*update\(\{status,evidence\}\)/],
+  ['Marketing report includes permitted Graphic rows', /REP_DEPT==='MKT'\?\['MKT','GRAPHIC'\]/],
+  ['Executive dashboard shows rollout stop criteria', /Go-live Control[\s\S]*เกณฑ์หยุด/],
 ];
 
 const failed = checks.filter(([, pattern]) => !pattern.test(html));
@@ -51,6 +60,9 @@ if (/^\+/m.test(html)) failed.push(['No accidental diff markers', /^\+/m]);
 if (/ROLE_META\.lead\.dept/.test(activity)) failed.push(['Activity management must not use fixed lead department', /ROLE_META\.lead\.dept/]);
 if (!/MANAGE_DEPTS\.includes\(row\.department_code\)/.test(activity)) failed.push(['Activity management follows explicit managed departments', /MANAGE_DEPTS/]);
 if (!/pd\.can_manage/.test(migration15) || /p\.department_code=dept/.test(migration15)) failed.push(['Database management permission is explicit', /can_manage_department/]);
+if (!/create table if not exists public\.implementation_actions/.test(migration16) || !/enable row level security/.test(migration16)) failed.push(['Meeting actions must be normalized and RLS protected', /implementation_actions/]);
+if (!/reporting_parent_code='MKT'/.test(migration16)) failed.push(['Graphic reports under Marketing without changing source ownership', /reporting_parent_code/]);
+if (!/source_key/.test(migration17) || !/created_by=auth\.uid\(\)/.test(migration17)) failed.push(['Issue intake needs idempotent source trace and employee RLS', /source_key/]);
 if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(html)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);
 
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
