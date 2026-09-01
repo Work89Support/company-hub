@@ -63,6 +63,7 @@ const checks = [
   ['Assignees record additive time entries', /async function recordTaskTime\([\s\S]*SB\.from\('time_entries'\)\.insert/],
   ['Task comments reload from Supabase', /SB\.from\('task_comments'\)\.select/],
   ['Production announcements reload from Supabase', /async function cloudLoadAnnouncements\([\s\S]*SB\.from\('announcements'\)/],
+  ['Timeline lists unscheduled work and lets Graphic managers set a due date', /รายการที่ต้องกำหนดวัน[\s\S]*openGraphicDue/],
 ];
 
 const failed = checks.filter(([, pattern]) => !pattern.test(html));
