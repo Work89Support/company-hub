@@ -106,6 +106,11 @@ Migration นี้ไม่แก้ตารางหรือกระบว�
 เวลาปิดเคส และ Source Trace สำหรับข้อมูลปัญหาเดือนกรกฎาคม–สิงหาคม
 โดยไม่เปลี่ยน pipeline นำเข้า Graphic หรือ Daily Activity
 
+ข้อมูลปัญหาจริงต้องเก็บนอก public repository แล้วสร้าง SQL แบบ idempotent ด้วย
+`scripts/prepare_operational_issue_import.py` สคริปต์จะสร้าง `source_key`, เก็บ
+source trace/quality flags, upsert ตาม Issue ID และแยกรายการทดสอบออกก่อนนำเข้า
+Production
+
 หลัง Migration 015 ให้ deploy `supabase/functions/invite-company-user` เวอร์ชันล่าสุด
 เพื่อให้การสร้างพนักงานจากหน้า Company Hub บันทึกตำแหน่ง, Role, แผนกหลัก,
 แผนกที่มองเห็น และแผนกที่จัดการครบชุด

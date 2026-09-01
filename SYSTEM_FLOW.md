@@ -151,14 +151,15 @@ flowchart LR
 ## 10. ลำดับเปิดใช้งาน Production
 
 1. รัน Migration 001–017 ใน Supabase ตามลำดับ
-2. Export Google Sheets ทั้ง 4 กลุ่มเป็น XLSX และเตรียม payload ด้วย `scripts/prepare_google_activity_import.py`
-3. นำเข้า snapshot ทั้งชุดผ่าน `import_daily_activities(jsonb)` ด้วยบัญชีผู้ดูแล
-4. เรียก `finalize_daily_activity_sync(jsonb,text,jsonb)` ด้วย source key ครบทั้ง snapshot เพื่อเก็บแถวที่หายไปเป็น `stale` โดยไม่ลบประวัติ
-5. ตรวจจำนวนข้อมูล, data-quality flags และผลรวมชั่วโมงที่ผ่านการคัดกรอง
-6. ทดสอบบัญชีพนักงาน หัวหน้า ผู้บริหาร และ Admin อย่างละหนึ่งบัญชี
-7. ตรวจ RLS โดยยืนยันว่าแต่ละบัญชีไม่เห็นแผนกที่ไม่ได้รับสิทธิ์
-8. Deploy GitHub Pages
-9. ล้างข้อมูลพนักงาน/ปัญหาจาก Git history เดิม หรือเปลี่ยน repository เป็น private จนกว่าจะล้างเสร็จ
+2. เตรียมข้อมูลปัญหากรกฎาคม–สิงหาคมด้วย `scripts/prepare_operational_issue_import.py` และนำ SQL ที่สร้างได้เข้าฐาน Production (ไฟล์ต้นทาง/SQL จริงห้าม commit)
+3. Export Google Sheets ทั้ง 4 กลุ่มเป็น XLSX และเตรียม payload ด้วย `scripts/prepare_google_activity_import.py`
+4. นำเข้า snapshot ทั้งชุดผ่าน `import_daily_activities(jsonb)` ด้วยบัญชีผู้ดูแล
+5. เรียก `finalize_daily_activity_sync(jsonb,text,jsonb)` ด้วย source key ครบทั้ง snapshot เพื่อเก็บแถวที่หายไปเป็น `stale` โดยไม่ลบประวัติ
+6. ตรวจจำนวนข้อมูล, data-quality flags และผลรวมชั่วโมงที่ผ่านการคัดกรอง
+7. ทดสอบบัญชีพนักงาน หัวหน้า ผู้บริหาร และ Admin อย่างละหนึ่งบัญชี
+8. ตรวจ RLS โดยยืนยันว่าแต่ละบัญชีไม่เห็นแผนกที่ไม่ได้รับสิทธิ์
+9. Deploy GitHub Pages
+10. ล้างข้อมูลพนักงาน/ปัญหาจาก Git history เดิม หรือเปลี่ยน repository เป็น private จนกว่าจะล้างเสร็จ
 
 ## 11. Acceptance Checklist
 
