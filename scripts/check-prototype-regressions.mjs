@@ -8,6 +8,10 @@ const migration15 = fs.readFileSync(new URL('../supabase/migrations/202608300015
 const migration16 = fs.readFileSync(new URL('../supabase/migrations/202609010016_meeting_action_plan.sql', import.meta.url), 'utf8');
 const migration17 = fs.readFileSync(new URL('../supabase/migrations/202609010017_issue_intake_and_source_trace.sql', import.meta.url), 'utf8');
 const migration18 = fs.readFileSync(new URL('../supabase/migrations/202609010018_assignee_task_progress.sql', import.meta.url), 'utf8');
+const migration19 = fs.readFileSync(new URL('../supabase/migrations/202609030019_login_device_ip_access.sql', import.meta.url), 'utf8');
+const accessGate = fs.readFileSync(new URL('../supabase/functions/access-gate/index.ts', import.meta.url), 'utf8');
+const inviteFunction = fs.readFileSync(new URL('../supabase/functions/invite-company-user/index.ts', import.meta.url), 'utf8');
+const talkFunction = fs.readFileSync(new URL('../supabase/functions/talk-to-data/index.ts', import.meta.url), 'utf8');
 const issueImporter = fs.readFileSync(new URL('./prepare_operational_issue_import.py', import.meta.url), 'utf8');
 const checks = [
   ['production activity module is loaded', /<script src="activity-module\.js\?v=[^"]+"><\/script>/],
@@ -26,6 +30,9 @@ const checks = [
   ['Employee access management page', /RENDER\.users\s*=\s*function/],
   ['Employee invitation through Edge Function', /invite-company-user/],
   ['Employee access update through audited RPC', /SB\.rpc\('set_user_access'/],
+  ['Login calls the server-side device and IP gate before loading data', /async function onLoggedIn\(session\)[\s\S]*validateAccessGate\(session\)[\s\S]*loadAuthenticatedProfile/],
+  ['Access Gate is refreshed while a session remains open', /startAccessGateRefresh\(session\)/],
+  ['Employee access page manages device and IP policy', /set_user_login_policy[\s\S]*set_user_device_status/],
   ['Inactive accounts fail closed', /if\(!ACCESS_PROFILE\.active\)throw new Error/],
   ['Graphic account profile', /async function loadAuthenticatedProfile\(/],
   ['Activity renderer', /RENDER\.activity\s*=\s*function/],
@@ -75,6 +82,10 @@ if (!/create table if not exists public\.implementation_actions/.test(migration1
 if (!/reporting_parent_code='MKT'/.test(migration16)) failed.push(['Graphic reports under Marketing without changing source ownership', /reporting_parent_code/]);
 if (!/source_key/.test(migration17) || !/created_by=auth\.uid\(\)/.test(migration17)) failed.push(['Issue intake needs idempotent source trace and employee RLS', /source_key/]);
 if (!/update_my_task_progress/.test(migration18) || !/manager approval required/.test(migration18)) failed.push(['Assignee progress is constrained by a database RPC', /update_my_task_progress/]);
+if (!/pgrst\.db_pre_request/.test(migration19) || !/check_company_access/.test(migration19)) failed.push(['Every PostgREST request is protected by the device/IP grant', /pgrst.db_pre_request/]);
+if (!/enforce_device/.test(migration19) || !/allowed_network inet/.test(migration19) || !/login_access_audit/.test(migration19)) failed.push(['Device, CIDR and access audit tables exist', /user_access_devices|user_access_ip_rules/]);
+if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/evaluate_login_access/.test(accessGate) || /body\.ip/.test(accessGate)) failed.push(['Access Gate verifies JWT and derives IP from trusted request headers', /getUser|x-forwarded-for/]);
+if (!/edge_access_allowed/.test(inviteFunction) || !/edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions enforce the same active device/IP grant', /edge_access_allowed/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
 if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(html)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);
