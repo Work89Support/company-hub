@@ -819,7 +819,7 @@ function sic(id){return `<svg class="svic"><use href="#${id}"></use></svg>`;}
 let F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
 let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPHIC_PEOPLE=[],GRAPHIC_MEMBERS=[],GRAPHIC_JOB_MEMBERS=[],GRAPHIC_READY=false;
 let TASK_PROFILES=[],TASKS_READY=false;
-let ACCESS_USERS=[],ACCESS_USER_DEPTS=[],ACCESS_USERS_READY=false,ACCESS_USERS_LOADING=false,ACCESS_USER_Q='';
+let ACCESS_USERS=[],ACCESS_USER_DEPTS=[],ACCESS_POLICIES=[],ACCESS_DEVICES=[],ACCESS_IP_RULES=[],ACCESS_USERS_READY=false,ACCESS_USERS_LOADING=false,ACCESS_USER_Q='';
 let IMPLEMENTATION_ACTIONS=[],IMPLEMENTATION_ACTIONS_READY=false,SOP_RECORDS=[];
 let GF={tab:'dashboard',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:''};
 const GP_COLUMN_PAGE_SIZE=30;
@@ -1909,6 +1909,11 @@ function exportTrackerExcel(){
 const ACCESS_ROLE_LABEL={staff:'พนักงาน',lead:'หัวหน้างาน',exec:'ผู้บริหาร',admin:'ผู้ดูแลระบบ'};
 function accessRowsFor(id){return ACCESS_USER_DEPTS.filter(x=>x.profile_id===id);}
 function accessDeptNames(id,managed=false){const rows=accessRowsFor(id).filter(x=>!managed||x.can_manage);return rows.map(x=>deptName(x.department_code)).join(', ')||'-';}
+function accessPolicyFor(id){return ACCESS_POLICIES.find(x=>x.profile_id===id)||{profile_id:id,enforce_device:false,enforce_ip:false,session_minutes:5};}
+function accessDevicesFor(id){return ACCESS_DEVICES.filter(x=>x.profile_id===id);}
+function accessIpRulesFor(id){return ACCESS_IP_RULES.filter(x=>x.profile_id===id&&x.active);}
+function accessSeenAt(value){if(!value)return '-';try{return new Date(value).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'});}catch(e){return String(value);}}
+function accessSecuritySummary(id){const p=accessPolicyFor(id),approved=accessDevicesFor(id).filter(x=>x.status==='approved').length,pending=accessDevicesFor(id).filter(x=>x.status==='pending').length,ips=accessIpRulesFor(id).length;if(!p.enforce_device&&!p.enforce_ip)return 'ยังไม่บังคับ';return `${p.enforce_device?'เครื่อง '+approved+(pending?' · รอ '+pending:''):'ไม่ล็อกเครื่อง'} · ${p.enforce_ip?'IP '+ips:'ไม่ล็อก IP'}`;}
 function accessRoleOptions(selected){return Object.entries(ACCESS_ROLE_LABEL).filter(([r])=>r!=='admin'||AUTH_DB_ROLE==='admin').map(([r,t])=>`<option value="${r}" ${selected===r?'selected':''}>${t}</option>`).join('');}
 function accessDepartmentOptions(selected){return DEPTS.map(d=>`<option value="${d.code}" ${selected===d.code?'selected':''}>${esc(d.name)}</option>`).join('');}
 function accessDepartmentChecks(prefix,selected=[],managed=[]){return DEPTS.map(d=>`<label style="display:flex;gap:7px;align-items:center;font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><input type="checkbox" data-access-visible="${prefix}" value="${d.code}" ${selected.includes(d.code)?'checked':''}> <span style="flex:1">${esc(d.name)}</span><input type="checkbox" data-access-manage="${prefix}" value="${d.code}" ${managed.includes(d.code)?'checked':''} title="หัวหน้าจัดการแผนกนี้"> <small>จัดการ</small></label>`).join('');}
@@ -1918,9 +1923,10 @@ async function loadAccessUsers(force=false){
   if(!SB||!canAdminAccess()||ACCESS_USERS_LOADING||ACCESS_USERS_READY&&!force)return;
   ACCESS_USERS_LOADING=true;
   try{
-    const [profiles,depts]=await Promise.all([SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active,created_at,updated_at').order('display_name'),SB.from('profile_departments').select('profile_id,department_code,can_manage')]);
+    const [profiles,depts,policies,devices,ips]=await Promise.all([SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active,created_at,updated_at').order('display_name'),SB.from('profile_departments').select('profile_id,department_code,can_manage'),SB.from('user_access_policies').select('profile_id,enforce_device,enforce_ip,session_minutes,updated_at'),SB.from('user_access_devices').select('id,profile_id,device_label,status,first_seen_ip,last_seen_ip,first_seen_at,last_seen_at,approved_at').order('last_seen_at',{ascending:false}),SB.from('user_access_ip_rules').select('id,profile_id,allowed_network,label,active').eq('active',true)]);
     if(profiles.error)throw profiles.error;if(depts.error)throw depts.error;
-    ACCESS_USERS=profiles.data||[];ACCESS_USER_DEPTS=depts.data||[];ACCESS_USERS_READY=true;
+    if(policies.error)throw policies.error;if(devices.error)throw devices.error;if(ips.error)throw ips.error;
+    ACCESS_USERS=profiles.data||[];ACCESS_USER_DEPTS=depts.data||[];ACCESS_POLICIES=policies.data||[];ACCESS_DEVICES=devices.data||[];ACCESS_IP_RULES=ips.data||[];ACCESS_USERS_READY=true;
   }catch(e){toast('โหลดบัญชีไม่สำเร็จ · '+(e.message||''),'info');}
   finally{ACCESS_USERS_LOADING=false;if(VIEW==='users')RENDER.users();}
 }
@@ -1931,7 +1937,8 @@ function openInviteUser(){
     <div class="field"><label>ตำแหน่งงาน *</label><input class="fin" id="newUserPosition" maxlength="120" placeholder="เช่น Graphic Designer, Admin Officer, Team Lead"></div>
     <div class="two"><div class="field"><label>Role *</label><select class="fin" id="newUserRole" onchange="syncAccessRoleForm('newUser')">${accessRoleOptions('staff')}</select></div><div class="field"><label>แผนกหลัก *</label><select class="fin" id="newUserDept" onchange="syncAccessRoleForm('newUser')">${accessDepartmentOptions('GRAPHIC')}</select></div></div>
     <div class="field"><label>แผนกที่มองเห็น <span class="muted">· ช่อง “จัดการ” ใช้เฉพาะ Role หัวหน้างาน</span></label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px">${accessDepartmentChecks('newUser',['GRAPHIC'],[])}</div></div>
-    <div class="ai-note"><b>หลักความปลอดภัย:</b> ผู้บริหารมองเห็นทุกแผนกอัตโนมัติ · เฉพาะ Admin เท่านั้นที่สร้าง Admin คนอื่นได้</div>
+    <div class="field"><label>ความปลอดภัยการเข้าสู่ระบบ</label><label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="newUserEnforceDevice" checked> <b>ต้องให้ Admin อนุมัติเครื่องก่อนใช้งานครั้งแรก</b></label><label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="newUserEnforceIp"> จำกัด IP ตั้งแต่ครั้งแรก</label><textarea class="fin" id="newUserIpRules" rows="3" placeholder="IP หรือ CIDR บรรทัดละ 1 ค่า เช่น 203.0.113.10/32"></textarea></div>
+    <div class="ai-note"><b>หลักความปลอดภัย:</b> ผู้บริหารมองเห็นทุกแผนกอัตโนมัติ · พนักงานเห็นเฉพาะแผนกที่กำหนด · เครื่องใหม่จะแสดงเป็น “รออนุมัติ”</div>
     <button class="tbtn primary" id="inviteUserBtn" onclick="inviteAccessUser()">ส่งคำเชิญสร้างบัญชี</button></div>`);setTimeout(()=>syncAccessRoleForm('newUser'),0);
 }
 async function inviteAccessUser(){
@@ -1939,23 +1946,28 @@ async function inviteAccessUser(){
   if(!display||!position||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('กรุณากรอกชื่อ ตำแหน่ง และอีเมลให้ถูกต้อง','info');return;}
   if(!confirm(`ส่งคำเชิญสร้างบัญชีให้ ${email} ใช่หรือไม่?`))return;
   const btn=document.getElementById('inviteUserBtn');btn.disabled=true;
-  try{const r=await SB.functions.invoke('invite-company-user',{body:{email,display_name:display,position_title:position,role,department_code:department,visible_departments:selectedAccessValues('data-access-visible','newUser'),managed_departments:selectedAccessValues('data-access-manage','newUser')}});if(r.error)throw r.error;if(r.data&&r.data.error)throw new Error(r.data.error);closeModal();ACCESS_USERS_READY=false;await loadAccessUsers(true);toast('ส่งคำเชิญไปที่ '+email+'แล้ว');}catch(e){btn.disabled=false;toast('สร้างบัญชีไม่สำเร็จ · '+(e.message||''),'info');}
+  const enforceDevice=document.getElementById('newUserEnforceDevice').checked,enforceIp=document.getElementById('newUserEnforceIp').checked,ipRules=val('newUserIpRules').split(/\n|,/).map(x=>x.trim()).filter(Boolean);if(enforceIp&&!ipRules.length){btn.disabled=false;toast('กรุณาระบุ IP/CIDR อย่างน้อย 1 ค่า','info');return;}
+  try{const r=await SB.functions.invoke('invite-company-user',{body:{email,display_name:display,position_title:position,role,department_code:department,visible_departments:selectedAccessValues('data-access-visible','newUser'),managed_departments:selectedAccessValues('data-access-manage','newUser'),enforce_device:enforceDevice,enforce_ip:enforceIp,allowed_ip_cidrs:ipRules}});if(r.error)throw r.error;if(r.data&&r.data.error)throw new Error(r.data.error);closeModal();ACCESS_USERS_READY=false;await loadAccessUsers(true);toast('ส่งคำเชิญไปที่ '+email+'แล้ว');}catch(e){btn.disabled=false;toast('สร้างบัญชีไม่สำเร็จ · '+(e.message||''),'info');}
 }
 function openAccessUser(id){
-  const user=ACCESS_USERS.find(x=>x.id===id);if(!user)return;const rows=accessRowsFor(id),visible=rows.map(x=>x.department_code),managed=rows.filter(x=>x.can_manage).map(x=>x.department_code),self=id===ACCESS_PROFILE?.id;
+  const user=ACCESS_USERS.find(x=>x.id===id);if(!user)return;const rows=accessRowsFor(id),visible=rows.map(x=>x.department_code),managed=rows.filter(x=>x.can_manage).map(x=>x.department_code),self=id===ACCESS_PROFILE?.id,policy=accessPolicyFor(id),devices=accessDevicesFor(id),ipRules=accessIpRulesFor(id).map(x=>x.allowed_network).join('\n');
   if(user.role==='admin'&&AUTH_DB_ROLE!=='admin'){showModal(`<div class="modal-h"><div><h3>${sic('i-users')} บัญชีผู้ดูแลระบบ</h3><div class="muted" style="font-size:11.5px">${esc(user.email)}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note">เฉพาะผู้ดูแลระบบเท่านั้นที่แก้สิทธิ์บัญชี Admin ได้</div><button class="tbtn" onclick="closeModal()">ปิด</button></div>`);return;}
   showModal(`<div class="modal-h"><div><h3>${sic('i-users')} ตั้งค่าพนักงาน</h3><div class="muted" style="font-size:11.5px">${esc(user.email)}${self?' · บัญชีของคุณ':''}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
     <div class="two"><div class="field"><label>ชื่อที่แสดง</label><input class="fin" value="${esc(user.display_name||'')}" disabled></div><div class="field"><label>ตำแหน่งงาน</label><input class="fin" id="editUserPosition" maxlength="120" value="${esc(user.position_title||'')}" placeholder="ตำแหน่งงานจริง"></div></div>
     <div class="two"><div class="field"><label>Role</label><select class="fin" id="editUserRole" onchange="syncAccessRoleForm('editUser')">${accessRoleOptions(user.role)}</select></div><div class="field"><label>แผนกหลัก</label><select class="fin" id="editUserDept" onchange="syncAccessRoleForm('editUser')">${accessDepartmentOptions(user.department_code)}</select></div></div>
     <div class="field"><label>แผนกที่มองเห็น <span class="muted">· ติ๊ก “จัดการ” สำหรับแผนกที่หัวหน้าดูแล</span></label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px">${accessDepartmentChecks('editUser',visible,managed)}</div></div>
+    <div class="card pad" style="margin:12px 0"><b>ล็อกเครื่องและ IP</b><div class="two" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="editUserEnforceDevice" ${policy.enforce_device?'checked':''}> บังคับใช้อุปกรณ์ที่อนุมัติ</label><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="editUserEnforceIp" ${policy.enforce_ip?'checked':''}> บังคับ IP/CIDR ที่อนุญาต</label></div><div class="two" style="margin-top:10px"><div class="field"><label>IP/CIDR ที่อนุญาต · บรรทัดละ 1 ค่า</label><textarea class="fin" id="editUserIpRules" rows="3" placeholder="203.0.113.10/32">${esc(ipRules)}</textarea></div><div class="field"><label>อายุสิทธิ์ก่อนตรวจซ้ำ</label><select class="fin" id="editUserSessionMinutes">${[2,5,10,15,30,60].map(n=>`<option value="${n}" ${Number(policy.session_minutes)===n?'selected':''}>${n} นาที</option>`).join('')}</select></div></div>
+      <div class="field"><label>อุปกรณ์ที่เคยขอเข้า</label>${devices.length?devices.map(d=>`<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)"><span style="flex:1"><b>${esc(d.device_label||'ไม่ระบุชื่อเครื่อง')}</b><br><small class="muted">${esc(d.last_seen_ip||'-')} · ล่าสุด ${accessSeenAt(d.last_seen_at)}</small></span><span class="pill" style="background:${d.status==='approved'?'var(--green)':d.status==='blocked'?'var(--red)':'var(--orange)'}">${d.status==='approved'?'อนุมัติแล้ว':d.status==='blocked'?'บล็อก':'รออนุมัติ'}</span>${d.status!=='approved'?`<button class="tbtn sm" onclick="setAccessDeviceStatus('${id}','${d.id}','approved')">อนุมัติ</button>`:''}${d.status!=='blocked'?`<button class="tbtn sm" onclick="setAccessDeviceStatus('${id}','${d.id}','blocked')">บล็อก</button>`:''}</div>`).join(''):'<div class="muted" style="padding:8px 0">ยังไม่มีเครื่องขอเข้า · เมื่อพนักงานลองล็อกอิน เครื่องจะมาปรากฏที่นี่</div>'}</div>
+    </div>
     <label style="display:flex;gap:8px;align-items:center;margin:12px 0"><input type="checkbox" id="editUserActive" ${user.active?'checked':''}> <b>อนุญาตให้ใช้งานระบบ</b></label>
     ${self?'<div class="ai-note">ระบบจะไม่ยอมให้คุณปิดบัญชีหรือลดสิทธิ์ผู้ดูแลของตัวเอง</div>':''}
     <button class="tbtn primary" id="saveAccessBtn" onclick="saveAccessUser('${id}')">บันทึกสิทธิ์</button></div>`);setTimeout(()=>syncAccessRoleForm('editUser'),0);
 }
 async function saveAccessUser(id){
-  const role=val('editUserRole'),department=val('editUserDept'),position=normSp(val('editUserPosition')),active=document.getElementById('editUserActive').checked;if(!position){toast('กรุณาระบุตำแหน่งงาน','info');return;}if(!confirm('ยืนยันการเปลี่ยนสิทธิ์บัญชีนี้หรือไม่?'))return;const btn=document.getElementById('saveAccessBtn');btn.disabled=true;
-  try{const r=await SB.rpc('set_user_access',{target_user:id,new_role:role,new_primary_department:department,visible_departments:selectedAccessValues('data-access-visible','editUser'),managed_departments:selectedAccessValues('data-access-manage','editUser'),new_active:active,new_position_title:position});if(r.error)throw r.error;closeModal();await loadAccessUsers(true);toast('บันทึกสิทธิ์แล้ว · มีประวัติใน Access Audit');}catch(e){btn.disabled=false;toast('บันทึกสิทธิ์ไม่สำเร็จ · '+(e.message||''),'info');}
+  const role=val('editUserRole'),department=val('editUserDept'),position=normSp(val('editUserPosition')),active=document.getElementById('editUserActive').checked,enforceDevice=document.getElementById('editUserEnforceDevice').checked,enforceIp=document.getElementById('editUserEnforceIp').checked,sessionMinutes=Number(val('editUserSessionMinutes')),ipRules=val('editUserIpRules').split(/\n|,/).map(x=>x.trim()).filter(Boolean);if(!position){toast('กรุณาระบุตำแหน่งงาน','info');return;}if(enforceDevice&&!accessDevicesFor(id).some(x=>x.status==='approved')){toast('ต้องอนุมัติอย่างน้อย 1 เครื่องก่อนเปิดล็อกเครื่อง','info');return;}if(enforceIp&&!ipRules.length){toast('ต้องระบุ IP/CIDR ก่อนเปิดล็อก IP','info');return;}if(!confirm('ยืนยันการเปลี่ยนสิทธิ์บัญชี แผนก เครื่อง และ IP หรือไม่?'))return;const btn=document.getElementById('saveAccessBtn');btn.disabled=true;
+  try{const r=await SB.rpc('set_user_access',{target_user:id,new_role:role,new_primary_department:department,visible_departments:selectedAccessValues('data-access-visible','editUser'),managed_departments:selectedAccessValues('data-access-manage','editUser'),new_active:active,new_position_title:position});if(r.error)throw r.error;const security=await SB.rpc('set_user_login_policy',{target_user:id,new_enforce_device:enforceDevice,new_enforce_ip:enforceIp,new_session_minutes:sessionMinutes,allowed_cidrs:ipRules});if(security.error)throw security.error;if(id===ACCESS_PROFILE?.id){const gate=await validateAccessGate();if(!gate.ok)throw new Error(gate.data?.reason||'ไม่สามารถต่ออายุสิทธิ์เครื่องนี้ได้');}closeModal();await loadAccessUsers(true);toast('บันทึกสิทธิ์แผนก เครื่อง และ IP แล้ว');}catch(e){btn.disabled=false;toast('บันทึกสิทธิ์ไม่สำเร็จ · '+(e.message||''),'info');}
 }
+async function setAccessDeviceStatus(userId,deviceId,status){if(!confirm(`${status==='approved'?'อนุมัติ':'บล็อก'}เครื่องนี้ใช่หรือไม่?`))return;try{const r=await SB.rpc('set_user_device_status',{target_device:deviceId,new_status:status});if(r.error)throw r.error;await loadAccessUsers(true);openAccessUser(userId);toast(status==='approved'?'อนุมัติเครื่องแล้ว':'บล็อกเครื่องแล้ว');}catch(e){toast('เปลี่ยนสถานะเครื่องไม่สำเร็จ · '+(e.message||''),'info');}}
 RENDER.users=function(){
   if(!CLOUD||!canAdminAccess()){main.innerHTML=`${crumb('หน้าแรก','จัดการพนักงาน')}<div class="card pad">บัญชีนี้ไม่มีสิทธิ์จัดการพนักงาน</div>`;return;}
   if(!ACCESS_USERS_READY){main.innerHTML=`${crumb('หน้าแรก','จัดการพนักงาน')}<div class="card pad">กำลังโหลดบัญชีและสิทธิ์…</div>`;loadAccessUsers();return;}
@@ -1963,7 +1975,7 @@ RENDER.users=function(){
   main.innerHTML=`${crumb('หน้าแรก','จัดการพนักงาน')}<div class="page-h"><div><h1>จัดการพนักงาน & สิทธิ์</h1><p>สร้างบัญชี · กำหนด Role · แผนกที่มองเห็น · สิทธิ์หัวหน้างาน</p>${sourceBadge('live','SUPABASE AUTH + RLS','จัดการจาก Company Hub โดยไม่ต้องเปิด Supabase Dashboard')}</div><button class="tbtn primary" onclick="openInviteUser()">+ เพิ่มพนักงาน</button></div>
   <div class="stats" style="margin-bottom:14px"><div class="stat"><div class="lbl">บัญชีทั้งหมด</div><div class="val">${ACCESS_USERS.length}</div></div><div class="stat"><div class="lbl">ใช้งานได้</div><div class="val" style="color:var(--green)">${active}</div></div><div class="stat"><div class="lbl">ปิดใช้งาน</div><div class="val" style="color:var(--red)">${ACCESS_USERS.length-active}</div></div><div class="stat"><div class="lbl">หัวหน้า/ผู้บริหาร</div><div class="val">${ACCESS_USERS.filter(x=>['lead','exec','admin'].includes(x.role)).length}</div></div></div>
   <div class="filterbar"><div class="searchbox" style="flex:1"><span>🔍</span><input value="${esc(ACCESS_USER_Q)}" placeholder="ค้นหาชื่อ ตำแหน่ง อีเมล Role หรือแผนก" oninput="ACCESS_USER_Q=this.value;RENDER.users()"></div><button class="tbtn sm" onclick="loadAccessUsers(true)">↻ โหลดใหม่</button></div>
-  <div class="board"><table><thead><tr><th>พนักงาน / ตำแหน่ง</th><th>Role</th><th>แผนกหลัก</th><th>แผนกที่มองเห็น</th><th>แผนกที่จัดการ</th><th>สถานะ</th></tr></thead><tbody>${list.map(u=>`<tr onclick="openAccessUser('${u.id}')"><td><b>${esc(u.display_name||u.email)}</b><div class="muted" style="font-size:11px">${esc(u.position_title||'ยังไม่ระบุตำแหน่ง')} · ${esc(u.email)}${u.id===ACCESS_PROFILE?.id?' · คุณ':''}</div></td><td><span class="pill" style="background:var(--blue-700)">${ACCESS_ROLE_LABEL[u.role]||u.role}</span></td><td>${deptName(u.department_code)}</td><td>${['exec','admin'].includes(u.role)?'ทุกแผนก':esc(accessDeptNames(u.id))}</td><td>${u.role==='lead'?esc(accessDeptNames(u.id,true)):'-'}</td><td><span class="pill" style="background:${u.active?'var(--green)':'var(--red)'}">${u.active?'ใช้งาน':'ปิดใช้งาน'}</span></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="6">แสดง ${list.length} บัญชี · คลิกแถวเพื่อแก้ไขสิทธิ์</td></tr></tfoot></table></div>`;
+  <div class="board"><table><thead><tr><th>พนักงาน / ตำแหน่ง</th><th>Role</th><th>แผนกหลัก</th><th>แผนกที่มองเห็น</th><th>แผนกที่จัดการ</th><th>เครื่อง / IP</th><th>สถานะ</th></tr></thead><tbody>${list.map(u=>`<tr onclick="openAccessUser('${u.id}')"><td><b>${esc(u.display_name||u.email)}</b><div class="muted" style="font-size:11px">${esc(u.position_title||'ยังไม่ระบุตำแหน่ง')} · ${esc(u.email)}${u.id===ACCESS_PROFILE?.id?' · คุณ':''}</div></td><td><span class="pill" style="background:var(--blue-700)">${ACCESS_ROLE_LABEL[u.role]||u.role}</span></td><td>${deptName(u.department_code)}</td><td>${['exec','admin'].includes(u.role)?'ทุกแผนก':esc(accessDeptNames(u.id))}</td><td>${u.role==='lead'?esc(accessDeptNames(u.id,true)):'-'}</td><td>${esc(accessSecuritySummary(u.id))}</td><td><span class="pill" style="background:${u.active?'var(--green)':'var(--red)'}">${u.active?'ใช้งาน':'ปิดใช้งาน'}</span></td></tr>`).join('')}</tbody><tfoot><tr><td colspan="7">แสดง ${list.length} บัญชี · คลิกแถวเพื่อแก้ไขสิทธิ์</td></tr></tfoot></table></div>`;
 };
 
 RENDER.org=function(){
@@ -2550,10 +2562,28 @@ function loadState(){try{var s=JSON.parse(localStorage.getItem(LS_KEY)||'null');
 /* ===== Supabase (ฐานข้อมูลกลาง + ล็อกอิน) ===== */
 const SUPA_URL='https://mfvbggjwqgeaoezlgiqo.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mdmJnZ2p3cWdlYW9lemxnaXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2ODMxNDYsImV4cCI6MjEwMjI1OTE0Nn0.1Oo8hhqdxJ97j5N6bQBXNsdaeurnq7-QJv_atikNeYs';
-let SB=null,CLOUD=false,SB_UID=null,_sbSaveT=null,_sbApplying=false,_cloudStarted=false;
+let SB=null,CLOUD=false,SB_UID=null,_sbSaveT=null,_sbApplying=false,_cloudStarted=false,ACCESS_GATE_TIMER=null,ACCESS_GATE_STATE=null;
 function cloudEnabled(){return !!(SUPA_URL&&SUPA_KEY&&window.supabase&&window.supabase.createClient);}
 function showLogin(){var l=document.getElementById('loginBg');if(l)l.style.display='flex';}
 function hideLogin(){var l=document.getElementById('loginBg');if(l)l.style.display='none';}
+function accessDeviceId(){
+  const key='ch_access_device_id';let id='';try{id=localStorage.getItem(key)||'';}catch(e){}
+  if(!/^[0-9a-f-]{20,80}$/i.test(id)){id=crypto.randomUUID?crypto.randomUUID():('dev-'+Date.now()+'-'+Math.random().toString(16).slice(2));try{localStorage.setItem(key,id);}catch(e){}}
+  return id;
+}
+function accessDeviceLabel(){const platform=navigator.userAgentData?.platform||navigator.platform||'อุปกรณ์';const browser=/Edg\//.test(navigator.userAgent)?'Edge':/Chrome\//.test(navigator.userAgent)?'Chrome':/Safari\//.test(navigator.userAgent)?'Safari':/Firefox\//.test(navigator.userAgent)?'Firefox':'Browser';return `${browser} · ${platform}`.slice(0,120);}
+async function validateAccessGate(session){
+  try{
+    if(!session&&SB){const current=await SB.auth.getSession();session=current?.data?.session;}
+    if(!session?.access_token)return {ok:false,data:{reason:'Session หมดอายุ กรุณาเข้าสู่ระบบใหม่'}};
+    const response=await fetch(`${SUPA_URL}/functions/v1/access-gate`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+session.access_token},body:JSON.stringify({device_id:accessDeviceId(),device_label:accessDeviceLabel()})});
+    const data=await response.json().catch(()=>({allowed:false,reason:'Access Gate ตอบกลับไม่ถูกต้อง'}));ACCESS_GATE_STATE=data;
+    return {ok:response.ok&&data.allowed,data};
+  }catch(e){return {ok:false,data:{reason:'ติดต่อ Access Gate ไม่ได้ กรุณาตรวจอินเทอร์เน็ต'}};}
+}
+function startAccessGateRefresh(session){
+  clearInterval(ACCESS_GATE_TIMER);ACCESS_GATE_TIMER=setInterval(async()=>{const gate=await validateAccessGate();if(!gate.ok){clearInterval(ACCESS_GATE_TIMER);const reason=gate.data?.reason||gate.data?.error||'สิทธิ์เครื่องหรือ IP หมดอายุ';alert('ระบบยุติการใช้งานเพื่อความปลอดภัย\n'+reason);await sbLogout();}},120000);
+}
 async function sbInit(){
   if(!cloudEnabled()){
     showLogin();
@@ -2570,9 +2600,15 @@ async function sbInit(){
 }
 async function onLoggedIn(session){
   if(_cloudStarted)return false; _cloudStarted=true;
-  CLOUD=true; SB_UID=(session.user&&(session.user.email||session.user.id))||'user'; hideLogin();
+  const gate=await validateAccessGate(session);
+  if(!gate.ok){
+    const reason=gate.data?.reason||gate.data?.error||'เครื่องหรือ IP นี้ไม่ได้รับอนุญาต';const ip=gate.data?.detected_ip?` · IP ${gate.data.detected_ip}`:'';
+    try{await SB.auth.signOut();}catch(e){}_cloudStarted=false;CLOUD=false;SB_UID=null;showLogin();const er=document.getElementById('sbErr');if(er)er.textContent=reason+ip+' กรุณาแจ้งผู้ดูแลเพื่ออนุมัติ';return false;
+  }
+  CLOUD=true; SB_UID=(session.user&&(session.user.email||session.user.id))||'user';
   const accessOk=await loadAuthenticatedProfile(session);
   if(!accessOk){_cloudStarted=false;CLOUD=false;SB_UID=null;return false;}
+  hideLogin();startAccessGateRefresh(session);
   var lo=document.getElementById('logoutBtn'); if(lo)lo.style.display='flex';
   await cloudLoad();
   if(canViewDept('GRAPHIC'))await loadGraphic();
@@ -2724,7 +2760,7 @@ async function sbLogin(){
   }catch(e){ if(er)er.textContent='ผิดพลาด: '+e.message; }
   if(btn)btn.disabled=false;
 }
-async function sbLogout(){ try{ if(SB) await SB.auth.signOut(); }catch(e){} location.reload(); }
+async function sbLogout(){ clearInterval(ACCESS_GATE_TIMER);try{ if(SB) await SB.auth.signOut(); }catch(e){} location.reload(); }
 
 /* ===== Theme ===== */
 function applyTheme(d){document.body.classList.toggle('dark',d);const b=document.getElementById('themeBtn');if(b)b.innerHTML=`<svg class="svic"><use href="#${d?'i-sun':'i-moon'}"></use></svg>`;}
@@ -2794,7 +2830,7 @@ function closeManual(){if(_hlp)_hlp.classList.remove('show');}
     <input id="sbPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter')sbLogin()">
     <div id="sbErr" class="login-err"></div>
     <button id="sbLoginBtn" class="login-btn" onclick="sbLogin()">เข้าสู่ระบบ</button>
-    <div class="login-foot">เชื่อมฐานข้อมูลกลาง (Supabase) · ข้อมูลใช้ร่วมกันทั้งทีม</div>
+    <div class="login-foot">ตรวจสิทธิ์บัญชี · แผนก · เครื่อง · IP ก่อนเปิดข้อมูลทุกครั้ง</div>
   </div>
 </div>
 </body>
