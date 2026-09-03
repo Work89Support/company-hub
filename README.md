@@ -111,6 +111,19 @@ Migration นี้ไม่แก้ตารางหรือกระบว�
 เป็นผู้อนุมัติ/ปิดงาน พร้อมย้ายประกาศ การระบุผู้รับ การรับทราบ และความคิดเห็นจาก
 หน่วยความจำหน้าเว็บเข้าสู่ตาราง Production ที่ควบคุมด้วย RLS
 
+รัน `supabase/migrations/202609030019_login_device_ip_access.sql` เพื่อเพิ่ม Access
+Gate สำหรับล็อกเครื่องและ IP/CIDR พร้อมประวัติการอนุญาต/ปฏิเสธ และตรวจสิทธิ์ก่อน
+ทุกคำขอผ่าน Data API จากนั้น deploy Edge Functions ตามลำดับนี้:
+
+1. `supabase functions deploy access-gate`
+2. `supabase functions deploy invite-company-user`
+3. `supabase functions deploy talk-to-data`
+4. Push หน้าเว็บขึ้น GitHub Pages
+
+Migration 019 ไม่เปิดการบังคับกับบัญชีเดิมโดยอัตโนมัติ เพื่อป้องกัน Admin ถูกล็อกออก
+ให้ Admin เข้าเมนู “จัดการพนักงาน” อนุมัติเครื่อง เพิ่ม IP/CIDR แล้วจึงเปิดสวิตช์
+ของแต่ละบัญชี บัญชีที่สร้างใหม่จะรออนุมัติเครื่องก่อนใช้งานครั้งแรกเป็นค่าเริ่มต้น
+
 ข้อมูลปัญหาจริงต้องเก็บนอก public repository แล้วสร้าง SQL แบบ idempotent ด้วย
 `scripts/prepare_operational_issue_import.py` สคริปต์จะสร้าง `source_key`, เก็บ
 source trace/quality flags, upsert ตาม Issue ID และแยกรายการทดสอบออกก่อนนำเข้า
