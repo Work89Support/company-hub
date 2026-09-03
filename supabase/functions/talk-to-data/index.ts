@@ -98,6 +98,9 @@ export default {
       const admin = createClient(supabaseUrl, serviceRoleKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
+      const forwardedIp = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim().replace(/^::ffff:/, "");
+      const { data: edgeAllowed, error: edgeAccessError } = await admin.rpc("edge_access_allowed", { p_profile_id: actorId, p_ip: forwardedIp });
+      if (edgeAccessError || !edgeAllowed) return json({ error: "เครื่องหรือ IP นี้ไม่มีสิทธิ์เรียกใช้งาน AI" }, 403);
       const body = await request.json();
       const question = String(body.question || "").trim().slice(0, 2000);
       if (!question) return json({ error: "กรุณาระบุคำถาม" }, 400);
