@@ -13,7 +13,7 @@ for(const role of Object.keys(ROLE_ALLOW)){
 }
 
 function activityDuration(row){return row.duration_minutes==null?null:Number(row.duration_minutes)/60;}
-function activityCountedDuration(row){return row.time_flag==='ok'?(activityDuration(row)||0):0;}
+function activityCountedDuration(row){return row.time_flag==='ok'&&!(typeof entryMissing==='function'&&entryMissing(row).length)?(activityDuration(row)||0):0;}
 function activityDateLabel(value){
   if(!value)return '-';
   const d=new Date(value+'T00:00:00');
@@ -26,7 +26,7 @@ function activityQualityFlags(row){
   return [];
 }
 const ACTIVITY_REVIEW_FLAGS=new Set(['missing_employee','missing_status','missing_start_time','missing_end_time','start_invalid_time','end_invalid_time','corrected_date','unexpected_year']);
-function activityReviewFlags(row){return activityQualityFlags(row).filter(flag=>ACTIVITY_REVIEW_FLAGS.has(flag));}
+function activityReviewFlags(row){return typeof entryMissing==='function'?entryMissing(row):activityQualityFlags(row).filter(flag=>ACTIVITY_REVIEW_FLAGS.has(flag));}
 const ACTIVITY_QUALITY_LABELS={missing_employee:'ไม่มีชื่อพนักงาน',missing_status:'ไม่มีสถานะ',missing_start_time:'ไม่มีเวลาเริ่ม',missing_end_time:'ไม่มีเวลาจบ',corrected_date:'แก้ปีวันที่',date_range_end:'ใช้วันสิ้นสุดกะ',inherited_date:'ใช้วันที่แถวก่อน',start_invalid_time:'เวลาเริ่มไม่ถูกต้อง',end_invalid_time:'เวลาจบไม่ถูกต้อง'};
 function activityQualityLabel(flag){return ACTIVITY_QUALITY_LABELS[flag]||String(flag||'').replaceAll('_',' ');}
 const ACTIVITY_EXPECTED_SOURCES=[
@@ -35,8 +35,8 @@ const ACTIVITY_EXPECTED_SOURCES=[
   ['ADMIN','แอดมิน (Admin) X8'],['ADMIN','แอดมิน (Admin) X5'],['ADMIN','แอดมิน (Admin) X1'],['QC','QC (ตรวจสอบคุณภาพ)'],['BO','Data Provider']
 ];
 function activityReadinessData(){
-  const adminView=['admin','exec'].includes(AUTH_DB_ROLE),expected=adminView?ACTIVITY_EXPECTED_SOURCES:[...new Map(ACTIVITY_ROWS.map(r=>[String(r.source_sheet||r.department_label||r.department_code).trim(),[r.department_code,String(r.source_sheet||r.department_label||r.department_code).trim()]])).values()];
-  return expected.map(([code,sheet])=>{const rows=ACTIVITY_ROWS.filter(r=>r.department_code===code&&String(r.source_sheet||'').trim()===sheet.trim());const dates=rows.map(r=>r.activity_date).filter(Boolean).sort();const review=rows.filter(r=>activityReviewFlags(r).length>0).length;if(code==='GRAPHIC'&&!rows.length&&typeof GRAPHIC_READY!=='undefined'&&GRAPHIC_READY){const gd=GRAPHIC_JOBS.map(j=>(j.due_at||j.created_at||'').slice(0,10)).filter(Boolean).sort();return {code,sheet:'Graphic Production',rows:GRAPHIC_JOBS.length,from:gd[0]||'',to:gd.at(-1)||'',review:GRAPHIC_JOBS.filter(j=>j.status==='review').length,state:'ready',graphic:true};}return {code,sheet,rows:rows.length,from:dates[0]||'',to:dates.at(-1)||'',review,state:rows.length?'ready':'missing'};});
+  const expected=['admin','exec'].includes(AUTH_DB_ROLE)?DEPTS:DEPTS.filter(d=>canViewDept(d.code));
+  return expected.map(d=>{const rows=ACTIVITY_ROWS.filter(r=>r.department_code===d.code),dates=rows.map(r=>r.activity_date).filter(Boolean).sort();return {code:d.code,sheet:d.name,rows:rows.length,from:dates[0]||'',to:dates.at(-1)||'',review:rows.filter(r=>activityReviewFlags(r).length).length,state:rows.length?'ready':'missing'};});
 }
 function activityReadinessBlock(executive=false){
   const data=activityReadinessData(),missing=data.filter(x=>x.state==='missing').length,ready=data.length-missing;
@@ -106,11 +106,11 @@ RENDER.activity=function(){
   if(ACTIVITY_PAGE>pages)ACTIVITY_PAGE=pages;
   const from=(ACTIVITY_PAGE-1)*ACTIVITY_PAGE_SIZE,pageRows=rows.slice(from,from+ACTIVITY_PAGE_SIZE);
   main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}
-    <div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>ข้อมูลหน้างานจริงจาก Google Sheets → Supabase · การมองเห็นจำกัดตามแผนกและสิทธิ์</p>${sourceBadge('live','GOOGLE SHEETS → SUPABASE','แสดง snapshot จริงล่าสุด · เก็บรหัสชีต แท็บ แถว และผลตรวจคุณภาพ')}</div></div>
+    <div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>บันทึกงานผ่านระบบ · เจ้าของรายการผูกกับบัญชีผู้ใช้ · จำกัดการแก้ไขตามสิทธิ์</p>${sourceBadge('live','บันทึกผ่าน Company Hub','ข้อมูลเก่าเก็บไว้เป็นประวัติ · ข้อมูลใหม่กรอกตรงในระบบ')}</div><div><button class="tbtn primary" onclick="openActivityEntry()">+ บันทึกกิจกรรม</button> <button class="tbtn" onclick="go('completeness')">ข้อมูลที่ต้องเติม</button></div></div>
     <div class="activity-kpis">
       <div class="activity-kpi"><div>รายการที่เห็น</div><div class="n">${nf(rows.length)}</div><div class="sub">ตามตัวกรองปัจจุบัน</div></div>
       <div class="activity-kpi"><div>พนักงาน</div><div class="n">${nf(people)}</div><div class="sub">รายชื่อไม่ซ้ำ</div></div>
-      <div class="activity-kpi"><div>เวลาที่นับได้</div><div class="n">${nf(hours.toFixed(1))}</div><div class="sub">ชั่วโมง · นับเฉพาะ time_flag = ok</div></div>
+      <div class="activity-kpi"><div>เวลาที่นับได้</div><div class="n">${nf(hours.toFixed(1))}</div><div class="sub">ชั่วโมง · เฉพาะรายการข้อมูลครบและเวลาผ่าน</div></div>
       <div class="activity-kpi"><div>เสร็จ</div><div class="n">${nf(completed)}</div><div class="sub">รายการ</div></div>
       <div class="activity-kpi review"><div>ต้องตรวจเวลา</div><div class="n">${nf(flagged)}</div><div class="sub">ไม่ครบ ${nf(flagCounts.missing||0)} · ข้ามวัน ${nf(flagCounts.overnight||0)} · ผิดปกติ ${nf(flagCounts.suspicious||0)} · ไม่นับ ${nf(flagCounts.excluded_all_day||0)}</div></div>
       <div class="activity-kpi quality"><div>ต้องตรวจข้อมูล</div><div class="n">${nf(qualityRows)}</div><div class="sub">ชื่อ · สถานะ · วันที่ · รูปแบบเวลา</div></div>
@@ -134,7 +134,7 @@ RENDER.activity=function(){
         <button class="tbtn" onclick="activityClear()">ล้างตัวกรอง</button>
       </div>
       <div class="activity-scroll"><table class="activity-table"><thead><tr><th>วันที่</th><th>แผนก / เว็บ</th><th>พนักงาน</th><th>กิจกรรม / ผลลัพธ์</th><th>หมวด</th><th>เวลา / ตรวจ</th><th>ชม.</th><th>สถานะ / คุณภาพ</th></tr></thead><tbody>
-      ${pageRows.map(r=>{const quality=activityReviewFlags(r);return `<tr><td class="nowrap">${activityDateLabel(r.activity_date)}</td><td>${esc(r.department_label||deptName(r.department_code))}${r.worksite?`<br><span class="muted">${esc(r.worksite)}</span>`:''}</td><td class="nowrap"><b>${esc(r.employee_name||'ไม่ระบุ')}</b></td><td class="work">${esc(r.activity)}${r.result_note?`<br><span class="muted">ผลลัพธ์: ${esc(r.result_note)}</span>`:''}${r.operational_issue?`<br><span class="activity-issue">ปัญหา: ${esc(r.operational_issue)}</span>`:''}</td><td>${esc(r.category||'-')}</td><td class="nowrap">${activityTime(r.start_time)}–${activityTime(r.end_time)}${r.time_flag!=='ok'&&canManageActivity(r)?`<br><button class="tbtn sm" style="margin-top:5px" onclick="openActivityTime('${esc(r.id)}')">ตรวจ/แก้เวลา</button>`:''}</td><td>${activityDuration(r)==null?'<span class="muted">-</span>':activityDuration(r).toFixed(2)}${r.time_flag!=='ok'?`<br><span class="activity-flag">${esc(r.time_flag)}</span>`:''}</td><td>${esc(r.status||'-')}${quality.length?`<br><span class="activity-quality" title="${esc(quality.map(activityQualityLabel).join(' · '))}">${nf(quality.length)} จุดต้องตรวจ</span>`:''}</td></tr>`}).join('')}
+      ${pageRows.map(r=>{const quality=activityReviewFlags(r);return `<tr><td class="nowrap">${activityDateLabel(r.activity_date)}</td><td>${esc(r.department_label||deptName(r.department_code))}${r.worksite?`<br><span class="muted">${esc(r.worksite)}</span>`:''}</td><td class="nowrap"><b>${esc(r.employee_name||'ไม่ระบุ')}</b></td><td class="work">${esc(r.activity)}${typeof entryCanEdit==='function'&&entryCanEdit(r)?`<br><button class="tbtn sm" onclick="openActivityEntry('${r.id}')">รายละเอียด / เติมข้อมูล</button>`:''}${r.result_note?`<br><span class="muted">ผลลัพธ์: ${esc(r.result_note)}</span>`:''}${r.operational_issue?`<br><span class="activity-issue">ปัญหา: ${esc(r.operational_issue)}</span>`:''}</td><td>${esc(r.category||'-')}</td><td class="nowrap">${activityTime(r.start_time)}–${activityTime(r.end_time)}${r.time_flag!=='ok'&&canManageActivity(r)?`<br><button class="tbtn sm" style="margin-top:5px" onclick="openActivityTime('${esc(r.id)}')">ตรวจ/แก้เวลา</button>`:''}</td><td>${activityDuration(r)==null?'<span class="muted">-</span>':activityDuration(r).toFixed(2)}${r.time_flag!=='ok'?`<br><span class="activity-flag">${esc(r.time_flag)}</span>`:''}</td><td>${esc(r.status||'-')}${quality.length?`<br><span class="activity-quality" title="${esc(quality.map(activityQualityLabel).join(' · '))}">${nf(quality.length)} จุดต้องตรวจ</span>`:''}</td></tr>`}).join('')}
       </tbody></table>${rows.length?`<div class="activity-pages"><span>แสดง ${nf(from+1)}–${nf(Math.min(from+ACTIVITY_PAGE_SIZE,rows.length))} จาก ${nf(rows.length)} รายการ</span><div><button class="tbtn sm" ${ACTIVITY_PAGE<=1?'disabled':''} onclick="activityPage(${ACTIVITY_PAGE-1})">← ก่อนหน้า</button><span>หน้า ${nf(ACTIVITY_PAGE)} / ${nf(pages)}</span><button class="tbtn sm" ${ACTIVITY_PAGE>=pages?'disabled':''} onclick="activityPage(${ACTIVITY_PAGE+1})">ถัดไป →</button></div></div>`:'<div class="activity-empty">ไม่พบข้อมูลตามตัวกรอง</div>'}</div>
     </div>`;
 };

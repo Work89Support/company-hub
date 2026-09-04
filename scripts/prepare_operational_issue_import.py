@@ -200,13 +200,22 @@ def august_rows(path: Path, document_id: str) -> tuple[list[dict], list[str]]:
         elif minutes > 1440:
             flags.append("resolution_over_24h_review")
         source_key = f"gsheet:{document_id}:Issues:{source_row}"
+        resolved_at = None
+        if status == "Resolved":
+            try:
+                resolved = dt.datetime.fromisoformat(data.get("Resolved At", ""))
+                if resolved.tzinfo is None:
+                    resolved = resolved.replace(tzinfo=dt.timezone(dt.timedelta(hours=7)))
+                resolved_at = resolved.isoformat()
+            except ValueError:
+                flags.append("missing_resolved_at")
         output.append({
             "id": issue_id, "occurred_at": occurred_at(day, data.get("Time")),
             "project_code": data.get("Project") or "ไม่ระบุ", "category": data.get("Category") or infer_category(problem),
             "problem": problem, "priority": priority, "reporter": data.get("Reporter"), "status": status,
             "owner_team": owner, "solution": solution, "resolution_minutes": minutes,
             "source": "Google Sheets · Problem Management V2", "solution_type": "permanent" if solution else "unresolved",
-            "resolved_at": f"{day.isoformat()} 12:00:00+07" if status == "Resolved" else None,
+            "resolved_at": resolved_at,
             "source_document_id": document_id, "source_sheet": "Issues", "source_row": source_row,
             "source_key": source_key, "source_payload": data, "data_quality_flags": flags,
         })

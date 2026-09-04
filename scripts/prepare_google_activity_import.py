@@ -67,6 +67,7 @@ def parse_date(value: object) -> tuple[dt.date | None, list[str]]:
     else:
         parsed = None
         text = clean(value)
+        text = re.sub(r"^วันที่\s*", "", text).strip()
         range_match = re.fullmatch(
             r"\d{1,2}/\d{1,2}\s*-\s*(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?",
             text,
@@ -146,7 +147,7 @@ def digest(parts: list[str]) -> str:
 def load_identity_map(path: Path) -> dict[str, collections.deque[str]]:
     result: dict[str, collections.deque[str]] = collections.defaultdict(collections.deque)
     if not path.exists():
-        return result
+        raise FileNotFoundError(f"Existing source-key identity map is required: {path}")
     for line in path.read_text(encoding="utf-8").splitlines():
         identity_hash, source_key = line.split("\t", 1)
         result[identity_hash].append(source_key)
@@ -193,6 +194,7 @@ def find_columns(sheet: openpyxl.worksheet.worksheet.Worksheet) -> tuple[int, di
 def prepare(files: list[Path], identity_map_path: Path) -> tuple[list[dict], dict]:
     identity_map = load_identity_map(identity_map_path)
     original_existing = sum(len(keys) for keys in identity_map.values())
+    reserved_keys = {key for keys in identity_map.values() for key in keys}
     payload: list[dict] = []
     rejected: list[dict] = []
     qa = collections.Counter()
@@ -263,13 +265,24 @@ def prepare(files: list[Path], identity_map_path: Path) -> tuple[list[dict], dic
                     employee,
                     activity,
                 ])
+                sheet_hash = hashlib.sha1(sheet_name.encode("utf-8")).hexdigest()[:10]
+                location_key = f"gs-v1-{document_id[:10]}-{sheet_hash}-{row_number}"
                 if identity_map.get(identity_hash):
-                    source_key = identity_map[identity_hash].popleft()
+                    candidates = identity_map[identity_hash]
+                    if location_key in candidates:
+                        source_key = location_key
+                        candidates.remove(source_key)
+                    else:
+                        source_key = candidates.popleft()
                     matched_source_keys.add(source_key)
                     qa["matched_existing"] += 1
                 else:
-                    sheet_hash = hashlib.sha1(sheet_name.encode("utf-8")).hexdigest()[:10]
-                    source_key = f"gs-v1-{document_id[:10]}-{sheet_hash}-{row_number}"
+                    source_key = location_key
+                    # An edited or shifted sheet row can reuse an occupied
+                    # location. Keep its former record and identity intact.
+                    if source_key in reserved_keys:
+                        source_key = f"{location_key}-{identity_hash}"
+                    reserved_keys.add(source_key)
                     qa["new_rows"] += 1
 
                 source_hash = digest([
@@ -319,6 +332,10 @@ def prepare(files: list[Path], identity_map_path: Path) -> tuple[list[dict], dic
                         qa["flag:" + flag] += 1
 
     qa["payload_rows"] = len(payload)
+    source_key_counts = collections.Counter(row["source_key"] for row in payload)
+    duplicate_keys = [key for key, count in source_key_counts.items() if count > 1]
+    if duplicate_keys:
+        raise ValueError(f"Duplicate source keys require reconciliation: {duplicate_keys[:10]}")
     qa["existing_rows_not_matched"] = original_existing - len(matched_source_keys)
     summary = {
         "totals": dict(sorted(qa.items())),

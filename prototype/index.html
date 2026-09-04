@@ -2148,14 +2148,14 @@ function openNewIssue(){
   if(!ACCESS_PROFILE){toast('กรุณาเข้าสู่ระบบก่อนแจ้งปัญหา','info');return;}
   const now=issueLocalNow(),reporter=ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'';
   showModal(`<div class="modal-h"><div><span class="tag" style="background:#2158c822;color:#2158c8">รับแจ้งปัญหาใหม่</span><h3 style="margin-top:7px">แจ้งปัญหาหน้างาน</h3><div class="muted">ผู้แจ้ง ${esc(reporter)} · ระบบจะสร้างรหัสเคสให้อัตโนมัติ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
-    <div class="ai-note" style="margin-top:0"><b>1 · ข้อมูลจำเป็น</b><br><span class="muted">กรอกเฉพาะสิ่งที่ทราบก่อน เพื่อให้ทีมรับผิดชอบเริ่มแก้ได้ทันที</span></div>
+    <div class="ai-note" style="margin-top:0"><b>1 · ข้อมูลจำเป็น</b><br><span class="muted">ระบุเหตุการณ์และผลกระทบให้ครบ เพื่อให้ทีมรับผิดชอบเริ่มแก้ได้</span></div>
     <div class="two"><div class="field"><label>วันที่เกิดปัญหา *</label><input class="fin" type="date" id="newIssueDate" value="${now.date}"></div><div class="field"><label>เวลา *</label><input class="fin" type="time" id="newIssueTime" value="${now.time}"></div></div>
     <div class="two"><div class="field"><label>โปรเจกต์ *</label><select class="fin" id="newIssueProject">${ISSUE_PROJECTS.map(x=>`<option value="${x}">${x}</option>`).join('')}</select></div><div class="field"><label>ประเภทปัญหา *</label><select class="fin" id="newIssueCategory">${ISSUE_CATEGORIES.map(x=>`<option value="${x}">${x}</option>`).join('')}</select></div></div>
     <div class="field"><label>รายละเอียดปัญหา *</label><textarea class="fin" id="newIssueProblem" maxlength="4000" rows="4" placeholder="เกิดอะไรขึ้น · ช่องทางใดใช้งานไม่ได้ · เริ่มตั้งแต่เมื่อไร"></textarea></div>
-    <div class="two"><div class="field"><label>ความสำคัญ *</label><select class="fin" id="newIssuePriority">${Object.entries(PROB_PRIO).sort((a,b)=>b[1].o-a[1].o).map(([k,m])=>`<option value="${k}" ${k==='Medium'?'selected':''}>${m.t}</option>`).join('')}</select></div><div class="field"><label>ขอบเขตผลกระทบ</label><select class="fin" id="newIssueImpactScope">${Object.entries(ISSUE_IMPACT_SCOPES).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></div></div>
+    <div class="two"><div class="field"><label>ความสำคัญ *</label><select class="fin" id="newIssuePriority">${Object.entries(PROB_PRIO).sort((a,b)=>b[1].o-a[1].o).map(([k,m])=>`<option value="${k}" ${k==='Medium'?'selected':''}>${m.t}</option>`).join('')}</select></div><div class="field"><label>ขอบเขตผลกระทบ *</label><select class="fin" id="newIssueImpactScope">${Object.entries(ISSUE_IMPACT_SCOPES).map(([k,t])=>`<option value="${k}">${t}</option>`).join('')}</select></div></div>
     <details style="margin-top:12px" open><summary style="cursor:pointer;font-weight:700">2 · ผลกระทบและข้อมูลช่วยวิเคราะห์</summary><div style="padding-top:12px">
       <div class="two"><div class="field"><label>ระบบ/บริการที่กระทบ</label><input class="fin" id="newIssueService" maxlength="200" placeholder="เช่น AZPAY, 12PAY, Callback"></div><div class="field"><label>ผู้ให้บริการ</label><input class="fin" id="newIssueProvider" maxlength="200" placeholder="ถ้ามี"></div></div>
-      <div class="field"><label>สรุปผลกระทบ</label><textarea class="fin" id="newIssueImpact" maxlength="2000" rows="2" placeholder="ลูกค้าทำรายการอะไรไม่ได้ หรือกระทบทีมใด"></textarea></div>
+      <div class="field"><label>สรุปผลกระทบ *</label><textarea class="fin" id="newIssueImpact" maxlength="2000" rows="2" placeholder="ลูกค้าทำรายการอะไรไม่ได้ หรือกระทบทีมใด"></textarea></div>
       <div class="two"><div class="field"><label>จำนวนลูกค้าที่กระทบ</label><input class="fin" type="number" min="0" step="1" id="newIssueCustomers"></div><div class="field"><label>จำนวนรายการที่กระทบ</label><input class="fin" type="number" min="0" step="1" id="newIssueTransactions"></div></div>
       <div class="field"><label>มูลค่าที่กระทบโดยประมาณ (บาท)</label><input class="fin" type="number" min="0" step="0.01" id="newIssueFinancial"></div>
     </div></details>
@@ -2735,7 +2735,7 @@ async function cloudLoadIssues(){
   if(!SB)return;
   try{
     PROBLEMS.length=0;
-    const baseFields='id,department_code,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,root_cause,preventive_action,solution_type,solution_reference_type,solution_reference_id,solution_verified,solution_verified_by,solution_verified_at';
+    const baseFields='id,created_by,updated_at,department_code,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,root_cause,preventive_action,solution_type,solution_reference_type,solution_reference_id,solution_verified,solution_verified_by,solution_verified_at';
     const extraFields='service_name,provider_name,impact_scope,impact_summary,affected_customer_count,affected_transaction_count,financial_impact,workaround,evidence_url,acknowledged_at,resolved_at,source_sheet,source_row,data_quality_flags';
     let res=await SB.from('operational_issues').select(baseFields+','+extraFields).order('occurred_at',{ascending:false}).limit(1000);
     if(res.error&&/column|schema cache/i.test(res.error.message||''))res=await SB.from('operational_issues').select(baseFields).order('occurred_at',{ascending:false}).limit(1000);
@@ -2744,7 +2744,7 @@ async function cloudLoadIssues(){
     const bangkokDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'});
     const bangkokTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
     const rows=res.data.map(r=>{const at=new Date(r.occurred_at);return {
-      id:r.id,dept:r.department_code||'',date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||'',service:r.service_name||'',provider:r.provider_name||'',impactScope:r.impact_scope||'unknown',impact:r.impact_summary||'',affectedCustomers:r.affected_customer_count==null?null:Number(r.affected_customer_count),affectedTransactions:r.affected_transaction_count==null?null:Number(r.affected_transaction_count),financialImpact:r.financial_impact==null?null:Number(r.financial_impact),workaround:r.workaround||'',evidenceUrl:r.evidence_url||'',acknowledgedAt:r.acknowledged_at||'',resolvedAt:r.resolved_at||'',sourceSheet:r.source_sheet||'',sourceRow:r.source_row||null,qualityFlags:r.data_quality_flags||[]
+      id:r.id,dept:r.department_code||'',createdBy:r.created_by,updatedAt:r.updated_at,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||'',service:r.service_name||'',provider:r.provider_name||'',impactScope:r.impact_scope||'unknown',impact:r.impact_summary||'',affectedCustomers:r.affected_customer_count==null?null:Number(r.affected_customer_count),affectedTransactions:r.affected_transaction_count==null?null:Number(r.affected_transaction_count),financialImpact:r.financial_impact==null?null:Number(r.financial_impact),workaround:r.workaround||'',evidenceUrl:r.evidence_url||'',acknowledgedAt:r.acknowledged_at||'',resolvedAt:r.resolved_at||'',sourceSheet:r.source_sheet||'',sourceRow:r.source_row||null,qualityFlags:r.data_quality_flags||[]
     };});
     PROBLEMS.length=0;PROBLEMS.push(...rows);PROB_SRC.file='Supabase · operational_issues';PROB_SRC.asof='อัปเดตจากฐานข้อมูลกลาง';PROB_SRC.n=rows.length;
   }catch(e){console.warn('issue load:',e.message||e);}
@@ -2820,7 +2820,9 @@ function openManual(){buildManual();_hlp.classList.add('show');const c=_hlp.quer
 function closeManual(){if(_hlp)_hlp.classList.remove('show');}
 
 </script>
-<script src="activity-module.js?v=20260830b"></script>
+<script src="activity-module.js?v=20260904-native"></script>
+<link rel="stylesheet" href="native-entry.css?v=20260904-native">
+<script src="native-entry.js?v=20260904-native"></script>
 <div id="loginBg" class="login-bg" style="display:none">
   <div class="login-card">
     <div class="login-logo">CH</div>

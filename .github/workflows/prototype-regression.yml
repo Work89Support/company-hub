@@ -15,3 +15,6 @@ jobs:
           node-version: 22
       - name: Verify critical modules and JavaScript
         run: node scripts/check-prototype-regressions.mjs
+
+      - name: Verify native intake behavior
+        run: node scripts/check-native-entry.mjs
