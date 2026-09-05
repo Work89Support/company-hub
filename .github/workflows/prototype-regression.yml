@@ -31,5 +31,8 @@ jobs:
       - name: Verify report dates, export and data loading
         run: DOM_MODULE=/tmp/company-hub-tests/node_modules/happy-dom/lib/index.js node scripts/check-reporting-integrity.mjs
 
+      - name: Verify shared UX across pages and forms
+        run: DOM_MODULE=/tmp/company-hub-tests/node_modules/happy-dom/lib/index.js node scripts/check-ux-system.mjs
+
       - name: Verify report persistence, permissions and KPI approval
         run: PGLITE_MODULE=/tmp/company-hub-tests/node_modules/@electric-sql/pglite/dist/index.js node scripts/check-reporting-integrity-db.mjs
