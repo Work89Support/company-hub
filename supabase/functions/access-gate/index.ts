@@ -50,6 +50,9 @@ export default {
       if (!ip) return json({ allowed: false, reason: "ไม่สามารถตรวจสอบ IP ของเครื่องได้" }, 403);
 
       const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      const claims = JSON.parse(atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const { data: ready, error: readyError } = await admin.rpc("company_credentials_ready", { p_profile: actorId, p_iat: Number(claims.iat || 0) });
+      if (readyError || !ready) return json({ allowed: false, reason: "กรุณาตั้งรหัสผ่านใหม่และเข้าสู่ระบบอีกครั้ง" }, 403);
       const { data, error } = await admin.rpc("evaluate_login_access", {
         p_profile_id: actorId,
         p_device_key_hash: await sha256(deviceKey),

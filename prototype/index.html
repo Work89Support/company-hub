@@ -821,7 +821,7 @@ let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPH
 let TASK_PROFILES=[],TASKS_READY=false;
 let ACCESS_USERS=[],ACCESS_USER_DEPTS=[],ACCESS_POLICIES=[],ACCESS_DEVICES=[],ACCESS_IP_RULES=[],ACCESS_USERS_READY=false,ACCESS_USERS_LOADING=false,ACCESS_USER_Q='';
 let IMPLEMENTATION_ACTIONS=[],IMPLEMENTATION_ACTIONS_READY=false,SOP_RECORDS=[];
-let GF={tab:'dashboard',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:''};
+let GF={tab:'board',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:''};
 const GP_COLUMN_PAGE_SIZE=30;
 let GP_VISIBLE_LIMITS={};
 let REPORT_EDITS={};      // แก้ไขข้อความรายงาน (persisted)
@@ -1233,7 +1233,7 @@ function buildNav(){
   deptLabel.style.display=visibleDeptList.length?'':'none';
   deptNav.innerHTML=visibleDeptList.map(d=>`<button type="button" class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
-function go(v,arg){VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
+function go(v,arg){main.classList.remove('graphic-board-view');VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
 function navGo(v){F={...F,q:'',source:v==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
 function myTasks(){const m=ROLE_META[ROLE].u;if(isExecutiveRole())return TASKS;return TASKS.filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
 function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}
@@ -1401,8 +1401,8 @@ function gpFilterBar(){const range=gpDataRange(),people=gpPersonOptions(),scope=
 RENDER.graphic=function(){
   if(!GRAPHIC_READY){main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h"><div><h1>Graphic Production</h1><p>กำลังโหลดงานจากฐานข้อมูล…</p></div></div>`;loadGraphic();return;}
   const all=gpGlobalVisible(),active=all.filter(x=>!['done'].includes(x.status)),review=all.filter(x=>x.status==='review'),late=all.filter(gpLate),monthDone=all.filter(x=>x.status==='done'&&x.completed_at&&new Date(x.completed_at).getMonth()===new Date().getMonth()),revs=all.reduce((s,x)=>s+x.revision_count,0);
-  const tabs=[['dashboard','ภาพรวม'],['board','Kanban'],['monthly','งานรายเดือน'],['projects','ทีม / ผู้รับผิดชอบ']];
-  main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h"><div><h1>Graphic Production</h1><p>รับบรีฟ · ผลิต · ตรวจงาน · แก้ไข · ส่งมอบใน Company Hub ที่เดียว</p>${sourceBadge('live','COMPANY HUB LIVE',`${nf(all.length)} จาก ${nf(GRAPHIC_JOBS.length)} งาน · อัปเดตจากฐานข้อมูลกลางทันที`)}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn primary" onclick="openGraphicBrief()">+ รับบรีฟใหม่</button></div></div><div class="gp-tabs">${tabs.map(x=>`<button class="${GF.tab===x[0]?'active':''}" onclick="gpTab('${x[0]}')">${x[1]}</button>`).join('')}</div>${gpFilterBar()}<div class="gp-kpis"><div class="gp-kpi"><span>งานที่กำลังเดิน</span><b>${active.length}</b></div><div class="gp-kpi"><span>รอตรวจ</span><b>${review.length}</b></div><div class="gp-kpi"><span>เกินกำหนด</span><b style="color:${late.length?'var(--red)':'inherit'}">${late.length}</b></div><div class="gp-kpi"><span>เสร็จเดือนนี้</span><b>${monthDone.length}</b></div><div class="gp-kpi"><span>รอบแก้สะสม</span><b>${revs}</b></div></div><div id="gpBody"></div>`;
+  const tabs=[['dashboard','ภาพรวม'],['board','บอร์ดงาน'],['monthly','งานรายเดือน'],['projects','ทีม / ผู้รับผิดชอบ']];
+  main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h"><div><h1>Graphic Production</h1><p>รับบรีฟ · ผลิต · ตรวจงาน · แก้ไข · ส่งมอบใน Company Hub ที่เดียว</p>${sourceBadge('live','COMPANY HUB LIVE',`${nf(all.length)} จาก ${nf(GRAPHIC_JOBS.length)} งาน · อัปเดตจากฐานข้อมูลกลางทันที`)}</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn primary" onclick="openGraphicBrief()">+ เพิ่มการ์ด / รับบรีฟ</button></div></div><div class="gp-tabs">${tabs.map(x=>`<button class="${GF.tab===x[0]?'active':''}" onclick="gpTab('${x[0]}')">${x[1]}</button>`).join('')}</div>${gpFilterBar()}<div class="gp-kpis"><div class="gp-kpi"><span>งานที่กำลังเดิน</span><b>${active.length}</b></div><div class="gp-kpi"><span>รอตรวจ</span><b>${review.length}</b></div><div class="gp-kpi"><span>เกินกำหนด</span><b style="color:${late.length?'var(--red)':'inherit'}">${late.length}</b></div><div class="gp-kpi"><span>เสร็จเดือนนี้</span><b>${monthDone.length}</b></div><div class="gp-kpi"><span>รอบแก้สะสม</span><b>${revs}</b></div></div><div id="gpBody"></div>`;
   if(GF.tab==='dashboard')renderGraphicDashboard();else if(GF.tab==='monthly')renderGraphicMonthly();else if(GF.tab==='projects')renderGraphicProjects();else renderGraphicBoard();
 };
 function gpToolbar(){return `<div class="gp-toolbar"><div class="field grow"><label>ค้นหา</label><input class="fin" value="${esc(GF.q)}" placeholder="ชื่องาน / บรีฟ / ผู้รับผิดชอบ" oninput="GF.q=this.value;clearTimeout(window._gpt);window._gpt=setTimeout(()=>renderGraphicBoard(),200)"></div><div class="field"><label>โปรเจกต์</label><select class="fin" onchange="gpSet('project',this.value)"><option value="">ทุกโปรเจกต์</option>${GRAPHIC_PROJECTS.filter(x=>x.active).map(p=>`<option value="${p.id}" ${GF.project===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>สถานะ</label><select class="fin" onchange="gpSet('status',this.value)"><option value="">ทุกสถานะ</option>${Object.entries(GP_STATUS).map(([k,v])=>`<option value="${k}" ${GF.status===k?'selected':''}>${v.t}</option>`).join('')}</select></div></div>`;}
@@ -1545,7 +1545,7 @@ function execDash(){
 
 function leadDash(){
   const dept=currentDept(), dt=boardAllWork().filter(t=>t.dept===dept), s=KPI[dept]?deptScore(dept):0;
-  if(ACCESS_PROFILE?.department_code==='GRAPHIC'&&GRAPHIC_READY){GF.tab='dashboard';return RENDER.graphic();}
+  if(ACCESS_PROFILE?.department_code==='GRAPHIC'&&GRAPHIC_READY){GF.tab='board';return RENDER.graphic();}
   const byAssignee=[...new Set(dt.map(t=>t.assignee))].map(a=>({label:shortName(a),v:dt.filter(t=>t.assignee===a).length,dot:u(a).c,click:`goBoardFiltered({dept:'${dept}',assignee:'${a}'})`}));
   main.innerHTML=`
   ${crumb('หน้าแรก','แดชบอร์ดหัวหน้า',deptName(dept))}
@@ -2172,7 +2172,7 @@ async function saveNewIssue(){
   const date=val('newIssueDate'),time=val('newIssueTime'),project=val('newIssueProject'),category=val('newIssueCategory'),problem=val('newIssueProblem').trim();
   if(!date||!time||!project||!category||!problem){toast('กรุณากรอกวันที่ เวลา โปรเจกต์ ประเภท และรายละเอียดปัญหา','info');return;}
   const evidence=val('newIssueEvidence').trim();if(evidence&&!/^https?:\/\//i.test(evidence)){toast('ลิงก์หลักฐานต้องขึ้นต้นด้วย http:// หรือ https://','info');return;}
-  const payload={department_code:'ADMIN',occurred_at:new Date(`${date}T${time}:00+07:00`).toISOString(),project_code:project,category,problem,priority:val('newIssuePriority'),reporter:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'',status:'Open',owner_team:ISSUE_DEFAULT_OWNER[category]||'Admin',service_name:val('newIssueService').trim(),provider_name:val('newIssueProvider').trim(),impact_scope:val('newIssueImpactScope'),impact_summary:val('newIssueImpact').trim(),affected_customer_count:issueNumberOrNull('newIssueCustomers'),affected_transaction_count:issueNumberOrNull('newIssueTransactions'),financial_impact:issueNumberOrNull('newIssueFinancial'),workaround:val('newIssueWorkaround').trim(),evidence_url:evidence,source:'Company Hub'};
+  const payload={department_code:'ADMIN',occurred_at:new Date(`${date}T${time}:00+07:00`).toISOString(),project_code:project,category,problem,priority:val('newIssuePriority'),reporter:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'',status:'Open',owner_team:val('newIssueOwner')||ISSUE_DEFAULT_OWNER[category]||'Admin',service_name:val('newIssueService').trim(),provider_name:val('newIssueProvider').trim(),impact_scope:val('newIssueImpactScope'),impact_summary:val('newIssueImpact').trim(),affected_customer_count:issueNumberOrNull('newIssueCustomers'),affected_transaction_count:issueNumberOrNull('newIssueTransactions'),financial_impact:issueNumberOrNull('newIssueFinancial'),workaround:val('newIssueWorkaround').trim(),evidence_url:evidence,source:'Company Hub'};
   const btn=document.getElementById('newIssueSaveBtn');if(btn)btn.disabled=true;
   try{const r=await SB.from('operational_issues').insert(payload).select('id').single();if(r.error)throw r.error;closeModal();await cloudLoadIssues();RENDER.problems();toast('รับแจ้ง '+r.data.id+' แล้ว');openProblem(r.data.id);}catch(e){if(btn)btn.disabled=false;toast((/service_name|impact_scope|schema cache/i.test(e.message||''))?'ยังไม่ได้รัน Migration 017':('บันทึกไม่สำเร็จ · '+(e.message||'')),'info');}
 }
@@ -2735,7 +2735,7 @@ async function cloudLoadIssues(){
   if(!SB)return;
   try{
     PROBLEMS.length=0;
-    const baseFields='id,created_by,updated_at,department_code,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,root_cause,preventive_action,solution_type,solution_reference_type,solution_reference_id,solution_verified,solution_verified_by,solution_verified_at';
+    const baseFields='id,created_by,created_at,updated_at,department_code,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,root_cause,preventive_action,solution_type,solution_reference_type,solution_reference_id,solution_verified,solution_verified_by,solution_verified_at';
     const extraFields='service_name,provider_name,impact_scope,impact_summary,affected_customer_count,affected_transaction_count,financial_impact,workaround,evidence_url,acknowledged_at,resolved_at,source_sheet,source_row,data_quality_flags';
     let res=await SB.from('operational_issues').select(baseFields+','+extraFields).order('occurred_at',{ascending:false}).limit(1000);
     if(res.error&&/column|schema cache/i.test(res.error.message||''))res=await SB.from('operational_issues').select(baseFields).order('occurred_at',{ascending:false}).limit(1000);
@@ -2744,7 +2744,7 @@ async function cloudLoadIssues(){
     const bangkokDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'});
     const bangkokTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
     const rows=res.data.map(r=>{const at=new Date(r.occurred_at);return {
-      id:r.id,dept:r.department_code||'',createdBy:r.created_by,updatedAt:r.updated_at,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||'',service:r.service_name||'',provider:r.provider_name||'',impactScope:r.impact_scope||'unknown',impact:r.impact_summary||'',affectedCustomers:r.affected_customer_count==null?null:Number(r.affected_customer_count),affectedTransactions:r.affected_transaction_count==null?null:Number(r.affected_transaction_count),financialImpact:r.financial_impact==null?null:Number(r.financial_impact),workaround:r.workaround||'',evidenceUrl:r.evidence_url||'',acknowledgedAt:r.acknowledged_at||'',resolvedAt:r.resolved_at||'',sourceSheet:r.source_sheet||'',sourceRow:r.source_row||null,qualityFlags:r.data_quality_flags||[]
+      id:r.id,dept:r.department_code||'',createdBy:r.created_by,createdAt:r.created_at,updatedAt:r.updated_at,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||'',service:r.service_name||'',provider:r.provider_name||'',impactScope:r.impact_scope||'unknown',impact:r.impact_summary||'',affectedCustomers:r.affected_customer_count==null?null:Number(r.affected_customer_count),affectedTransactions:r.affected_transaction_count==null?null:Number(r.affected_transaction_count),financialImpact:r.financial_impact==null?null:Number(r.financial_impact),workaround:r.workaround||'',evidenceUrl:r.evidence_url||'',acknowledgedAt:r.acknowledged_at||'',resolvedAt:r.resolved_at||'',sourceSheet:r.source_sheet||'',sourceRow:r.source_row||null,qualityFlags:r.data_quality_flags||[]
     };});
     PROBLEMS.length=0;PROBLEMS.push(...rows);PROB_SRC.file='Supabase · operational_issues';PROB_SRC.asof='อัปเดตจากฐานข้อมูลกลาง';PROB_SRC.n=rows.length;
   }catch(e){console.warn('issue load:',e.message||e);}
@@ -2753,7 +2753,7 @@ async function sbLogin(){
   if(!SB){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้','info');return;}
   var em=(val('sbEmail')||'').trim(), pw=val('sbPass')||'';
   var er=document.getElementById('sbErr'); if(er)er.textContent='';
-  if(!em||!pw){if(er)er.textContent='กรุณากรอกอีเมลและรหัสผ่าน';return;}
+  if(!em||!pw){if(er)er.textContent='กรุณากรอกชื่อหรืออีเมลและรหัสผ่าน';return;}
   var btn=document.getElementById('sbLoginBtn'); if(btn)btn.disabled=true;
   try{ var res=await SB.auth.signInWithPassword({email:em,password:pw});
     if(res.error){ if(er)er.textContent='เข้าสู่ระบบไม่สำเร็จ: '+res.error.message; }
@@ -2823,15 +2823,22 @@ function closeManual(){if(_hlp)_hlp.classList.remove('show');}
 <script src="activity-module.js?v=20260904-native"></script>
 <link rel="stylesheet" href="native-entry.css?v=20260904-native">
 <script src="native-entry.js?v=20260904-native"></script>
+<script src="kpi-work.js?v=20260905"></script>
+<link rel="stylesheet" href="department-workflows.css?v=20260905">
+<script src="department-workflows.js?v=20260905"></script>
+<link rel="stylesheet" href="team-board.css?v=20260905">
+<script src="team-board.js?v=20260905"></script>
+<script src="company-accounts.js?v=20260905"></script>
 <div id="loginBg" class="login-bg" style="display:none">
   <div class="login-card">
     <div class="login-logo">CH</div>
     <h2>เข้าสู่ระบบ Company Hub</h2>
-    <p>ใช้อีเมลและรหัสผ่านที่ผู้ดูแลเพิ่มไว้ในระบบ</p>
-    <input id="sbEmail" type="email" placeholder="อีเมล" autocomplete="username">
+    <p>ใช้ชื่อ (แผนก) หรืออีเมลของบัญชีเดิม</p>
+    <input id="sbEmail" type="text" placeholder="ชื่อ (แผนก) หรืออีเมล" autocomplete="username">
     <input id="sbPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter')sbLogin()">
     <div id="sbErr" class="login-err"></div>
     <button id="sbLoginBtn" class="login-btn" onclick="sbLogin()">เข้าสู่ระบบ</button>
+    <p>ลืมรหัสผ่าน: ติดต่อผู้ดูแลเพื่อรับรหัสเข้าครั้งใหม่</p>
     <div class="login-foot">ตรวจสิทธิ์บัญชี · แผนก · เครื่อง · IP ก่อนเปิดข้อมูลทุกครั้ง</div>
   </div>
 </div>

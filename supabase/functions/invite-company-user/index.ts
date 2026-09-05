@@ -1,12 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { withSupabase } from "jsr:@supabase/server@^1";
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (request, ctx) => {
     try {
-      const admin = ctx.supabaseAdmin;
-      const actorId = ctx.userClaims?.sub;
+      const admin = ctx.supabaseAdmin as unknown as SupabaseClient;
+      const actorId = ctx.jwtClaims?.sub;
       if (!actorId) return Response.json({ error: "กรุณาเข้าสู่ระบบใหม่" }, { status: 401 });
+      const { data: credentialReady, error: credentialError } = await admin.rpc("company_credentials_ready", { p_profile: actorId, p_iat: Number(ctx.jwtClaims?.iat || 0) });
+      if (credentialError || !credentialReady) return Response.json({ error: "กรุณาตั้งรหัสผ่านใหม่และเข้าสู่ระบบอีกครั้ง" }, { status: 403 });
       const forwardedIp = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim().replace(/^::ffff:/, "");
       const { data: edgeAllowed, error: edgeAccessError } = await admin.rpc("edge_access_allowed", { p_profile_id: actorId, p_ip: forwardedIp });
       if (edgeAccessError || !edgeAllowed) return Response.json({ error: "เครื่องหรือ IP นี้ไม่มีสิทธิ์เรียกใช้งาน" }, { status: 403 });
@@ -27,7 +30,7 @@ export default {
       const requestedManaged = role === "lead" && Array.isArray(body.managed_departments) ? body.managed_departments : [];
       const enforceDevice = body.enforce_device !== false;
       const requestedIpRules = Array.isArray(body.allowed_ip_cidrs)
-        ? [...new Set(body.allowed_ip_cidrs.map((value: unknown) => String(value).trim()).filter(Boolean))]
+        ? [...new Set<string>(body.allowed_ip_cidrs.map((value: unknown) => String(value).trim()).filter(Boolean))]
         : [];
       const enforceIp = body.enforce_ip === true;
       const { data: departments, error: departmentsError } = await admin.from("departments").select("code");
@@ -35,8 +38,8 @@ export default {
       const validDepartments = new Set((departments || []).map((row) => row.code));
       if (!validDepartments.has(department)) return Response.json({ error: "ไม่พบแผนกหลัก" }, { status: 400 });
       const visible = [...new Set([department, ...requestedVisible.map((value: unknown) => String(value).toUpperCase())])]
-        .filter((value) => validDepartments.has(value));
-      const managed = new Set(requestedManaged.map((value: unknown) => String(value).toUpperCase()).filter((value) => validDepartments.has(value)));
+        .filter((value: string) => validDepartments.has(value));
+      const managed = new Set(requestedManaged.map((value: unknown) => String(value).toUpperCase()).filter((value: string) => validDepartments.has(value)));
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return Response.json({ error: "อีเมลไม่ถูกต้อง" }, { status: 400 });
       }

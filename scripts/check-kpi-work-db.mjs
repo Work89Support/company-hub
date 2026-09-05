@@ -1,0 +1,38 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const {PGlite}=await import(process.env.PGLITE_MODULE||'@electric-sql/pglite');
+const db=new PGlite();
+const me='00000000-0000-4000-8000-000000000001',other='00000000-0000-4000-8000-000000000002',manager='00000000-0000-4000-8000-000000000003';
+const good='10000000-0000-4000-8000-000000000001',foreign='10000000-0000-4000-8000-000000000002',inactive='10000000-0000-4000-8000-000000000003';
+await db.exec(`create role authenticated;create schema auth;create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+create table profiles(id uuid primary key,active boolean);insert into profiles values('${me}',true),('${other}',true),('${manager}',true);
+create function can_manage_department(d text) returns boolean language sql stable as $$select auth.uid()='${manager}'::uuid and d='ADMIN'$$;
+create table kpi_definitions(id uuid primary key,department_code text,active boolean);insert into kpi_definitions values('${good}','ADMIN',true),('${foreign}','FIN',true),('${inactive}','ADMIN',false);
+create table daily_activities(id bigint primary key,department_code text,employee_id uuid,is_active boolean);insert into daily_activities values(1,'ADMIN','${me}',true),(2,'ADMIN','${other}',true);
+create table tasks(id uuid primary key,department_code text);insert into tasks values('${me}','ADMIN');
+create table task_assignees(task_id uuid,user_id uuid);insert into task_assignees values('${me}','${me}');
+create table graphic_jobs(id uuid primary key,department_code text,assignee_id uuid,created_by uuid);insert into graphic_jobs values('${me}','ADMIN','${me}','${me}');
+create table operational_issues(id text primary key,department_code text,created_by uuid);insert into operational_issues values('ISS-1','ADMIN','${me}');
+alter table daily_activities enable row level security;create policy own_activity on daily_activities for select to authenticated using(employee_id=auth.uid() or can_manage_department(department_code));
+grant usage on schema public,auth to authenticated;grant select on all tables in schema public to authenticated;`);
+await db.exec(fs.readFileSync(new URL('../supabase/migrations/202609050023_kpi_work_links.sql',import.meta.url),'utf8'));
+const login=async id=>{await db.exec('reset role');await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec('set role authenticated');};
+const save=(kind,id,expected,selected)=>db.query('select * from save_work_kpi_tags($1,$2,$3::uuid[],$4::uuid[])',[kind,id,expected,selected]);
+await login(me);
+for(const [kind,id] of [['activity','1'],['task',me],['graphic',me],['issue','ISS-1']]){
+ assert.equal((await save(kind,id,[],[good,good])).rows.length,1,'duplicates collapse');
+ await assert.rejects(()=>save(kind,id,[],[]),'stale edit must fail');
+ await assert.rejects(()=>save(kind,id,[good],[foreign]),'wrong department rejected');
+ await assert.rejects(()=>save(kind,id,[good],[inactive]),'inactive KPI rejected');
+ assert.equal((await db.query('select count(*)::int n from kpi_work_links')).rows[0].n,['activity','task','graphic','issue'].indexOf(kind)+1,'failed replacement preserves old tags');
+}
+await assert.rejects(()=>save('activity','2',[],[good]),'colleague work blocked');
+await assert.rejects(()=>db.query('insert into kpi_work_links(definition_id,activity_id,created_by) values($1,1,$2)',[good,other]),'cannot spoof actor');
+await login(other);assert.equal((await db.query('select * from kpi_work_links where activity_id=1')).rows.length,0);
+await assert.rejects(()=>save('activity','1',[good],[]),'cannot untag invisible work');
+await login(manager);assert.equal((await save('activity','1',[good],[])).rows.length,0);
+await login(me);assert.equal((await save('activity','1',[],[good])).rows.length,1);
+await db.exec('reset role');await db.query('update profiles set active=false where id=$1',[me]);await login(me);
+await assert.rejects(()=>save('activity','1',[good],[]),'inactive account blocked');
+console.log('PASS KPI links: four work types, persistence, duplicate selections, rollback, concurrency, department and owner isolation');
+await db.close();

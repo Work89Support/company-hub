@@ -18,3 +18,9 @@ jobs:
 
       - name: Verify native intake behavior
         run: node scripts/check-native-entry.mjs
+
+      - name: Verify KPI evidence entry
+        run: node scripts/check-kpi-work.mjs
+
+      - name: Verify account authentication boundaries
+        run: node scripts/check-company-accounts.mjs

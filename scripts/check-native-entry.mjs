@@ -14,8 +14,12 @@ assert.ok(context.entryValidate({...valid,start_time:'22:00',end_time:'02:00'}).
 assert.equal(Object.keys(context.entryValidate({...valid,activity_date:'2026-09-03',start_time:'22:00',end_time:'02:00',overnight:true})).length,0);
 assert.ok(context.entryValidate({...valid,end_time:'09:00'}).end_time);
 assert.ok(context.entryValidate({...valid,activity_date:'2026-09-05'}).activity_date);
-assert.ok(context.entryMissing({...valid,employee_id:null}).includes('บัญชีเจ้าของรายการ'));
+assert.ok(context.entryMissing({...valid,employee_id:null}).includes('บัญชีเข้าใช้งานของเจ้าของงาน'));
 assert.equal(context.entryCanEdit({employee_id:'other'}),false);
 assert.equal(context.entryCanEdit({employee_id:'me'}),true);
 assert.ok(context.issueEntryMissing({status:'Resolved',problem:'p',impact:'i',impactScope:'project',owner:'o',solution:'s',resmin:1,verified:false}).includes('หัวหน้ายืนยันผล'));
 console.log('PASS native entry validation, conditional requirements and ownership UI');
+
+assert.equal(context.entryOwnerPlaceholder('เฟิร์น'),'เฟิร์น');
+assert.equal(context.entryOwnerPlaceholder('  '),'เลือกเจ้าของงาน');
+assert.ok(context.entryMissing({...valid,employee_id:null,employee_name:'เฟิร์น'}).includes('เชื่อมบัญชีเข้าใช้งานของ เฟิร์น'));
