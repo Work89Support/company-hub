@@ -192,3 +192,6 @@ RENDER.tracker=function(){
 };
 
 const trackerDashboardBase=RENDER.dash;RENDER.dash=function(...args){trackerDashboardBase(...args);const heading=[...main.querySelectorAll('h3')].find(n=>n.textContent.includes('Go-live Control'));if(heading){heading.textContent='แผนเปิดระบบเดิม · สถานะบันทึกด้วยคน';const card=heading.closest('.card');const link=card?.querySelector('.act');if(link){link.textContent='ตรวจแผนเดิม →';link.onclick=()=>{TRACKER_MODE='plan';go('tracker');};}const note=document.createElement('p');note.className='muted';note.style.padding='0 16px';note.textContent='สถานะ Action เดิมไม่ใช่ผลตรวจระบบอัตโนมัติ · 3X และ SOP อ่านจากข้อมูลต้นทาง';card?.append(note);}};
+
+// Load the common presentation layer after all feature modules have registered.
+if(!document.querySelector('script[data-company-ux]')){const script=document.createElement('script');script.src='ux-system.js?v=20260905-1';script.dataset.companyUx='1';document.head.append(script);}
