@@ -24,3 +24,12 @@ jobs:
 
       - name: Verify account authentication boundaries
         run: node scripts/check-company-accounts.mjs
+
+      - name: Install isolated test dependencies
+        run: npm install --prefix /tmp/company-hub-tests --no-save happy-dom@20.14.0 @electric-sql/pglite@0.5.8
+
+      - name: Verify report dates, export and data loading
+        run: DOM_MODULE=/tmp/company-hub-tests/node_modules/happy-dom/lib/index.js node scripts/check-reporting-integrity.mjs
+
+      - name: Verify report persistence, permissions and KPI approval
+        run: PGLITE_MODULE=/tmp/company-hub-tests/node_modules/@electric-sql/pglite/dist/index.js node scripts/check-reporting-integrity-db.mjs
