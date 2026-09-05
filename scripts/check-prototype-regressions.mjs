@@ -50,7 +50,7 @@ const checks = [
   ['Problem Center analysis-to-SOP flow', /function problemAnalysisHTML\(all\)[\s\S]*จัดทำ SOP/],
   ['Employee problem intake form', /function openNewIssue\(\)[\s\S]*บันทึกและส่งให้ทีมแก้ไข/],
   ['Problem intake persists analysis fields', /function saveNewIssue\(\)[\s\S]*impact_scope[\s\S]*affected_transaction_count[\s\S]*workaround/],
-  ['Issue loader supports pre-migration fallback', /extraFields[\s\S]*if\(res\.error&&\/column\|schema cache/],
+  ['Issue loader supports pre-migration fallback', /extraFields[\s\S]*schema cache[\s\S]*select\(baseFields\)/],
   ['Strict database admin role', /function canAdminAccess\(\)\{return \['exec','admin'\]\.includes\(AUTH_DB_ROLE\);\}/],
   ['Navigation has stable view targets', /data-view="\$\{k\}"/],
   ['Production fails closed without Supabase', /Production fail-closed/],

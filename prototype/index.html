@@ -698,8 +698,8 @@ const deptScore = code => { const a=KPI[code]; if(!a)return null;
   if(a.every(k=>k.w!=null)) return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100)*k.w,0));
   return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100),0)/a.length); };
 /* เกณฑ์ 5 ระดับ (เทียบ Target): ดีเยี่ยม ≥100 · ดีมาก 95–99.9 · ดี 90–94.9 · พอใช้ 80–89.9 · ต้องปรับปรุง <80 */
-const scoreColor = s => s>=95?'var(--green)':s>=80?'var(--amber)':'var(--red)';
-const scoreLabel = s => s>=100?'ดีเยี่ยม':s>=95?'ดีมาก':s>=90?'ดี':s>=80?'พอใช้':'ต้องปรับปรุง';
+const scoreColor = s => s==null?'var(--muted)':s>=95?'var(--green)':s>=80?'var(--amber)':'var(--red)';
+const scoreLabel = s => s==null?'ยังไม่มีผลรับรอง':s>=100?'ดีเยี่ยม':s>=95?'ดีมาก':s>=90?'ดี':s>=80?'พอใช้':'ต้องปรับปรุง';
 function kpiLegend(){return `<div class="legend" style="margin-top:10px;padding-top:9px;border-top:1px dashed var(--line-2)">
   <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--green)">✓</span> ดีเยี่ยม ≥100% · ดีมาก 95–99%</span>
   <span><span class="kpi-icn" style="width:17px;height:17px;font-size:10px;border-radius:5px;background:var(--amber)">≈</span> ดี 90–94% · พอใช้ 80–89%</span>
@@ -807,12 +807,12 @@ const NAV = {
 /* helper: SVG line icon */
 function sic(id){return `<svg class="svic"><use href="#${id}"></use></svg>`;}
 // Filter state
-let F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+let F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:'',group:'dept',sort:'due',dir:1};
 let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPHIC_PEOPLE=[],GRAPHIC_MEMBERS=[],GRAPHIC_JOB_MEMBERS=[],GRAPHIC_READY=false;
 let TASK_PROFILES=[],TASKS_READY=false;
 let ACCESS_USERS=[],ACCESS_USER_DEPTS=[],ACCESS_POLICIES=[],ACCESS_DEVICES=[],ACCESS_IP_RULES=[],ACCESS_USERS_READY=false,ACCESS_USERS_LOADING=false,ACCESS_USER_Q='';
 let IMPLEMENTATION_ACTIONS=[],IMPLEMENTATION_ACTIONS_READY=false,SOP_RECORDS=[];
-let GF={tab:'board',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:''};
+let GF={tab:'board',project:'',status:'',q:'',person:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};
 const GP_COLUMN_PAGE_SIZE=30;
 let GP_VISIBLE_LIMITS={};
 let REPORT_EDITS={};      // แก้ไขข้อความรายงาน (persisted)
@@ -1175,7 +1175,7 @@ function printReport(){toast('เปิดหน้าต่างพิมพ�
    SHELL
 ============================================================ */
 function setRole(r){
-  ROLE=r; F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',group:'dept',sort:'due',dir:1};
+  ROLE=r; F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:'',group:'dept',sort:'due',dir:1};
   REP_GROUP='';REP_DEPT='';REP_MONTH='08';TRACK_GROUP='';TRACK_DEPT='';TRACK_LEVEL='';TRACK_MONTH='08';
   const m=ROLE_META[r], usr=u(m.u);
   sideAvatar.textContent=usr.s; topAvatar.textContent=usr.s;
@@ -1225,7 +1225,7 @@ function buildNav(){
   deptNav.innerHTML=visibleDeptList.map(d=>`<button type="button" class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
 function go(v,arg){main.classList.remove('graphic-board-view');VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
-function navGo(v){F={...F,q:'',source:v==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};go(v);}
+function navGo(v){F={...F,q:'',source:v==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};go(v);}
 function myTasks(){const m=ROLE_META[ROLE].u;if(isExecutiveRole())return TASKS;return TASKS.filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
 function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}
 
@@ -1239,7 +1239,7 @@ function donut(data,total,centerLabel){
     <text x="70" y="66" text-anchor="middle" font-size="26" font-weight="600" fill="#182338">${total}</text>
     <text x="70" y="86" text-anchor="middle" font-size="11" fill="#67769a">${centerLabel}</text></svg>`;
 }
-function goBoardFiltered(o={}){F={...F,q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};Object.assign(F,o);go('board');}
+function goBoardFiltered(o={}){F={...F,q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};Object.assign(F,o);go('board');}
 function hbars(rows,unit=''){const max=Math.max(...rows.map(r=>r.v),1);
   return rows.map(r=>`<div class="hbar${r.click?' hlink':''}" ${r.click?`onclick="${r.click}" title="ดูรายละเอียด"`:''}><span style="display:flex;align-items:center;gap:6px">${r.dot?`<span class="dot" style="background:${r.dot}"></span>`:''}${r.label}</span>
     <span class="track"><i style="width:${Math.max(r.v/max*100,2)}%;${r.color?`background:${r.color}`:''}"></i></span>
@@ -1279,8 +1279,10 @@ function applyFilters(list){
     if(F.prio&&t.prio!==F.prio)return false;
     if(F.assignee&&t.assignee!==F.assignee)return false;
     if(F.period==='today'&&d2(t.due)!==TODAY_ISO)return false;
-    if(F.period==='overdue'&&!(t._deadline!==false&&t.due&&d2(t.due)<TODAY_ISO&&t.status!=='done'))return false;
+    if(F.period==='overdue'&&!dashboardIsOverdue(t))return false;
     if(F.period==='active'&&t.status==='done')return false;
+    if(F.period==='missingDue'&&(t._deadline===false||t.status==='done'||dashboardDueAt(t)))return false;
+    if(F.reportFrom&&!integrityInRange(integrityWorkDate(t),{from:F.reportFrom,to:F.reportTo}))return false;
     if(F.dateFrom&&d2(t.due)<F.dateFrom)return false;
     if(F.dateTo&&d2(t.start)>F.dateTo)return false;
     return true;
@@ -1311,7 +1313,7 @@ function activeFilterChips(){
 }
 function setF(k,v){F[k]=v;RENDER[VIEW](BOARD_DEPT);}
 function clearFilter(k){F[k]='';RENDER[VIEW](BOARD_DEPT);}
-function clearAllFilters(){F={...F,q:'',source:VIEW==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:''};RENDER[VIEW](BOARD_DEPT);}
+function clearAllFilters(){F={...F,q:'',source:VIEW==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};RENDER[VIEW](BOARD_DEPT);}
 function toggleSort(k){if(F.sort===k)F.dir*=-1;else{F.sort=k;F.dir=1;}RENDER[VIEW](BOARD_DEPT);}
 function filterBarLite(ph){
   const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
@@ -1408,7 +1410,7 @@ async function saveGraphicMemberLink(id){const email=normSp(val('gmEmail_'+id)),
 async function inviteGraphicMember(id){const m=gpMember(id),email=normSp(val('gmEmail_'+id));if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('กรุณากรอกอีเมลจริงของสมาชิกก่อน','info');return;}if(!confirm(`ส่งคำเชิญสร้างบัญชี Company Hub ไปที่ ${email} ใช่หรือไม่?`))return;try{const r=await SB.functions.invoke('invite-company-user',{body:{email,display_name:m.full_name||m.username,position_title:'Graphic Designer',role:'staff',department_code:'GRAPHIC',visible_departments:['GRAPHIC'],managed_departments:[],trello_member_id:id}});if(r.error)throw r.error;if(r.data&&r.data.error)throw new Error(r.data.error);toast('ส่งคำเชิญและสร้างบัญชีแล้ว');GRAPHIC_READY=false;await loadGraphic();GF.tab='projects';RENDER.graphic();}catch(e){toast('สร้างบัญชีไม่สำเร็จ · '+(e.message||'ตรวจ Edge Function'),'info');}}
 
 async function sbAllRows(table,order,ascending=true){const all=[];for(let from=0;;from+=1000){const r=await SB.from(table).select('*').order(order,{ascending}).range(from,from+999);if(r.error)throw r.error;const rows=r.data||[];all.push(...rows);if(rows.length<1000)break;}return{data:all,error:null};}
-async function loadGraphic(){if(!SB||!canViewDept('GRAPHIC'))return;try{const [jr,pr,fr,cr,ur,mr,jmr]=await Promise.all([sbAllRows('graphic_jobs','updated_at',false),SB.from('graphic_projects').select('*').order('name'),sbAllRows('graphic_job_files','created_at'),sbAllRows('graphic_job_checklist_items','position'),SB.from('profiles').select('id,display_name,email,department_code').eq('department_code','GRAPHIC'),SB.from('graphic_trello_members').select('*').order('full_name'),sbAllRows('graphic_job_members','created_at')]);const err=[jr,pr,fr,cr,mr,jmr].find(x=>x.error);if(err)throw err.error;const excludedProjects=new Set((pr.data||[]).filter(gpExcludedProject).map(p=>p.id));GRAPHIC_PROJECTS=(pr.data||[]).filter(p=>!excludedProjects.has(p.id));GRAPHIC_JOBS=(jr.data||[]).filter(j=>!excludedProjects.has(j.project_id));const visibleJobs=new Set(GRAPHIC_JOBS.map(j=>j.id));GRAPHIC_FILES=(fr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_CHECKS=(cr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_PEOPLE=ur.data||[];GRAPHIC_MEMBERS=mr.data||[];GRAPHIC_JOB_MEMBERS=(jmr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_READY=true;if(VIEW==='graphic')RENDER.graphic();else if(VIEW==='dash')RENDER.dash();else if(VIEW==='board')RENDER.board(BOARD_DEPT);else if(VIEW==='timeline')RENDER.timeline();}catch(e){GRAPHIC_READY=false;if(VIEW==='graphic')main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="ai-note"><b>ยังเปิดโมดูลไม่ได้</b><br>กรุณารัน Migration 011 · ${esc(e.message||'')}</div>`;}}
+async function loadGraphic(){if(!SB||!canViewDept('GRAPHIC'))return;try{const [jr,pr,fr,cr,ur,mr,jmr]=await Promise.all([sbAllRows('graphic_jobs','updated_at',false),SB.from('graphic_projects').select('*').order('name'),sbAllRows('graphic_job_files','created_at'),sbAllRows('graphic_job_checklist_items','position'),SB.from('profiles').select('id,display_name,email,department_code').eq('department_code','GRAPHIC'),SB.from('graphic_trello_members').select('*').order('full_name'),sbAllRows('graphic_job_members','created_at')]);const err=[jr,pr,fr,cr,ur,mr,jmr].find(x=>x.error);if(err)throw err.error;const excludedProjects=new Set((pr.data||[]).filter(gpExcludedProject).map(p=>p.id));GRAPHIC_PROJECTS=(pr.data||[]).filter(p=>!excludedProjects.has(p.id));GRAPHIC_JOBS=(jr.data||[]).filter(j=>!excludedProjects.has(j.project_id));const visibleJobs=new Set(GRAPHIC_JOBS.map(j=>j.id));GRAPHIC_FILES=(fr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_CHECKS=(cr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_PEOPLE=ur.data||[];GRAPHIC_MEMBERS=mr.data||[];GRAPHIC_JOB_MEMBERS=(jmr.data||[]).filter(x=>visibleJobs.has(x.job_id));GRAPHIC_READY=true;if(VIEW==='graphic')RENDER.graphic();else if(VIEW==='dash')RENDER.dash();else if(VIEW==='board')RENDER.board(BOARD_DEPT);else if(VIEW==='timeline')RENDER.timeline();}catch(e){GRAPHIC_READY=false;if(VIEW==='graphic')main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="ai-note"><b>ยังเปิดโมดูลไม่ได้</b><br>กรุณารัน Migration 011 · ${esc(e.message||'')}</div>`;throw e;}}
 function openGraphicBrief(){showModal(`<div class="modal-h"><div><h3>รับบรีฟงานกราฟิก</h3><div class="muted" style="font-size:11.5px">กรอกข้อมูลให้ครบ เพื่อลดรอบถามกลับ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="field"><label>ชื่องาน *</label><input class="fin" id="gbTitle" maxlength="300" placeholder="เช่น Banner โปรโมชันเดือนกันยายน"></div><div class="field"><label>รายละเอียดบรีฟ *</label><textarea class="fin" id="gbBrief" rows="4" placeholder="วัตถุประสงค์, ข้อความ, mood & tone, สิ่งห้าม"></textarea></div><div class="two"><div class="field"><label>โปรเจกต์</label><select class="fin" id="gbProject"><option value="">ไม่ระบุ</option>${GRAPHIC_PROJECTS.filter(x=>x.active).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>ประเภท</label><select class="fin" id="gbType"><option value="general">งานทั่วไป</option><option value="social">Social</option><option value="ui">UI</option><option value="monthly">รายเดือน</option><option value="urgent">งานด่วน</option></select></div></div><div class="two"><div class="field"><label>ผู้ของาน</label><input class="fin" id="gbRequester" maxlength="120" value="${esc(ACCESS_PROFILE&&ACCESS_PROFILE.display_name||'')}"></div><div class="field"><label>ผู้รับผิดชอบ</label><select class="fin" id="gbAssignee"><option value="">ยังไม่มอบหมาย</option>${GRAPHIC_PEOPLE.map(p=>`<option value="${p.id}" data-name="${esc(p.display_name||p.email)}">${esc(p.display_name||p.email)}</option>`).join('')}</select></div></div><div class="two"><div class="field"><label>กำหนดส่ง *</label><input type="datetime-local" class="fin" id="gbDue"></div><div class="field"><label>ความสำคัญ</label><select class="fin" id="gbPrio">${Object.entries(GP_PRIO).map(([k,v])=>`<option value="${k}" ${k==='mid'?'selected':''}>${v}</option>`).join('')}</select></div></div><div class="two"><div class="field"><label>ขนาด / สเปก</label><input class="fin" id="gbDim" maxlength="200" placeholder="1080×1080 px"></div><div class="field"><label>ช่องทาง</label><input class="fin" id="gbChannel" maxlength="120" placeholder="Facebook / LINE / Web"></div></div><div class="field"><label>Checklist (1 บรรทัดต่อ 1 รายการ)</label><textarea class="fin" id="gbChecks" rows="3" placeholder="Draft 1\nแก้ไขตาม Feedback\nFinal export"></textarea></div><button class="tbtn primary" id="gbSave" onclick="createGraphicJob()">สร้างงาน</button></div>`);}
 async function createGraphicJob(){const title=normSp(val('gbTitle')),brief=normSp(val('gbBrief')),due=val('gbDue');if(!title||!brief||!due){toast('กรุณากรอกชื่อ บรีฟ และกำหนดส่ง','info');return;}const ae=document.getElementById('gbAssignee'),aid=ae.value,an=aid?(ae.options[ae.selectedIndex].dataset.name||ae.options[ae.selectedIndex].text):'';const btn=document.getElementById('gbSave');btn.disabled=true;try{const row={title,brief,project_id:val('gbProject')||null,work_type:val('gbType'),requester_name:normSp(val('gbRequester')),assignee_id:aid||null,assignee_name:an,due_at:new Date(due).toISOString(),priority:val('gbPrio'),dimensions:normSp(val('gbDim')),channel:normSp(val('gbChannel')),status:val('gbType')==='monthly'?'monthly':'intake',source:'Company Hub'};const r=await SB.from('graphic_jobs').insert(row).select().single();if(r.error)throw r.error;const checks=(val('gbChecks')||'').split('\n').map(normSp).filter(Boolean);if(checks.length){const cr=await SB.from('graphic_job_checklist_items').insert(checks.map((title,i)=>({job_id:r.data.id,title,position:i}))).select();if(cr.error)throw cr.error;GRAPHIC_CHECKS.push(...cr.data);}GRAPHIC_JOBS.unshift(r.data);closeModal();RENDER.graphic();toast('สร้างงาน G-'+r.data.job_no+' แล้ว');}catch(e){btn.disabled=false;toast('สร้างงานไม่สำเร็จ · '+(e.message||''),'info');}}
 function gpExtractLinks(body){return [...new Set((body||'').match(/https?:\/\/[^\s\])>\"]+/g)||[])];}
@@ -1431,7 +1433,7 @@ RENDER.dash=function(){return isExecutiveRole()?execDash():leadDash();};
 function dashboardGraphicRows(){
   const statusMap={intake:'todo',brief:'todo',doing:'doing',review:'review',revision:'block',monthly:'doing',done:'done'};
   const mmdd=value=>{if(!value)return'';const d=new Date(value);return Number.isNaN(d.getTime())?'':String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
-  return GRAPHIC_JOBS.map(j=>({id:j.id,jobNo:j.job_no,title:j.title,dept:'GRAPHIC',status:statusMap[j.status]||'todo',prio:j.priority==='urgent'?'high':(j.priority||'mid'),priority:j.priority==='urgent'?'high':(j.priority||'mid'),assignee:j.assignee_name||'',assignees:[],creator:j.requester_name||'',start:mmdd(j.created_at),due:mmdd(j.due_at),dueAt:j.due_at||'',completedAt:j.completed_at||'',spent:0,ontime:!!(j.completed_at&&j.due_at&&new Date(j.completed_at)<=new Date(j.due_at)),desc:j.brief||'',solution:'',tags:[j.work_type,j.channel].filter(Boolean),_source:'graphic',_graphicStatus:j.status}));
+  return GRAPHIC_JOBS.map(j=>({id:j.id,jobNo:j.job_no,title:j.title,dept:'GRAPHIC',status:statusMap[j.status]||'todo',prio:j.priority==='urgent'?'high':(j.priority||'mid'),priority:j.priority==='urgent'?'high':(j.priority||'mid'),assignee:j.assignee_id||j.assignee_name||'',assignees:j.assignee_id?[j.assignee_id]:[],creator:j.requester_name||'',createdAt:j.created_at,startAt:j.created_at,start:mmdd(j.created_at),due:mmdd(j.due_at),dueAt:j.due_at||'',completedAt:j.completed_at||'',spent:0,ontime:!!(j.completed_at&&j.due_at&&new Date(j.completed_at)<=new Date(j.due_at)),desc:j.brief||'',solution:'',tags:[j.work_type,j.channel].filter(Boolean),_source:'graphic',_graphicStatus:j.status}));
 }
 function dashboardAllWork(){return [...TASKS.map(t=>({...t,_source:'task'})),...dashboardGraphicRows()];}
 /* Unified production board: include every real source already returned by Supabase/RLS. */
@@ -1462,10 +1464,10 @@ function openBoardWork(source,id){if(source==='graphic')openGraphicJob(id);else 
 function dashboardDueAt(t){if(t.dueAt)return new Date(t.dueAt);if(/^\d{2}-\d{2}$/.test(t.due||'')){const [m,d]=t.due.split('-').map(Number);return new Date(2026,m-1,d,23,59,59);}const v=new Date(t.due||'');return Number.isNaN(v.getTime())?null:v;}
 function dashboardIsOverdue(t){const due=dashboardDueAt(t);return !!due&&t.status!=='done'&&due<new Date();}
 function dashboardDueText(t){const due=dashboardDueAt(t);return due?new Intl.DateTimeFormat('th-TH',{timeZone:ORG_TIMEZONE,day:'numeric',month:'short',year:'2-digit'}).format(due):'-';}
-function openDashboardWork(source,id){if(source==='graphic')openGraphicJob(id);else openTask(id);}
-function openDashboardAllWork(){goBoardFiltered();}
-function openDashboardStatus(status){goBoardFiltered({status});}
-function openDashboardDepartment(code){if(code==='GRAPHIC'){GF.project='';GF.status='';go('graphic');}else goBoardFiltered({dept:code});}
+function openDashboardWork(source,id){openBoardWork(source,id);}
+function openDashboardAllWork(){goBoardFiltered({source:'work'});}
+function openDashboardStatus(status){goBoardFiltered({source:'work',status});}
+function openDashboardDepartment(code){if(code==='GRAPHIC'){GF.project='';GF.status='';go('graphic');}else goBoardFiltered({dept:code,source:'work'});}
 
 function execDash(){
   const all=dashboardAllWork(),done=all.filter(t=>t.status==='done').length,block=all.filter(t=>t.status==='block').length;
@@ -1492,9 +1494,9 @@ function execDash(){
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานสรุป</button><button class="tbtn primary" onclick="openTalkPopup()">🤖 ถามข้อมูล</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall==null?'รอตั้ง':overall+(overall==null?'':'')}<span style="font-size:14px">${overall==null?'':'/100'}</span></div><div class="sub">${nf(kpiCodes.length)} แผนกที่มี KPI จริง</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
-    <div class="stat click" onclick="openDashboardAllWork()"><div class="lbl">งานทั้งหมด</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${donePct}%)</div><div class="icn">${sic('i-board')}</div><span class="go">ดูรายการ →</span></div>
+    <div class="stat click" onclick="openDashboardAllWork()"><div class="lbl">งานมอบหมายและกราฟิก</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${donePct}%)</div><div class="icn">${sic('i-board')}</div><span class="go">ดูรายการ →</span></div>
     <div class="stat click" onclick="openDashboardStatus('block')"><div class="lbl">งานติดปัญหา / กำลังแก้</div><div class="val" style="color:var(--red)">${block}</div><div class="sub down">ต้องเข้าดูด่วน</div><div class="icn">${sic('i-block')}</div><span class="go">ดูงาน →</span></div>
-    <div class="stat click" onclick="openDashboardAllWork()"><div class="lbl">งานเกินกำหนด</div><div class="val" style="color:var(--amber)">${overdue}</div><div class="sub muted">คำนวณจากกำหนดส่งจริง</div><div class="icn">${sic('i-clock')}</div><span class="go">ดูงาน →</span></div>
+    <div class="stat click" onclick="goBoardFiltered({source:'work',period:'overdue'})"><div class="lbl">งานเกินกำหนด</div><div class="val" style="color:var(--amber)">${overdue}</div><div class="sub muted">คำนวณจากกำหนดส่งจริง</div><div class="icn">${sic('i-clock')}</div><span class="go">ดูงาน →</span></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:14px">
     <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงาน</h3></div><div class="pad">${statusDonutBlock(all,true)}</div></div>
@@ -1504,7 +1506,7 @@ function execDash(){
   <div class="grid" style="grid-template-columns:1.4fr 1fr">
     <div class="card"><div class="card-h"><h3>${sic('i-target')} คะแนน KPI รายแผนก</h3><span class="act">คะแนนเต็ม 100</span></div><div class="pad">
       ${kpiCodes.map(c=>{const s=deptScore(c);return `<div class="kpirow"><div class="nm">${deptName(c)}<small>${KPI[c].length} ตัวชี้วัด · <span style="color:${scoreColor(s)}">${scoreLabel(s)}</span></small></div>
-      <div class="bar"><i style="width:${s}%;background:${scoreColor(s)}"></i></div><div class="score" style="color:${scoreColor(s)}">${s}/100</div></div>`;}).join('')}${kpiLegend()}</div></div>
+      <div class="bar"><i style="width:${s}%;background:${scoreColor(s)}"></i></div><div class="score" style="color:${scoreColor(s)}">${s==null?'รอรับรอง':s+'/100'}</div></div>`;}).join('')}${kpiLegend()}</div></div>
     <div class="card"><div class="card-h"><h3>${sic('i-pin')} ข้อมูลจริงที่ต้องติดตาม</h3></div><div class="pad">
       <div>${[
         ['งานกราฟิกกำลังดำเนินการ',nf(graphicActive.length)+' งาน','var(--blue-700)',"go('graphic')"],
@@ -1543,7 +1545,7 @@ function leadDash(){
   <div class="page-h"><div><h1>แดชบอร์ดหัวหน้า — ${deptName(dept)}</h1><p>ภาพรวมงานทีม · อนุมัติ · KPI แผนก</p></div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานทีม</button><button class="tbtn primary" onclick="openCompose()">${sic('i-sparkle')} สั่งงานใหม่</button></div></div>
   <div class="stats" style="margin-bottom:14px">
-    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI แผนก</div><div class="val">${s}/100</div><div class="sub">เกณฑ์: ${scoreLabel(s)}</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
+    <div class="stat accent click" onclick="go('kpi')"><div class="lbl">KPI แผนก</div><div class="val">${s==null?'รอรับรอง':s+'/100'}</div><div class="sub">เกณฑ์: ${scoreLabel(s)}</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
     <div class="stat click" onclick="goBoardFiltered({dept:'${dept}'})"><div class="lbl">งานในทีม</div><div class="val">${dt.length}</div><div class="sub up">กำลังทำ ${dt.filter(t=>t.status==='doing').length}</div><div class="icn">${sic('i-board')}</div><span class="go">ดูบอร์ด →</span></div>
     <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'review'})"><div class="lbl">รอฉันอนุมัติ</div><div class="val" style="color:var(--amber)">${dt.filter(t=>t.status==='review').length}</div><div class="sub muted">คลิกเพื่อตรวจ</div><div class="icn">${sic('i-eye')}</div><span class="go">ตรวจงาน →</span></div>
     <div class="stat click" onclick="goBoardFiltered({dept:'${dept}',status:'block'})"><div class="lbl">ติดปัญหา</div><div class="val" style="color:var(--red)">${dt.filter(t=>t.status==='block').length}</div><div class="sub down">ช่วยปลดล็อก</div><div class="icn">${sic('i-block')}</div><span class="go">ดูงาน →</span></div>
@@ -1554,7 +1556,7 @@ function leadDash(){
   </div>
   <div class="grid" style="grid-template-columns:1.5fr 1fr">
     <div><div class="card"><div class="card-h"><h3>${sic('i-board')} งานทีมล่าสุด</h3><span class="act">${dt.length} งาน</span></div>${boardTableInner(dt.slice(0,6))}</div></div>
-    <div class="card"><div class="card-h"><h3>${sic('i-target')} KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept,true)}${kpiLegend()}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-target')} KPI ${deptName(dept)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s==null?'รอรับรอง':s+'/100'} · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(dept,true)}${kpiLegend()}</div></div>
   </div>`;
 }
 
@@ -1568,9 +1570,11 @@ RENDER.myTasks=function(){
   ${groupedBoards(list)}`;
 };
 
+let BOARD_PAGE=1,BOARD_FILTER_KEY='';
 RENDER.board=function(deptFilter){
   if(deptFilter)F.dept=deptFilter;
-  const selectedDept=deptFilter||F.dept,base=boardAllWork(),list=applyFilters(base),shown=list.slice(0,500);
+  const filterKey=JSON.stringify(F);if(filterKey!==BOARD_FILTER_KEY){BOARD_PAGE=1;BOARD_FILTER_KEY=filterKey;}
+  const selectedDept=deptFilter||F.dept,base=boardAllWork(),list=applyFilters(base);BOARD_PAGE=Math.min(BOARD_PAGE,Math.max(1,Math.ceil(list.length/50)));const shown=list.slice((BOARD_PAGE-1)*50,BOARD_PAGE*50);
   const sourceCount=Object.entries(BOARD_SOURCE_LABEL).map(([key,label])=>{const n=base.filter(t=>t._source===key).length;return n?`${label} ${nf(n)}`:'';}).filter(Boolean).join(' · ');
   main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',selectedDept?deptName(selectedDept):'ทุกแผนก')}
   <div class="page-h"><div><h1>บอร์ดงาน ${selectedDept?'— '+deptName(selectedDept):''}</h1>
@@ -1578,8 +1582,8 @@ RENDER.board=function(deptFilter){
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">${sic('i-calendar')} ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
   ${filterBar(!!deptFilter)}${activeFilterChips()}
   ${sourceBadge('live','PRODUCTION BOARD',sourceCount||'ยังไม่พบข้อมูลตามสิทธิ์')}
-  <div class="resultline">ตรงตัวกรอง ${list.length} จาก ${base.length} รายการ${list.length>shown.length?` · แสดง ${shown.length} รายการแรก กรุณากรองแผนก/พนักงานเพิ่ม`:''} · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
-  ${groupedBoards(shown)}`;
+  <div class="resultline">ตรงตัวกรอง ${list.length} จาก ${base.length} รายการ${list.length>shown.length?` · แสดง ${shown.length} รายการในหน้านี้`:''} · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
+  ${groupedBoards(shown)}<div class="filterbar"><button class="tbtn" ${BOARD_PAGE<=1?'disabled':''} onclick="BOARD_PAGE--;RENDER.board(BOARD_DEPT)">ก่อนหน้า</button><span>หน้า ${BOARD_PAGE} / ${Math.max(1,Math.ceil(list.length/50))}</span><button class="tbtn" ${BOARD_PAGE*50>=list.length?'disabled':''} onclick="BOARD_PAGE++;RENDER.board(BOARD_DEPT)">ถัดไป</button></div>`;
 };
 
 function groupedBoards(list){
@@ -1654,7 +1658,7 @@ RENDER.kpi=function(){
     ${codes.slice(0,4).map(c=>{const s=deptScore(c);return `<div class="stat"><div class="lbl">${deptName(c)}</div><div class="val" style="color:${scoreColor(s)}">${s}<span style="font-size:14px;color:var(--muted)">/100</span></div><div style="font-size:11px;color:${scoreColor(s)};margin-top:1px">${scoreLabel(s)}</div><div class="bar" style="margin-top:8px"><i style="width:${s}%;background:${scoreColor(s)}"></i></div></div>`;}).join('')}
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr">
-    ${codes.map(c=>{const s=deptScore(c);return `<div class="card"><div class="card-h"><h3><span class="dot" style="background:${deptColor(c)}"></span> ${deptName(c)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s}/100 · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(c,true)}</div></div>`;}).join('')}
+    ${codes.map(c=>{const s=deptScore(c);return `<div class="card"><div class="card-h"><h3><span class="dot" style="background:${deptColor(c)}"></span> ${deptName(c)}</h3><span class="act" style="color:${scoreColor(s)};font-weight:500">${s==null?'รอรับรอง':s+'/100'} · ${scoreLabel(s)}</span></div><div class="pad">${kpiList(c,true)}</div></div>`;}).join('')}
   </div>`;
 };
 function kpiStatus(pct){return pct>=100?{t:'ดีเยี่ยม',c:'var(--green)',ic:'✓'}:pct>=95?{t:'ดีมาก',c:'var(--green)',ic:'✓'}:pct>=90?{t:'ดี',c:'var(--amber)',ic:'≈'}:pct>=80?{t:'พอใช้',c:'var(--amber)',ic:'≈'}:{t:'ต้องปรับปรุง',c:'var(--red)',ic:'!'};}
@@ -1761,7 +1765,7 @@ function monthlyData(){
 const gyrScore=s=>{const g=s>=90?['Green','var(--green)']:s>=75?['Yellow','var(--amber)']:['Red','var(--red)'];return '<span class="gyr" style="background:'+g[1]+'">'+g[0]+'</span>';};
 const gyrKpi=pc=>{const g=pc>=100?['Green','var(--green)']:pc>=85?['Yellow','var(--amber)']:['Red','var(--red)'];return '<span class="gyr" style="background:'+g[1]+'">'+g[0]+'</span>';};
 function mKpiRows(d,exp){return d.company
-  ? d.codes.map(c=>{const s=deptScore(c);const g=s>=95?'Green':s>=80?'Yellow':'Red';return `<tr><td>${deptName(c)}</td><td>—</td><td>${s}/100</td><td>${exp?g:gyrScore(s)}</td><td>${scoreLabel(s)}</td></tr>`;}).join('')
+  ? d.codes.map(c=>{const s=deptScore(c);const g=s>=95?'Green':s>=80?'Yellow':'Red';return `<tr><td>${deptName(c)}</td><td>—</td><td>${s==null?'รอรับรอง':s+'/100'}</td><td>${exp?g:gyrScore(s)}</td><td>${scoreLabel(s)}</td></tr>`;}).join('')
   : (KPI[d.dept]?KPI[d.dept].map(k=>{const g=k.pct>=95?'Green':k.pct>=80?'Yellow':'Red';return `<tr><td>${k.n}</td><td>${k.tg}</td><td>${acDisp(k)}</td><td>${exp?g:gyrKpi(k.pct)}</td><td>${kpiStatus(k.pct).t}</td></tr>`;}).join(''):'<tr><td colspan="5">—</td></tr>');}
 function mMile(d){return d.done.length?d.done.map((t,i)=>`<tr><td>${i+1}</td><td>${t._source==='graphic'?`G-${t.jobNo} · `:''}${t.title}</td><td>${t.solution?t.solution.slice(0,70):(t._source==='graphic'?'Graphic Production ส่งมอบแล้ว':'สำเร็จตามเป้า')}</td><td>เสร็จ</td></tr>`).join(''):'<tr><td colspan="4">—</td></tr>';}
 function mProb(d){const rows=[...d.blocked,...d.overdue.filter(t=>t.status!=='block')];return rows.length?rows.map((t,i)=>`<tr><td>${i+1}</td><td>${t.title}</td><td>${t.desc?t.desc.slice(0,55):'อยู่ระหว่างวิเคราะห์'}</td><td>${t.prio==='high'?'สูง':'ปานกลาง'}</td><td>${t.status==='block'?'Red':'Yellow'}</td></tr>`).join(''):'<tr><td colspan="5">ไม่มี</td></tr>';}
@@ -2654,56 +2658,56 @@ async function cloudLoadAnnouncements(){
   if(!SB)return;ANN.length=0;
   try{
     const [ann,recipients,comments]=await Promise.all([
-      SB.from('announcements').select('id,creator_id,title,body,starts_on,ends_on,pinned,created_at').order('pinned',{ascending:false}).order('created_at',{ascending:false}),
-      SB.from('announcement_recipients').select('announcement_id,profile_id,acknowledged_at'),
-      SB.from('announcement_comments').select('announcement_id,author_id,body,created_at').order('created_at',{ascending:true})
+      integrityReadAll(()=>SB.from('announcements').select('id,creator_id,title,body,starts_on,ends_on,pinned,created_at'),["id"]),
+      integrityReadAll(()=>SB.from('announcement_recipients').select('announcement_id,profile_id,acknowledged_at'),["announcement_id", "profile_id"]),
+      integrityReadAll(()=>SB.from('announcement_comments').select('announcement_id,author_id,body,created_at'),["id"]),
     ]);
-    if(ann.error)throw ann.error;
+    if(ann.error)throw ann.error;if(recipients.error)throw recipients.error;if(comments.error)throw comments.error;
     const recBy=new Map(),ackBy=new Map(),commentBy=new Map();
     if(!recipients.error)(recipients.data||[]).forEach(x=>{if(!recBy.has(x.announcement_id))recBy.set(x.announcement_id,[]);recBy.get(x.announcement_id).push(x.profile_id);if(x.acknowledged_at){if(!ackBy.has(x.announcement_id))ackBy.set(x.announcement_id,[]);ackBy.get(x.announcement_id).push(x.profile_id);}});
-    if(!comments.error)(comments.data||[]).forEach(x=>{if(!commentBy.has(x.announcement_id))commentBy.set(x.announcement_id,[]);commentBy.get(x.announcement_id).push({who:x.author_id,text:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
-    (ann.data||[]).forEach(x=>{const audienceIds=recBy.get(x.id)||[];ANN.push({id:x.id,dbId:x.id,who:x.creator_id,pin:x.pinned,title:x.title,body:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),audience:audienceIds.length?audienceIds.map(shortName).join(', '):'ทั้งบริษัท',from:x.starts_on,until:x.ends_on||'',audienceIds,acks:ackBy.get(x.id)||[],comments:commentBy.get(x.id)||[]});});
-  }catch(e){console.warn('announcement load:',e.message||e);}
+    if(!comments.error)(comments.data||[]).sort((a,b)=>a.created_at.localeCompare(b.created_at)).forEach(x=>{if(!commentBy.has(x.announcement_id))commentBy.set(x.announcement_id,[]);commentBy.get(x.announcement_id).push({who:x.author_id,text:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
+    (ann.data||[]).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.created_at.localeCompare(a.created_at)).forEach(x=>{const audienceIds=recBy.get(x.id)||[];ANN.push({id:x.id,dbId:x.id,who:x.creator_id,pin:x.pinned,title:x.title,body:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),audience:audienceIds.length?audienceIds.map(shortName).join(', '):'ทั้งบริษัท',from:x.starts_on,until:x.ends_on||'',audienceIds,acks:ackBy.get(x.id)||[],comments:commentBy.get(x.id)||[]});});
+  }catch(e){console.warn('announcement load:',e.message||e);throw e;}
 }
 async function cloudLoadKnowledge(){
   if(!SB)return;KB.length=0;
-  try{const r=await SB.from('knowledge_articles').select('id,source_task_id,department_code,title,problem,solution,status,prototype_payload,created_at,updated_at').order('updated_at',{ascending:false});if(r.error)throw r.error;(r.data||[]).forEach((x,i)=>KB.push({id:'KB-'+String(i+1).padStart(3,'0'),dbId:x.id,dept:x.department_code,title:x.title,problem:x.problem||'',solution:x.solution||'',from:x.source_task_id||'',tags:Array.isArray(x.prototype_payload?.tags)?x.prototype_payload.tags:[],status:x.status}));}catch(e){console.warn('knowledge load:',e.message||e);}
+  try{const r=await SB.from('knowledge_articles').select('id,source_task_id,department_code,title,problem,solution,status,prototype_payload,created_at,updated_at').order('updated_at',{ascending:false});if(r.error)throw r.error;(r.data||[]).forEach((x,i)=>KB.push({id:'KB-'+String(i+1).padStart(3,'0'),dbId:x.id,dept:x.department_code,title:x.title,problem:x.problem||'',solution:x.solution||'',from:x.source_task_id||'',tags:Array.isArray(x.prototype_payload?.tags)?x.prototype_payload.tags:[],status:x.status}));}catch(e){console.warn('knowledge load:',e.message||e);throw e;}
 }
 async function cloudLoadTasks(){
   if(!SB)return;
   TASKS_READY=false;TASKS.length=0;TASK_PROFILES.length=0;
   try{
     const [tasks,assignments,profiles,timeEntries,comments]=await Promise.all([
-      SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,prototype_payload,created_at,updated_at').order('due_at',{ascending:true}),
-      SB.from('task_assignees').select('task_id,user_id,assigned_at'),
-      SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('active',true).order('display_name'),
-      SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),
-      SB.from('task_comments').select('task_id,author_id,body,created_at').order('created_at',{ascending:false})
+      integrityReadAll(()=>SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,prototype_payload,created_at,updated_at'),["id"]),
+      integrityReadAll(()=>SB.from('task_assignees').select('task_id,user_id,assigned_at'),["task_id", "user_id"]),
+      integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('active',true),["id"]),
+      integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
+      integrityReadAll(()=>SB.from('task_comments').select('task_id,author_id,body,created_at'),["id"]),
     ]);
-    if(tasks.error)throw tasks.error;if(assignments.error)throw assignments.error;if(profiles.error)throw profiles.error;
+    if(timeEntries.error)throw timeEntries.error;if(comments.error)throw comments.error;if(tasks.error)throw tasks.error;if(assignments.error)throw assignments.error;if(profiles.error)throw profiles.error;
     TASK_PROFILES.push(...(profiles.data||[]));
     TASK_PROFILES.forEach((p,i)=>{const name=p.display_name||p.email||'ผู้ใช้',colors=['#2563eb','#0f766e','#7c3aed','#c2410c','#be185d','#0369a1'];USERS[p.id]={n:name,s:name.slice(0,1).toUpperCase(),c:colors[i%colors.length]};});
     ASSIGNABLE=TASK_PROFILES.filter(p=>canAdminAccess()||MANAGE_DEPTS.includes(p.department_code)||p.id===ACCESS_PROFILE?.id).map(p=>p.id);
     const byTask=new Map();(assignments.data||[]).forEach(a=>{if(!byTask.has(a.task_id))byTask.set(a.task_id,[]);byTask.get(a.task_id).push(a.user_id);});
     const spent=new Map();if(!timeEntries.error)(timeEntries.data||[]).forEach(x=>spent.set(x.task_id,(spent.get(x.task_id)||0)+Number(x.minutes||0)));
     const taskLog=new Map();if(!comments.error)(comments.data||[]).forEach(x=>{if(!taskLog.has(x.task_id))taskLog.set(x.task_id,[]);taskLog.get(x.task_id).push({who:x.author_id,txt:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
-    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,status:row.status,prio:row.priority,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
+    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,status:row.status,prio:row.priority,createdAt:row.created_at,startAt:row.start_at,dueAt:row.due_at,completedAt:row.closed_at,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
     TASKS_READY=true;
-  }catch(e){console.warn('task load:',e.message||e);TASKS.length=0;TASKS_READY=false;}
+  }catch(e){console.warn('task load:',e.message||e);TASKS.length=0;TASKS_READY=false;throw e;}
 }
 async function cloudLoadImplementationActions(){
   if(!SB)return;
   IMPLEMENTATION_ACTIONS.length=0;SOP_RECORDS.length=0;IMPLEMENTATION_ACTIONS_READY=false;
   try{
     const [actions,sops]=await Promise.all([
-      SB.from('implementation_actions').select('id,title,detail,department_code,owner_label,owner_user_id,phase,start_date,due_date,status,priority,success_measure,evidence,source_document,updated_at').order('due_date').order('id'),
-      SB.from('sops').select('id,department_code,title,status,created_at').order('created_at',{ascending:false})
+      integrityReadAll(()=>SB.from('implementation_actions').select('id,title,detail,department_code,owner_label,owner_user_id,phase,start_date,due_date,status,priority,success_measure,evidence,source_document,updated_at'),["id"]),
+      integrityReadAll(()=>SB.from('sops').select('id,department_code,title,status,created_at'),["id"]),
     ]);
-    if(actions.error)throw actions.error;
+    if(actions.error)throw actions.error;if(sops.error)throw sops.error;
     IMPLEMENTATION_ACTIONS.push(...(actions.data||[]));
     if(!sops.error)SOP_RECORDS.push(...(sops.data||[]));
     IMPLEMENTATION_ACTIONS_READY=true;
-  }catch(e){console.warn('implementation action load:',e.message||e);}
+  }catch(e){console.warn('implementation action load:',e.message||e);throw e;}
 }
 let KPI_CATALOG={};
 async function cloudLoadKpis(){
@@ -2712,39 +2716,40 @@ async function cloudLoadKpis(){
   Object.keys(KPI).forEach(code=>delete KPI[code]);
   try{
     const [definitions,results]=await Promise.all([
-      SB.from('kpi_definitions').select('id,department_code,name,target,weight,formula,source,active,prototype_payload').eq('active',true),
-      SB.from('kpi_results').select('definition_id,period_start,period_end,actual,status').order('period_end',{ascending:false})
+      integrityReadAll(()=>SB.from('kpi_definitions').select('id,department_code,name,target,weight,formula,source,active,prototype_payload').eq('active',true),["id"]),
+      integrityReadAll(()=>SB.from('kpi_results').select('definition_id,period_start,period_end,actual,status'),["id"]),
     ]);
     if(definitions.error)throw definitions.error;if(results.error)throw results.error;
-    const latest=new Map();(results.data||[]).forEach(row=>{if(!latest.has(row.definition_id))latest.set(row.definition_id,row);});
+    const latest=new Map();(results.data||[]).sort((a,b)=>b.period_end.localeCompare(a.period_end)).forEach(row=>{if(!latest.has(row.definition_id))latest.set(row.definition_id,row);});
     (definitions.data||[]).forEach(def=>{
       if(!DEPTS.some(d=>d.code===def.department_code))return;
       const result=latest.get(def.id),target=Number(def.target),actual=result?Number(result.actual):null,weight=Number(def.weight);
       if(!KPI_CATALOG[def.department_code])KPI_CATALOG[def.department_code]=[];
-      KPI_CATALOG[def.department_code].push({id:def.id,n:def.name,tg:def.prototype_payload?.unit==='ratio'?`${Number(def.target)*100}%`:String(def.target),tgt:target,w:weight,ac:actual,pct:target?Math.round(actual/target*100):0,formula:def.formula,source:def.source,metadata:def.prototype_payload||{},period:result?`${result.period_start} – ${result.period_end}`:'ยังไม่มีผลจริง',status:result?.status||'draft'});
+      KPI_CATALOG[def.department_code].push({id:def.id,n:def.name,tg:def.prototype_payload?.unit==='ratio'?`${Number(def.target)*100}%`:String(def.target),tgt:target,w:weight,ac:actual,pct:integrityKpiAchievement(actual,target,def.prototype_payload||{}),formula:def.formula,source:def.source,metadata:def.prototype_payload||{},period:result?`${result.period_start} – ${result.period_end}`:'ยังไม่มีผลจริง',status:result?.status||'draft'});
     });
     for(const [code,rows] of Object.entries(KPI_CATALOG)){
-      if(rows.length && rows.every(k=>k.ac!==null && ['approved','locked'].includes(k.status) && k.period===rows[0].period) && Math.abs(rows.reduce((s,k)=>s+k.w,0)-1)<0.000001)KPI[code]=rows;
+      if(rows.length && rows.every(k=>k.ac!==null && k.pct!==null && ['approved','locked'].includes(k.status) && k.period===rows[0].period) && Math.abs(rows.reduce((s,k)=>s+k.w,0)-1)<0.000001)KPI[code]=rows;
     }
-  }catch(e){KPI_CATALOG={};console.warn('kpi load:',e.message||e);Object.keys(KPI).forEach(code=>delete KPI[code]);}
+    const accepted=Object.values(KPI).map(rows=>rows[0].period).sort();
+    const newest=accepted.at(-1);for(const code of Object.keys(KPI))if(KPI[code][0].period!==newest)delete KPI[code];
+  }catch(e){KPI_CATALOG={};console.warn('kpi load:',e.message||e);Object.keys(KPI).forEach(code=>delete KPI[code]);throw e;}
 }
 async function cloudLoadIssues(){
   if(!SB)return;
   try{
     PROBLEMS.length=0;
     const baseFields='id,created_by,created_at,updated_at,department_code,occurred_at,project_code,category,problem,priority,reporter,status,owner_team,solution,resolution_minutes,root_cause,preventive_action,solution_type,solution_reference_type,solution_reference_id,solution_verified,solution_verified_by,solution_verified_at';
-    const extraFields='service_name,provider_name,impact_scope,impact_summary,affected_customer_count,affected_transaction_count,financial_impact,workaround,evidence_url,acknowledged_at,resolved_at,source_sheet,source_row,data_quality_flags';
-    let res=await SB.from('operational_issues').select(baseFields+','+extraFields).order('occurred_at',{ascending:false}).limit(1000);
-    if(res.error&&/column|schema cache/i.test(res.error.message||''))res=await SB.from('operational_issues').select(baseFields).order('occurred_at',{ascending:false}).limit(1000);
+    const extraFields='owner_profile_id,service_name,provider_name,impact_scope,impact_summary,affected_customer_count,affected_transaction_count,financial_impact,workaround,evidence_url,acknowledged_at,resolved_at,source_sheet,source_row,data_quality_flags';
+    let res;try{res=await integrityReadAll(()=>SB.from('operational_issues').select(baseFields+','+extraFields));}catch(error){if(!/column|schema cache/i.test(error.message||''))throw error;res=await integrityReadAll(()=>SB.from('operational_issues').select(baseFields));}
     if(res.error)throw res.error;
     if(!res.data||!res.data.length){PROB_SRC.file='Supabase · operational_issues';PROB_SRC.asof='ไม่มีข้อมูลตามสิทธิ์';PROB_SRC.n=0;return;}
     const bangkokDate=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'});
     const bangkokTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
     const rows=res.data.map(r=>{const at=new Date(r.occurred_at);return {
-      id:r.id,dept:r.department_code||'',createdBy:r.created_by,createdAt:r.created_at,updatedAt:r.updated_at,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||'',service:r.service_name||'',provider:r.provider_name||'',impactScope:r.impact_scope||'unknown',impact:r.impact_summary||'',affectedCustomers:r.affected_customer_count==null?null:Number(r.affected_customer_count),affectedTransactions:r.affected_transaction_count==null?null:Number(r.affected_transaction_count),financialImpact:r.financial_impact==null?null:Number(r.financial_impact),workaround:r.workaround||'',evidenceUrl:r.evidence_url||'',acknowledgedAt:r.acknowledged_at||'',resolvedAt:r.resolved_at||'',sourceSheet:r.source_sheet||'',sourceRow:r.source_row||null,qualityFlags:r.data_quality_flags||[]
+      id:r.id,dept:r.department_code||'',ownerProfileId:r.owner_profile_id||null,createdBy:r.created_by,createdAt:r.created_at,updatedAt:r.updated_at,date:bangkokDate.format(at),time:bangkokTime.format(at),project:r.project_code,cat:r.category,problem:r.problem,prio:r.priority,reporter:r.reporter,status:r.status,owner:r.owner_team,solution:r.solution,resmin:r.resolution_minutes==null?null:Number(r.resolution_minutes),rootCause:r.root_cause||'',preventive:r.preventive_action||'',solutionType:r.solution_type||'',referenceType:r.solution_reference_type||'',referenceId:r.solution_reference_id||'',verified:!!r.solution_verified,verifiedBy:r.solution_verified_by||'',verifiedAt:r.solution_verified_at||'',service:r.service_name||'',provider:r.provider_name||'',impactScope:r.impact_scope||'unknown',impact:r.impact_summary||'',affectedCustomers:r.affected_customer_count==null?null:Number(r.affected_customer_count),affectedTransactions:r.affected_transaction_count==null?null:Number(r.affected_transaction_count),financialImpact:r.financial_impact==null?null:Number(r.financial_impact),workaround:r.workaround||'',evidenceUrl:r.evidence_url||'',acknowledgedAt:r.acknowledged_at||'',resolvedAt:r.resolved_at||'',sourceSheet:r.source_sheet||'',sourceRow:r.source_row||null,qualityFlags:r.data_quality_flags||[]
     };});
     PROBLEMS.length=0;PROBLEMS.push(...rows);PROB_SRC.file='Supabase · operational_issues';PROB_SRC.asof='อัปเดตจากฐานข้อมูลกลาง';PROB_SRC.n=rows.length;
-  }catch(e){console.warn('issue load:',e.message||e);}
+  }catch(e){console.warn('issue load:',e.message||e);throw e;}
 }
 async function sbLogin(){
   if(!SB){toast('ยังเชื่อมต่อฐานข้อมูลไม่ได้','info');return;}
@@ -2826,6 +2831,7 @@ function closeManual(){if(_hlp)_hlp.classList.remove('show');}
 <link rel="stylesheet" href="team-board.css?v=20260905">
 <script src="team-board.js?v=20260905"></script>
 <script src="company-accounts.js?v=20260905"></script>
+<script src="reporting-integrity.js?v=20260905-1"></script>
 <div id="loginBg" class="login-bg" style="display:none">
   <div class="login-card">
     <div class="login-logo">CH</div>

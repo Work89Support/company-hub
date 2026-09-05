@@ -40,7 +40,7 @@ function activityReadinessData(){
 }
 function activityReadinessBlock(executive=false){
   const data=activityReadinessData(),missing=data.filter(x=>x.state==='missing').length,ready=data.length-missing;
-  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>${sic('i-clipboard')} ความพร้อมข้อมูลรายแผนก</h3><span class="act">พร้อม ${nf(ready)} · ขาด ${nf(missing)}</span></div><div class="pad"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px">${data.map(x=>`<button class="tbtn" style="height:auto;min-height:74px;text-align:left;justify-content:flex-start;padding:11px;border-color:${x.state==='missing'?'#fecaca':'#bbf7d0'};background:${x.state==='missing'?'#fff7f7':'#f7fff9'}" onclick="${x.graphic?"go('graphic')":`ACTIVITY_FILTER.department='${esc(x.code)}';ACTIVITY_PAGE=1;go('activity')`}"><span style="width:100%"><b>${esc(x.sheet)}</b><br><span style="color:${x.state==='missing'?'var(--red)':'var(--green)'}">${x.state==='missing'?'ยังไม่มีบันทึกจริง':nf(x.rows)+(x.graphic?' งาน':' กิจกรรม')}</span>${x.rows?`<br><small class="muted">${activityDateLabel(x.from)}–${activityDateLabel(x.to)} · ${x.graphic?'รอตรวจ':'ตรวจข้อมูล'} ${nf(x.review)}</small>`:''}</span></button>`).join('')}</div>${executive&&missing?`<div class="ai-note" style="margin-top:12px"><b>ข้อควรระวัง:</b> แผนกที่ขึ้นว่า “ยังไม่มีบันทึกจริง” จะไม่ถูกนำไปตีความว่าผลงานเป็นศูนย์</div>`:''}</div></div>`;
+  return `<div class="card" style="margin-top:16px"><div class="card-h"><h3>${sic('i-clipboard')} ความพร้อมข้อมูลรายแผนก</h3><span class="act">มีข้อมูล ${nf(ready)} · ยังไม่มี ${nf(missing)}</span></div><div class="pad"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:9px">${data.map(x=>`<button class="tbtn" style="height:auto;min-height:74px;text-align:left;justify-content:flex-start;padding:11px;border-color:${x.state==='missing'?'#fecaca':'#bbf7d0'};background:${x.state==='missing'?'#fff7f7':'#f7fff9'}" onclick="${x.graphic?"go('graphic')":`ACTIVITY_FILTER.department='${esc(x.code)}';ACTIVITY_PAGE=1;go('activity')`}"><span style="width:100%"><b>${esc(x.sheet)}</b><br><span style="color:${x.state==='missing'?'var(--red)':'var(--green)'}">${x.state==='missing'?'ยังไม่มีบันทึกจริง':nf(x.rows)+(x.graphic?' งาน':' กิจกรรม')}</span>${x.rows?`<br><small class="muted">${activityDateLabel(x.from)}–${activityDateLabel(x.to)} · ${x.graphic?'รอตรวจ':'ตรวจข้อมูล'} ${nf(x.review)}</small>`:''}</span></button>`).join('')}</div>${executive&&missing?`<div class="ai-note" style="margin-top:12px"><b>ข้อควรระวัง:</b> แผนกที่ขึ้นว่า “ยังไม่มีบันทึกจริง” จะไม่ถูกนำไปตีความว่าผลงานเป็นศูนย์</div>`:''}</div></div>`;
 }
 function activityVisibleRows(){
   const q=ACTIVITY_FILTER.query.trim().toLowerCase();
@@ -81,6 +81,7 @@ async function loadActivities(){
   }catch(error){
     ACTIVITY_READY=false;
     if(VIEW==='activity') main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="ai-note"><b>ยังเปิดข้อมูลกิจกรรมไม่ได้</b><br>กรุณารัน Migration 008 · ${esc(error.message||'')}</div>`;
+    throw error;
   }
 }
 
