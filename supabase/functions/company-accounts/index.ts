@@ -68,20 +68,20 @@ export default {fetch:async(request:Request)=>{
   return json({ok:true,login_name:target.login_name,initial_password:password});
  }
  if(action==='provision'){
-  const name=clean(b.name),dept=clean(b.department_code);
+  const sourceName=String(b.name||'').normalize('NFC').trim(),name=clean(b.name),dept=clean(b.department_code);
   if(name.length<1||name.length>100||/[\r\n\x00-\x1f]/.test(String(b.name))||['ทุกคน','all','hr','buki grace','บอส แก๋ม'].includes(name.toLowerCase())||name.includes('/'))return json({error:'ต้องเป็นชื่อบุคคลเดียว'},400);
   const department=required(await admin.from('departments').select('code,name').eq('code',dept).single());
-  const source=checked(await admin.from('daily_activities').select('id,employee_id').eq('department_code',dept).eq('employee_name',name).limit(1000))??[];
-  const members=dept==='GRAPHIC'?checked(await admin.from('graphic_trello_members').select('trello_member_id,linked_profile_id').eq('full_name',name))??[]:[];
+  const source=checked(await admin.from('daily_activities').select('id,employee_id').eq('department_code',dept).eq('employee_name',sourceName).limit(1000))??[];
+  const members=dept==='GRAPHIC'?checked(await admin.from('graphic_trello_members').select('trello_member_id,linked_profile_id').eq('full_name',sourceName))??[]:[];
   if(!source.length&&!members.length)return json({error:'ไม่พบชื่อนี้ในข้อมูลต้นทาง'},400);
   if(source.some((r:any)=>r.employee_id)||members.some((r:any)=>r.linked_profile_id))return json({error:'ชื่อนี้มีการเชื่อมบัญชีแล้ว ให้ใช้บัญชีเดิม'},409);
-  const display=name+' ('+department.name+')',login=display.toLowerCase(),sourceKey=await hash(dept+'\x1f'+name);
+  const display=name+' ('+department.name+')',login=display.toLowerCase(),sourceKey=await hash(dept+'\x1f'+sourceName);
   const existing=checked(await admin.from('company_login_accounts').select('profile_id,login_name').eq('source_key',sourceKey).maybeSingle());
   if(existing)return json({existing:true,...existing});
   const same=checked(await admin.from('profiles').select('id').eq('department_code',dept).in('display_name',[name,display]).limit(1))??[];
   if(same.length)return json({error:'มีบัญชีชื่อนี้แล้ว ต้องจับคู่บัญชีเดิม'},409);
   const password=secret(),email=crypto.randomUUID()+'@company-hub.invalid';
-  const created=await admin.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:display}});
+  const created=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{company_role:'staff',department:dept},user_metadata:{display_name:display}});
   if(created.error||!created.data.user)throw new Error('CREATE_FAILED');
   const id=created.data.user.id;
   // Default profile is inactive until the private directory and scope exist.
@@ -89,9 +89,10 @@ export default {fetch:async(request:Request)=>{
   try{
    checked(await admin.from('profiles').upsert({id,email,display_name:display,role:'staff',department_code:dept,active:false,position_title:''}));
    checked(await admin.from('company_login_accounts').insert({profile_id:id,login_name:login,source_key:sourceKey,personal_name:name,created_by:user.id}));
-   checked(await admin.from('profile_departments').insert({profile_id:id,department_code:dept,can_manage:false}));
+   checked(await admin.from('profile_departments').delete().eq('profile_id',id).neq('department_code',dept));
+   checked(await admin.from('profile_departments').upsert({profile_id:id,department_code:dept,can_manage:false},{onConflict:'profile_id,department_code'}));
    checked(await admin.from('user_access_policies').insert({profile_id:id,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id}));
-   checked(await admin.rpc('link_company_source_owner',{p_profile:id,p_name:name,p_dept:dept}));
+   checked(await admin.rpc('link_company_source_owner',{p_profile:id,p_name:sourceName,p_dept:dept}));
    checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:id,old_access:{},new_access:{action:'username_account_created',role:'staff',department_code:dept}}));
    checked(await admin.from('profiles').update({active:true}).eq('id',id));
   }catch(error){await admin.from('profiles').update({active:false}).eq('id',id);throw error;}

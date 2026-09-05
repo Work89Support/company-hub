@@ -18,3 +18,14 @@ role='admin';allowed=false;assert.equal((await send('list')).status,403,'admin s
 verified=false;assert.equal((await send('reset',{profile_id:'other'})).status,401);verified=true;active=false;assert.equal((await send('status')).status,403);active=true;
 rate=false;assert.equal((await send('login',{login:'คน (ทีม)',password:'secret'})).status,429,'persistent rate limit consulted');
 console.log('PASS account Edge: authentication, stale JWT, pending setup, device gate, staff/admin separation, password validation and serialized operations');
+// Simulate the production Auth trigger, which pre-creates a department scope.
+for(const dept of ['GRAPHIC','CRM']){
+ const scopes=new Map();let newProfile=null,metadata;
+ ctx.createClient=()=>({auth:{getUser:async()=>({data:{user:{id:'admin'}}}),admin:{createUser:async body=>{metadata=body.app_metadata;const initial=metadata?.department||'GRAPHIC';scopes.set(initial,false);return {data:{user:{id:'new'}}};}}},rpc:async(name,args)=>{if(name==='link_company_source_owner')assert.equal(args.p_name,'บุคคล  WFH');return {data:true,error:null};},from(table){let operation='select',values,filters={};const q={select(){return q},eq(k,v){filters[k]=v;return q},neq(k,v){filters['not_'+k]=v;return q},in(){filters.existing=true;return q},limit(){return q},single(){return q},maybeSingle(){return q},insert(v){operation='insert';values=v;return q},upsert(v){operation='upsert';values=v;return q},update(v){operation='update';values=v;return q},delete(){operation='delete';return q},then(resolve){let data=null,error=null;
+ if(operation==='select'){if(table==='profiles')data=filters.existing?[]:{id:'admin',active:true,role:'admin'};else if(table==='departments')data={code:dept,name:dept};else if(table==='daily_activities'){assert.equal(filters.employee_name,'บุคคล  WFH');data=[{id:1,employee_id:null}];}else if(table==='graphic_trello_members')data=[{trello_member_id:'m',linked_profile_id:null}];}
+ else if(table==='profiles'){newProfile={...newProfile,...values};}
+ else if(table==='profile_departments'){if(operation==='delete'){for(const key of scopes.keys())if(key!==filters.not_department_code)scopes.delete(key);}else if(operation==='insert'&&scopes.has(values.department_code)){error={message:'duplicate scope'};}else scopes.set(values.department_code,values.can_manage);}
+ return Promise.resolve({data,error}).then(resolve);}};return q;}});
+ const result=await send('provision',{name:'บุคคล  WFH',department_code:dept});assert.equal(result.status,200);assert.equal(metadata.department,dept);assert.equal(metadata.company_role,'staff');assert.deepEqual([...scopes.entries()],[[dept,false]]);assert.equal(newProfile.active,true);
+}
+console.log('PASS provision with real-trigger behavior: one staff department, no duplicate GRAPHIC scope');
