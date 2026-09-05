@@ -5,12 +5,15 @@ window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
 const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
-window.eval(source+`\nwindow.reviewAPI={integrityRange,integrityInRange,integrityDay,integrityOnTime,integrityReadAll,integrityKpiAchievement,dashboardDueAt,integrityReportRows,run:()=>{
+window.eval(source+`\nwindow.reviewAPI={workOwner,integrityRange,integrityInRange,integrityDay,integrityOnTime,integrityReadAll,integrityKpiAchievement,dashboardDueAt,integrityReportRows,run:()=>{
  ACCESS_PROFILE={id:'me',department_code:'CRM',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=['CRM','GRAPHIC'];
  TASKS.length=0;GRAPHIC_JOBS=[];ACTIVITY_ROWS=[{id:1,department_code:'CRM',activity_date:'2020-01-01',activity:'old'},{id:2,department_code:'CRM',activity_date:bangkokTodayISO(),activity:'new'}];ACTIVITY_READY=true;PROBLEMS.length=0;
+ KPI_CATALOG.CRM=[{id:'historical',tgt:10,w:1,metadata:{},period:'2026-09-01 – 2026-09-30',ac:5,pct:50,status:'approved'}];INTEGRITY_KPI_HISTORY=[{definition_id:'historical',period_start:'2026-08-01',period_end:'2026-08-31',actual:8,status:'approved'}];if(integrityScore(['CRM'],integrityRange('month','2026-08'))!==80)throw new Error('historical KPI period mismatch');KPI_CATALOG={};INTEGRITY_KPI_HISTORY=[];
  REP_PERIOD='today';const m=integrityReportModel();RENDER.reports();return m;
 }};`);
 const api=window.reviewAPI;
+assert.equal(api.workOwner({_source:'graphic',assignee:'12345678-1234-1234-1234-123456789abc'}),'ยังไม่มอบหมาย');
+assert.equal(api.workOwner({_source:'graphic',assignee:'ทีมออกแบบ'}),'ทีมออกแบบ');
 assert.deepEqual(JSON.parse(JSON.stringify(api.integrityRange('month','2024-02'))),{from:'2024-02-01',to:'2024-02-29'});
 assert.deepEqual(JSON.parse(JSON.stringify(api.integrityRange('quarter','2026-12'))),{from:'2026-10-01',to:'2026-12-31'});
 assert.equal(api.integrityDay('2026-09-04T18:00:00Z'),'2026-09-05');
