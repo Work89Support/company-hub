@@ -7,14 +7,14 @@ import json
 import unicodedata
 from pathlib import Path
 
-DEPARTMENTS = {'BOM':'ทีมบริหาร','FIN':'การเงิน','AUD123':'ออดิท 123','AUDXB':'ออดิท XB','HR':'ทรัพยากรบุคคล','MKT':'การตลาด','PROG':'โปรแกรมเมอร์','CRM':'ลูกค้าสัมพันธ์','ADMIN':'แอดมิน','QC':'ตรวจสอบคุณภาพ','BO':'Back Office','KPI':'KPI','SECRET':'เลขานุการ','GRAPHIC':'กราฟิก'}
+DEPARTMENTS = {'BOM':'ทีมบริหาร','FIN':'การเงิน','AUD123':'ออดิท 123','AUDXB':'ออดิท XB','HR':'ทรัพยากรบุคคล','MKT':'การตลาด','PROG':'โปรแกรมเมอร์','CRM':'ลูกค้าสัมพันธ์','ADMIN':'แอดมิน','QC':'ตรวจสอบคุณภาพ','BO':'Back Office','KPI':'KPI','GRAPHIC':'กราฟิก'}
 SHARED = {'ทุกคน','all','hr','buki grace','บอส แก๋ม'}
 
 def prepare(activities, members):
     people = {}
     for row in activities:
         name = str(row.get('employee_name') or '').strip()
-        if not name:
+        if not name or row.get('department_code') not in DEPARTMENTS:
             continue
         key = (row['department_code'], name)
         person = people.setdefault(key, {'rows':0,'sheets':set(),'member_ids':set()})

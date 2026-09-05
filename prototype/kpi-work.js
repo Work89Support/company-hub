@@ -4,12 +4,12 @@ async function openWorkKpis(kind,id,department){
  if(!SB||!KPI_WORK_COLUMNS[kind])return;
  try{
   const [defs,links]=await Promise.all([
-   SB.from('kpi_definitions').select('id,name,target,source').eq('department_code',department).eq('active',true).order('name'),
+   SB.from('kpi_definitions').select('id,name,target,weight,formula,source,prototype_payload').eq('department_code',department).eq('active',true).order('name'),
    SB.from('kpi_work_links').select('definition_id').eq(KPI_WORK_COLUMNS[kind],id)
   ]);
   if(defs.error)throw defs.error;if(links.error)throw links.error;
   const expected=(links.data||[]).map(x=>x.definition_id),definitions=defs.data||[];
-  showModal(`<div class="modal-h"><h3>แท็ก KPI · ${esc(deptName(department))}</h3><button class="x" onclick="closeModal()">×</button></div><form class="pad" id="work-kpi-form"><p>เลือกตัวชี้วัดที่งานนี้เป็นหลักฐานประกอบ การแท็กไม่เพิ่มคะแนนหรืออนุมัติผล KPI อัตโนมัติ</p><div id="work-kpi-error" role="alert" class="entry-error"></div>${definitions.length?definitions.map(d=>`<label class="card pad" style="display:block;margin-bottom:8px"><input type="checkbox" name="work-kpi" value="${esc(d.id)}" ${expected.includes(d.id)?'checked':''}> ${esc(d.name)}<small style="display:block">เป้าหมาย ${esc(d.target)} · ${esc(d.source)}</small></label>`).join(''):'<p>ยังไม่มีตัวชี้วัดที่เปิดใช้งานของแผนกนี้ ให้หัวหน้าตรวจและเพิ่มตัวชี้วัดก่อน</p>'}<button class="tbtn primary" id="work-kpi-save" ${definitions.length?'':'disabled'}>บันทึกแท็ก KPI</button></form>`);
+  showModal(`<div class="modal-h"><h3>แท็ก KPI · ${esc(deptName(department))}</h3><button class="x" onclick="closeModal()">×</button></div><form class="pad" id="work-kpi-form"><p>เลือกตัวชี้วัดที่งานนี้เป็นหลักฐานประกอบ การแท็กไม่เพิ่มคะแนนหรืออนุมัติผล KPI อัตโนมัติ</p><div id="work-kpi-error" role="alert" class="entry-error"></div>${definitions.length?definitions.map(d=>`<label class="card pad" style="display:block;margin-bottom:8px"><input type="checkbox" name="work-kpi" value="${esc(d.id)}" ${expected.includes(d.id)?'checked':''}> ${esc(d.name)}<small style="display:block">เป้าหมาย ${esc(kpiTargetDisplay(d))} · ${esc(d.source)}</small>${kpiDefinitionDetails(d)}</label>`).join(''):'<p>ยังไม่มีตัวชี้วัดที่เปิดใช้งานของแผนกนี้ ให้หัวหน้าตรวจและเพิ่มตัวชี้วัดก่อน</p>'}<button class="tbtn primary" id="work-kpi-save" ${definitions.length?'':'disabled'}>บันทึกแท็ก KPI</button></form>`);
   document.getElementById('work-kpi-form').onsubmit=async event=>{
    event.preventDefault();const button=document.getElementById('work-kpi-save');button.disabled=true;
    const selected=[...document.querySelectorAll('input[name="work-kpi"]:checked')].map(x=>x.value);
@@ -36,21 +36,29 @@ const kpiOpenIssue=openProblem;
 openProblem=function(id){kpiOpenIssue(id);const p=PROBLEMS.find(x=>x.id===id);if(p&&issueEntryCanEdit(p))workKpiButton('issue',p.id,p.dept);};
 RENDER.kpi=function(){
  main.innerHTML=`${crumb('หน้าแรก','KPI')}<div class="page-h"><div><h1>KPI และหลักฐานงาน</h1><p>แท็กจากหน้ารายละเอียดกิจกรรม งาน กราฟิก หรือปัญหา แล้วตรวจหลักฐานที่บันทึกจริงด้านล่าง</p></div></div>`;
- for(const [code,definitions] of Object.entries(KPI)){
+ for(const [code,definitions] of Object.entries(typeof KPI_CATALOG==='undefined'?KPI:KPI_CATALOG)){
   const group=document.createElement('section');group.className='card pad';
-  group.innerHTML=`<h3>${esc(deptName(code))}</h3>`+definitions.map(d=>`<p><b>${esc(d.n)}</b><br>เป้า ${esc(d.tg)} · น้ำหนัก ${esc(d.w)} · ${d.period==='ยังไม่มีผลจริง'?'ยังไม่มีผลจริง — ยังไม่คำนวณคะแนน':`Actual ${esc(d.ac)} · ${esc(d.period)} · สถานะ ${esc(d.status)}`}</p>`).join('');main.append(group);
+  group.innerHTML=`<h3>${esc(deptName(code))}</h3>`+definitions.map(d=>`<p><b>${esc(d.n)}</b><br>เป้า ${esc(d.tg)} · น้ำหนัก ${esc(Math.round(d.w*100))}% · ${d.period==='ยังไม่มีผลจริง'?'ยังไม่มีผลจริง — ยังไม่คำนวณคะแนน':`Actual ${esc(acDisp(d))} · ${esc(d.period)} · สถานะ ${esc(d.status)}`}${kpiDefinitionDetails({formula:d.formula,prototype_payload:d.metadata})}</p>`).join('');main.append(group);
  }
+ const missing=DEPTS.filter(d=>canViewDept(d.code)&&!(KPI_CATALOG[d.code]?.length));
+ if(missing.length){const notice=document.createElement('section');notice.className='card pad';notice.innerHTML='<h3>แผนกที่ต้องเติมเกณฑ์ KPI</h3><p>'+missing.map(d=>esc(d.name)).join(' · ')+'</p><p>หัวหน้าต้องระบุชื่อตัวชี้วัด สูตร เป้าหมาย น้ำหนัก รอบประเมิน และหลักฐาน ก่อนเริ่มวัดผล ไม่ถือเป็นคะแนนศูนย์</p>';main.append(notice);}
  const box=document.createElement('section');box.className='card pad';box.id='kpi-work-report';box.innerHTML='<h3>งานที่แท็ก KPI</h3><p>กำลังอ่านหลักฐานตามสิทธิ์ของคุณ…</p>';main.prepend(box);
  loadWorkKpiReport(box);
 };
 async function loadWorkKpiReport(box){
  try{
   const links=await sbAllRows('kpi_work_links','id');if(links.error)throw links.error;
-  const rows=links.data||[],definitions=Object.values(KPI).flat();
+  const rows=links.data||[],definitions=Object.values(typeof KPI_CATALOG==='undefined'?KPI:KPI_CATALOG).flat();
   if(!box.isConnected)return;
   box.innerHTML='<h3>งานที่แท็ก KPI</h3><p>จำนวนหลักฐานที่คุณมีสิทธิ์เห็นทั้งหมด แยกจากคะแนนและผลจริงที่หัวหน้ารับรอง</p>'+definitions.map(d=>{
    const evidence=rows.filter(x=>x.definition_id===d.id);
    return `<details><summary>${esc(d.n)} · ${evidence.length} งาน</summary>${evidence.map(x=>`<div>${x.activity_id?'กิจกรรม #'+esc(x.activity_id):x.task_id?'งาน '+esc(x.task_id):x.graphic_job_id?'กราฟิก '+esc(x.graphic_job_id):'ปัญหา '+esc(x.issue_id)}</div>`).join('')||'<p>ยังไม่มีงานที่แท็ก</p>'}</details>`;
   }).join('');
  }catch(e){box.textContent='อ่านหลักฐาน KPI ไม่สำเร็จ · '+e.message;}
+}
+
+function kpiTargetDisplay(d){return d.prototype_payload?.unit==='ratio'?`${Math.round(Number(d.target)*10000)/100}%`:String(d.target??'');}
+function kpiDefinitionDetails(d){
+ const m=d.prototype_payload||{},mapping=m.mapping||{};
+ return `<div style="font-size:12px;margin:8px 0;line-height:1.7">${d.formula?`<div><b>สูตร:</b> ${esc(d.formula)}</div>`:''}${mapping.required_fields?`<div><b>ข้อมูลที่ต้องกรอก/แนบ:</b> ${esc(mapping.required_fields)}</div>`:''}${mapping.gap?`<div><b>ก่อนรับรองผล:</b> ${esc(mapping.gap)}</div>`:''}${m.unit==='ratio'?'<div>เก็บผลเป็นสัดส่วน เช่น 18/20 = 90% · หากไม่มีรายการในรอบ ให้หัวหน้าตรวจว่าไม่เกี่ยวข้องหรือข้อมูลขาด ห้ามแทนด้วย 0 หรือ 100%</div>':''}</div>`;
 }

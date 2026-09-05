@@ -512,13 +512,12 @@ const DEPTS = [
   {code:'AUD123',name:'ออดิทระบบ 123',       color:'#c77d3a'},
   {code:'AUDXB', name:'ออดิทระบบ XB',        color:'#5b7a3a'},
   {code:'BOM',   name:'Back Office Mgmt',     color:'#6d4c9f'},
-  {code:'SECRET',name:'เลขานุการ (Secret)',   color:'#3a6ea5'},
   {code:'PROG',  name:'โปรแกรมเมอร์ (Programmer)', color:'#2b9098'},
 ];
 const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
 const deptName  = c => (DEPTS.find(d=>d.code===c)||{}).name || c;
 /* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
-const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',SECRET:'01',PROG:'03'};
+const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',PROG:'03'};
 const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
 const deptGroup=c=>DEPT_GROUP[c]||'01';
 const REPORTING_PARENT={GRAPHIC:'MKT'};
@@ -534,7 +533,7 @@ const USERS = {
   lead_hr:{n:'อร (หัวหน้า HR)',s:'อ',c:'#c2557a'},
   lead_fin:{n:'ตาล (หัวหน้าการเงิน)',s:'ต',c:'#0b7a75'},
   lead_bc:{n:'ก้อง (หัวหน้า Back Office)',s:'ก',c:'#67769a'},
-  lead_bom:{n:'เจน (หัวหน้า BO Mgmt)',s:'จ',c:'#6d4c9f'}, lead_sec:{n:'ใบเฟิร์น (หัวหน้าเลขาฯ)',s:'บ',c:'#3a6ea5'},
+  lead_bom:{n:'เจน (หัวหน้า BO Mgmt)',s:'จ',c:'#6d4c9f'},
   hr1:{n:'แนน',s:'แ',c:'#c2557a'}, bc1:{n:'พล',s:'พ',c:'#67769a'},
   lead_a123:{n:'บิว (หัวหน้าออดิท 123)',s:'บ',c:'#c77d3a'}, a123s:{n:'ปอ',s:'ป',c:'#c77d3a'},
   lead_axb:{n:'มาย (หัวหน้าออดิท XB)',s:'ม',c:'#5b7a3a'}, axbs:{n:'กิ๊ฟ',s:'ก',c:'#5b7a3a'},
@@ -556,8 +555,7 @@ let GROUPS=[
   {id:'g_a123',name:'ทีมออดิท 123',      dept:'AUD123',  members:['lead_a123','a123s']},
   {id:'g_axb',name:'ทีมออดิท XB',        dept:'AUDXB',   members:['lead_axb','axbs']},
   {id:'g_bomgt',name:'ทีม Back Office Mgmt',dept:'BOM',   members:['lead_bom']},
-  {id:'g_sec',name:'ทีมเลขานุการ',        dept:'SECRET', members:['lead_sec']},
-  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin','lead_bc','lead_a123','lead_axb','lead_bom','lead_sec']},
+  {id:'g_lead',name:'หัวหน้าทุกแผนก',    dept:null,      members:['lead_gr','lead_crm','lead_mkt','lead_hr','lead_fin','lead_bc','lead_a123','lead_axb','lead_bom']},
 ];
 const groupById=id=>GROUPS.find(g=>g.id===id);
 
@@ -671,12 +669,6 @@ const KPI = {
     {n:'จัดการเคสเร่งด่วนตาม SLA (Critical Issue)',tg:'≥95%',tgt:95,w:0.20,ac:90},
     {n:'ติดตาม/ส่งต่องานข้ามทีม (Cross-team)',tg:'≥95%',tgt:95,w:0.20,ac:92},
     {n:'คุมคุณภาพงาน Admin (Quality & Control)',tg:'≥95%',tgt:95,w:0.20,ac:94}],
-  SECRET:[
-    {n:'ข้อมูล/รายงานปิดกะถูกต้อง (Daily Data & Report)',tg:'≥99%',tgt:99,w:0.20,ac:98},
-    {n:'ทำกราฟ/ปิดกะตรงเวลา (Shift Closing)',tg:'≥98%',tgt:98,w:0.20,ac:97},
-    {n:'สนับสนุนข้อมูลการตลาด (MKT Data Support)',tg:'≥95%',tgt:95,w:0.20,ac:93},
-    {n:'ความถูกต้องคอมมิชชั่น/เบิกจ่าย (Commission & Expense)',tg:'≥99%',tgt:99,w:0.20,ac:98},
-    {n:'ประสานงานออฟฟิศ/หอพัก (Office & Dorm)',tg:'≥95%',tgt:95,w:0.20,ac:92}],
   KPI:[
     {n:'ออกแบบ/อนุมัติ KPI ครบตามแผน (Design & Approval)',tg:'≥95%',tgt:95,w:0.20,ac:96},
     {n:'ติดตาม/รายงาน KPI ตรงรอบ (Monitoring & Reporting)',tg:'≥95%',tgt:95,w:0.20,ac:95},
@@ -700,7 +692,7 @@ const KPI = {
 function kpiAch(k){ return k.tgt!=null ? Math.round(k.ac / k.tgt * 100) : k.pct; }
 function recalcKPI(){ Object.keys(KPI).forEach(c=>KPI[c].forEach(k=>{ if(k.tgt!=null) k.pct=kpiAch(k); })); }
 /* ค่าที่แสดง (Actual) — ตัวชี้วัดจริงแสดงเป็น % */
-const acDisp = k => k.tgt!=null ? k.ac+'%' : k.ac;
+const acDisp = k => k.ac==null?'ยังไม่มีผลจริง':k.metadata?.unit==='ratio'?`${Math.round(k.ac*10000)/100}%`:k.tgt!=null?k.ac+'%':k.ac;
 /* คะแนนรวมแผนก 0–100: มีน้ำหนัก → ถ่วงน้ำหนัก (Achievement เกิน 100 นับที่ 100) ; ไม่มีน้ำหนัก → เฉลี่ยเท่ากัน */
 const deptScore = code => { const a=KPI[code]; if(!a)return null;
   if(a.every(k=>k.w!=null)) return Math.round(a.reduce((s,k)=>s+Math.min(k.pct,100)*k.w,0));
@@ -730,7 +722,6 @@ const SOPS = [
   {id:"SOP-A123",dept:"AUD123",title:"Workflow ออดิทระบบ 123",v:"1.0",goal:"ตรวจบัญชีฝาก-ถอน และรวบรวมความเสียหายจากการทำงานของพนักงานทุกบริษัทในเครือ (ระบบ 123)",duties:["ตรวจบัญชีฝาก-ถอนธนาคารปกติและ PM ระบบ 123", "เทียบ STM กับรายงานบัญชี/BO ให้ตรงกัน", "ส่งยอดผิดปกติให้หัวหน้าแอดมินชี้แจงพร้อมหลักฐาน", "ลงความเสียหายในชีตสรุป", "สรุปยอดความเสียหายรายเดือนส่งการเงิน/บุคคล"],steps:["รับไฟล์ประจำวัน: STM, รายงานฝาก-ถอน/BO, ไฟล์ชี้แจง", "ตรวจความครบถ้วน: ถูกบริษัท / ถูกบัญชี / ถูกวันที่ และ Copy ลง Excel ได้", "จัดเรียงข้อมูลใน Excel ให้เวลา/รายการเทียบกันได้", "เปรียบเทียบรายการและยอดรวม STM กับรายงาน", "ตรวจรายการผิดปกติ + หาสาเหตุยอดไม่ตรง", "ส่งกลับให้หัวหน้าแอดมิน/กะชี้แจงพร้อมหลักฐาน", "ลงความเสียหายในชีตสรุป + สรุปประจำเดือน (มี AI ช่วยวิเคราะห์ความเสี่ยง)"],tools:["Excel (เครื่องมือสำคัญที่สุด)", "Word (เอกสารประกอบ)", "PDF (รับ/อ่านหลักฐาน)", "E-mail (รับส่งไฟล์ตรวจสอบ/ชี้แจง)"],issues:["รายการ 23:00–23:59 ของ SCB/GSB อาจปนวันถัดไป → กลับมาตรวจในวันถัดไป", "STM ≠ รายงานฝาก → ค้นหายอดที่หาย / ตรวจเติมผิด / ระบบเบิ้ล / เติมย้อนหลัง", "เทสโอนเข้า-ออก / โยกเงิน / ซื้อเหรียญ → ต้องมีไฟล์ชี้แจง ไม่มีให้ตีกลับ", "อ่านไฟล์ชี้แจงไม่ละเอียด / ลืมลงชีต → หัวหน้าตรวจก่อนส่งการเงิน", "STM/BO ผิดบริษัทหรือไม่ครบ → ขอไฟล์ใหม่ก่อนดำเนินการ"],ai:["ช่วยค้นหายอดไม่ตรง เพิ่มความครอบคลุมการตรวจทุจริต", "วิเคราะห์โอกาส / ช่องโหว่การทุจริต", "วิเคราะห์ความเสี่ยงจากพฤติกรรมฝาก-ถอน", "สรุปความเสียหายรายเดือน/ไตรมาส/ปี พร้อม %", "⚠️ คนอนุมัติ: การสรุปความเสี่ยง ทุจริต และความเสียหาย"]},
   {id:"SOP-AXB",dept:"AUDXB",title:"Workflow ออดิทระบบ XB",v:"1.0",goal:"ตรวจบัญชีฝาก-ถอนให้สัมพันธ์กันระหว่าง STM และ BO, ค้นหาความผิดปกติ, รวบรวมความเสียหาย (ระบบ XB)",duties:["ตรวจบัญชีฝาก-ถอนของทุกบริษัทในเครือ (ระบบ XB)", "ตรวจความสัมพันธ์รายการ STM กับ BO/หน้าหลังบ้าน", "ค้นหารายการผิดปกติ + ส่งหัวหน้าแอดมินชี้แจงพร้อมหลักฐาน", "บันทึกความเสียหายจากการทำงานของพนักงาน", "สรุปยอดความเสียหายรายเดือนส่งการเงิน/บุคคล"],steps:["รับไฟล์ประจำวันจาก E-mail: STM ฝาก-ถอน, ไฟล์ชี้แจง, BO", "ตรวจความครบถ้วน: STM Copy ลง Excel ได้ + BO ถูกต้อง", "จัด STM/BO เรียงเวลาให้ตรงกัน แยกยอดรับเข้า/โอนออก", "เทียบรายการฝาก-ถอนและยอดรวม STM กับ BO", "หายอดไม่ตรง + ตรวจ Note/ไฟล์ชี้แจง", "ขอชี้แจง + หลักฐานตามขั้นตอน (Exception Handling)", "บันทึกความเสียหาย → ตรวจทาน → สรุปรายเดือน (มี AI ช่วยวิเคราะห์ความเสี่ยง)"],tools:["Excel", "E-mail (รับไฟล์ STM/BO/ชี้แจง)", "BO / หน้าหลังบ้าน", "ระบบ PM: AZPAY, 12PAY, ATP, MYPAY"],issues:["บางบัญชีใช้ทั้งฝากและถอนในบัญชีเดียว → แยกยอดโอนเข้า/ออกก่อนเทียบ BO", "ATP/MYPAY ต้องกรอง “ซอยยอดถอนที่ PM ตีกลับ” ออกก่อนตรวจ", "ยอดข้ามวัน 23:58–23:59 → ตรวจวัน/เวลาละเอียด", "ถอน USDT / ยืมเงินระหว่างบริษัท → ต้องมีไฟล์ชี้แจง", "STM/BO ผิดบริษัทหรือไม่ครบ → ขอใหม่ทันที"],ai:["ช่วยค้นหายอดไม่ตรง", "วิเคราะห์ความเสี่ยงการทุจริต + แนวโน้มข้อผิดพลาด", "Dashboard เปรียบเทียบความเสียหายรายเดือน/ไตรมาส/ปี", "แสดง % การเปลี่ยนแปลง", "⚠️ คนอนุมัติ: ผลวิเคราะห์เรื่องทุจริต / ประเมินพนักงาน"]},
   {id:"SOP-BOM",dept:"BOM",title:"Workflow Back Office Management",v:"1.0",goal:"ติดตามภาพรวมหน้างาน ตรวจสอบข้อมูล จัดลำดับความสำคัญ มอบหมาย ตัดสินใจ/อนุมัติ และจัดทำรายงาน",duties:["ควบคุมภาพรวม: ดูแลทีม Admin / สรุปข้อมูล ตรวจคุณภาพ ติดตามข้อผิดพลาดซ้ำ", "ตรวจสอบ/ตัดสินใจ: เคสเกินขอบเขต Admin โดยเฉพาะเคสเสี่ยง/มีผลการเงิน", "วิเคราะห์: ลูกค้า การเงิน โปรโมชั่น ปัญหาหน้างาน ภาระงาน", "ประสานงาน: CRM, การเงิน, BC, IT, Marketing, QC, SC, ปกม.", "รายงาน + วางแผนกำลังคน + พัฒนาทีม (E-Learning)"],steps:["รับข้อมูล: จาก Telegram, รายงานปิดกะ, Google Sheets, เคสที่ส่งเข้ามา", "ตรวจความครบถ้วน: วัน/เวลา / เว็บ / ตัวเลข / หลักฐาน / สถานะ / ผู้รับผิดชอบ", "จัดลำดับความสำคัญ: P1 วิกฤต / P2 สูง / P3 ปกติ / P4 ติดตาม", "มอบหมาย/ประสานงาน: ระบุหัวข้อ / รายละเอียด / Owner / Deadline", "ติดตามความคืบหน้าตามรอบจนเสร็จหรือ Escalate", "ตรวจสอบผล: ยืนยันว่าแก้ไขจริง ข้อมูลถูกต้อง", "ตัดสินใจ/อนุมัติ: เคสเสี่ยง/ผลกระทบสูงพิจารณาร่วมทีมบริหาร", "สรุปและบันทึก: สถานะ/สาเหตุ/ผลกระทบ/วิธีแก้/Next action"],tools:["Telegram (รับปัญหา / ประสานงาน)", "Google Sheets (รายงาน / ล็อกสูตร)", "รายงานหลังบ้าน", "E-Learning, ไฟล์/หลักฐาน"],issues:["สูตร Google Sheets ผิด / คัดลอกยอดผิด → ตรวจสูตรก่อนใช้ตัวเลขรายงาน", "สรุปงานระหว่างกะตกหล่น → สรุปข้อมูลออกจากแชทเป็นระบบ", "ใช้ Priority ไม่เหมือนกัน → ยึดเกณฑ์ P1–P4 เดียวกัน", "ปิดเคสจากคำว่า “แก้แล้ว” โดยยังไม่ทดสอบจริง → ตรวจจริงก่อนปิด", "ข้อมูลสำคัญอยู่แต่ใน Telegram → ย้ายเข้าระบบที่ค้นย้อนหลังได้"],ai:["สรุปงานจาก Telegram + จัดลำดับความสำคัญ", "ดึง/สรุปข้อมูลหลังบ้านเป็น Dashboard กลาง", "ระบบมอบหมายงาน (Owner/Priority/Deadline/Acknowledge/Overdue)", "ตรวจจับความผิดปกติ + Incident Timeline", "⚠️ Human-in-the-loop: อนุมัติการเงิน ประเมินความเสี่ยง ตัดสินสาเหตุ ยืนยันการแก้ไข"]},
-  {id:"SOP-SECRET",dept:"SECRET",title:"Workflow เลขานุการ (Secret)",v:"1.0",goal:"ตรวจข้อมูลต้นทาง → จัดทำรายงาน → QC → ส่งงาน → จัดเก็บหลักฐาน (ครบถ้วน ถูกต้อง ตรงเวลา)",duties:["ข้อมูลประจำวัน: ฝาก / ถอน / โบนัส / สมัครใหม่ / W-L / Active / Product", "รายงานประจำวัน: ปิดกะ / กราฟ / MKT", "งานประจำเดือน: ค่าคอมมิชชั่น / สรุป MKT", "งานสนับสนุน: เบิกจ่าย / ออฟฟิศ / หอพัก"],steps:["ดึงข้อมูลประจำวัน: เข้า Back Office/AG ของเว็บ ตรวจชื่อเว็บ กำหนดวัน/ช่วงเวลาตามรอบ ดาวน์โหลด ตั้งชื่อ/จัดเก็บ", "ปิดกะ: สรุปยอดฝาก / ถอน / ลูกค้าใหม่ ลง Template + QC ก่อนส่ง", "กราฟประจำวัน: ยอดเงิน / จำนวนรายการ / Turnover / ผลสุทธิ (ตรวจอัตราค่าคอมล่าสุด)", "งาน MKT: กรองเฉพาะบริษัทในขอบเขต MKT ส่งลงกลุ่มสรุป", "งานประจำเดือน: ตัดค่าคอมมิชชั่น + เบิกจ่ายบริษัท (ยอดไม่ตรง = หยุดสรุป)", "ประสานงานออฟฟิศ/หอพัก: รับแจ้ง → ส่งช่าง → ติดตามจนปิดงาน", "Master QC ก่อนส่งทุกรายงาน"],tools:["Back Office / AG / Report / Dashboard", "Excel, Google Sheets, Google Drive", "Telegram, LINE", "Power BI, BI / Streamlit ระบบภายใน"],issues:["รอบเวลาปิดกะแต่ละเว็บไม่เหมือนกัน → ห้ามใช้ช่วงเวลาเดียวกันทุกเว็บ", "หน้าระบบคล้ายกัน เสี่ยงเลือกผิดเว็บ → ตรวจชื่อเว็บก่อนเริ่ม", "อัตราค่าคอมเปลี่ยนได้ → ตรวจอัตราล่าสุดก่อนคำนวณ", "ข้อมูลต้นทางอาจถูกแก้ไขหลังทำรายงาน → เก็บ Version ไม่ทับไฟล์ต้นทาง", "ยอดไม่ตรง → หยุดส่ง เช็กช่วงเวลา/เว็บ/ต้นทาง/ไฟล์/สูตร → QC ใหม่"],ai:["ดึง/รวมข้อมูลหลายเว็บอัตโนมัติ", "คำนวณค่าคอม / ยอดสุทธิ + ตรวจสูตร", "สรุปปิดกะ / กราฟ Real-time", "ตรวจข้อมูลซ้ำ/ตกหล่นก่อน QC", "⚠️ กฎ: ห้ามประมาณตัวเลขหรือแก้ยอดเอง — QC ก่อนส่งทุกครั้ง"]},
 ];
 
 /* เอกสารกลาง / ระเบียบ */
@@ -739,7 +730,7 @@ const DOCS=[{id:'REG-01',title:'ระเบียบการประชุม
   {h:'1. วัตถุประสงค์',items:['ให้ผู้บริหารติดตามผลการดำเนินงานของทุกหน่วยงานอย่างเป็นระบบและต่อเนื่อง','เปรียบเทียบผลจริงกับเป้าหมาย/KPI และระบุประเด็นที่ต้องเร่งแก้ไข','ให้ทุกมติและงานติดตามมีผู้รับผิดชอบ กำหนดเวลา และสถานะที่ชัดเจน','ให้การตัดสินใจของ Executive Board ใช้ข้อมูลชุดเดียวกันและตรวจสอบย้อนหลังได้']},
   {h:'2. ขอบเขตและหน่วยงานที่เข้าร่วม',items:['ใช้กับการประชุมติดตามประจำเดือนของทุกหน่วยงาน จัดลำดับตามโครงสร้าง 4 กลุ่ม: 01 Corporate & Governance / 02 Brand, Content & Marketing / 03 Technology & Customer / 04 Operations & Quality']},
   {h:'3. ความถี่และกำหนดการประชุม',items:['ประชุมอย่างน้อยเดือนละ 1 ครั้ง ภายใน 7 วันทำการแรกของเดือนถัดไป','แจ้งวัน/เวลา/สถานที่-ลิงก์ และ Agenda ล่วงหน้าอย่างน้อย 3 วันทำการ','ทุกหน่วยงานส่ง Monthly Report + KPI ก่อนประชุมอย่างน้อย 1 วันทำการ']},
-  {h:'4. ผู้เข้าร่วมและหน้าที่',items:['ประธาน: Executive Board — กำหนดทิศทาง ตัดสินใจ อนุมัติ สั่งการ','ผู้รายงาน: Head/Manager แต่ละทีม — รายงาน KPI/ผลงาน/ปัญหา/Action Plan','KPI Team — รวบรวม/ตรวจสอบข้อมูล สรุป Target vs Actual','Secret Team — เลขานุการ: Agenda, บันทึกมติ, Action List, ติดตาม Due Date']},
+  {h:'4. ผู้เข้าร่วมและหน้าที่',items:['ประธาน: Executive Board — กำหนดทิศทาง ตัดสินใจ อนุมัติ สั่งการ','ผู้รายงาน: Head/Manager แต่ละทีม — รายงาน KPI/ผลงาน/ปัญหา/Action Plan','KPI Team — รวบรวม/ตรวจสอบข้อมูล สรุป Target vs Actual','ผู้บันทึกการประชุมที่ได้รับมอบหมาย: Agenda, บันทึกมติ, Action List, ติดตาม Due Date']},
   {h:'5. ข้อมูลมาตรฐานที่ทุกฝ่ายต้องรายงาน',items:['KPI/Target ประจำเดือน และผล Actual','ผลงาน/Milestone ที่เสร็จในเดือน','งานค้างจากเดือนก่อนและสถานะล่าสุด','ปัญหา/ความเสี่ยง พร้อมสาเหตุและผลกระทบ','Corrective/Preventive Action','แผนงานและเป้าหมายเดือนถัดไป','เรื่องขอ Support/การตัดสินใจจาก Executive Board']},
   {h:'6. Agenda มาตรฐาน',items:['1) Previous Action','2) KPI Review','3) Performance','4) Problem / Issue','5) Corrective Action','6) Next Month Plan','7) Support Required','8) Management Decision','9) Action Items']},
   {h:'7. กติกาการนำเสนอ',items:['แต่ละทีม 10–15 นาที','เรื่องตามเป้ารายงานย่อ เน้นเวลากับ Yellow/Red หรือเรื่องที่ต้องตัดสินใจ','ข้อมูลต้องมีตัวเลข/หลักฐานรองรับ','ห้ามเล่ากิจกรรมย้อนหลังโดยไม่มีข้อสรุป/Action']},
@@ -1508,7 +1499,7 @@ function execDash(){
   <div class="grid" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:14px">
     <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงาน</h3></div><div class="pad">${statusDonutBlock(all,true)}</div></div>
     <div class="card"><div class="card-h"><h3>${sic('i-board')} งานตามแผนก</h3><span class="act">จำนวนงาน</span></div><div class="pad">${hbars(byDept)}</div></div>
-    <div class="card"><div class="card-h"><h3>${sic('i-line')} KPI ล่าสุดจากฐานข้อมูล</h3><span class="act">Production</span></div><div class="pad">${kpiBars.length?hbars(kpiBars):'<div class="muted">ยังไม่มี KPI Production — เพิ่ม Definition และ Result ก่อนแสดงคะแนน</div>'}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-line')} KPI ล่าสุดจากฐานข้อมูล</h3><span class="act">Production</span></div><div class="pad">${kpiBars.length?hbars(kpiBars):'<div class="muted">ยังไม่มีผล KPI ที่รับรองครบในรอบเดียวกัน — เปิดหน้า KPI เพื่อดูเกณฑ์และข้อมูลที่ต้องเติม</div>'}</div></div>
   </div>
   <div class="grid" style="grid-template-columns:1.4fr 1fr">
     <div class="card"><div class="card-h"><h3>${sic('i-target')} คะแนน KPI รายแผนก</h3><span class="act">คะแนนเต็ม 100</span></div><div class="pad">
@@ -2714,22 +2705,28 @@ async function cloudLoadImplementationActions(){
     IMPLEMENTATION_ACTIONS_READY=true;
   }catch(e){console.warn('implementation action load:',e.message||e);}
 }
+let KPI_CATALOG={};
 async function cloudLoadKpis(){
+  KPI_CATALOG={};
   if(!SB)return;
   Object.keys(KPI).forEach(code=>delete KPI[code]);
   try{
     const [definitions,results]=await Promise.all([
-      SB.from('kpi_definitions').select('id,department_code,name,target,weight,formula,source,active').eq('active',true),
+      SB.from('kpi_definitions').select('id,department_code,name,target,weight,formula,source,active,prototype_payload').eq('active',true),
       SB.from('kpi_results').select('definition_id,period_start,period_end,actual,status').order('period_end',{ascending:false})
     ]);
     if(definitions.error)throw definitions.error;if(results.error)throw results.error;
     const latest=new Map();(results.data||[]).forEach(row=>{if(!latest.has(row.definition_id))latest.set(row.definition_id,row);});
     (definitions.data||[]).forEach(def=>{
-      const result=latest.get(def.id),target=Number(def.target),actual=result?Number(result.actual):0,weight=Number(def.weight);
-      if(!KPI[def.department_code])KPI[def.department_code]=[];
-      KPI[def.department_code].push({id:def.id,n:def.name,tg:String(def.target),tgt:target,w:weight,ac:actual,pct:target?Math.round(actual/target*100):0,formula:def.formula,source:def.source,period:result?`${result.period_start} – ${result.period_end}`:'ยังไม่มีผลจริง',status:result?.status||'draft'});
+      if(!DEPTS.some(d=>d.code===def.department_code))return;
+      const result=latest.get(def.id),target=Number(def.target),actual=result?Number(result.actual):null,weight=Number(def.weight);
+      if(!KPI_CATALOG[def.department_code])KPI_CATALOG[def.department_code]=[];
+      KPI_CATALOG[def.department_code].push({id:def.id,n:def.name,tg:def.prototype_payload?.unit==='ratio'?`${Number(def.target)*100}%`:String(def.target),tgt:target,w:weight,ac:actual,pct:target?Math.round(actual/target*100):0,formula:def.formula,source:def.source,metadata:def.prototype_payload||{},period:result?`${result.period_start} – ${result.period_end}`:'ยังไม่มีผลจริง',status:result?.status||'draft'});
     });
-  }catch(e){console.warn('kpi load:',e.message||e);Object.keys(KPI).forEach(code=>delete KPI[code]);}
+    for(const [code,rows] of Object.entries(KPI_CATALOG)){
+      if(rows.length && rows.every(k=>k.ac!==null && ['approved','locked'].includes(k.status) && k.period===rows[0].period) && Math.abs(rows.reduce((s,k)=>s+k.w,0)-1)<0.000001)KPI[code]=rows;
+    }
+  }catch(e){KPI_CATALOG={};console.warn('kpi load:',e.message||e);Object.keys(KPI).forEach(code=>delete KPI[code]);}
 }
 async function cloudLoadIssues(){
   if(!SB)return;
