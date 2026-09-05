@@ -30,7 +30,7 @@ function activityReviewFlags(row){return typeof entryMissing==='function'?entryM
 const ACTIVITY_QUALITY_LABELS={missing_employee:'ไม่มีชื่อพนักงาน',missing_status:'ไม่มีสถานะ',missing_start_time:'ไม่มีเวลาเริ่ม',missing_end_time:'ไม่มีเวลาจบ',corrected_date:'แก้ปีวันที่',date_range_end:'ใช้วันสิ้นสุดกะ',inherited_date:'ใช้วันที่แถวก่อน',start_invalid_time:'เวลาเริ่มไม่ถูกต้อง',end_invalid_time:'เวลาจบไม่ถูกต้อง'};
 function activityQualityLabel(flag){return ACTIVITY_QUALITY_LABELS[flag]||String(flag||'').replaceAll('_',' ');}
 const ACTIVITY_EXPECTED_SOURCES=[
-  ['BOM','ทีมบริหาร (Management)'],['FIN','การเงิน (Finance)'],['AUD123','ออดิท (Audit)'],['HR','ทรัพยากรบุคคล (HR)'],['KPI','ทีม KPI'],['SECRET','เลขานุการ (Secret)'],
+  ['BOM','ทีมบริหาร (Management)'],['FIN','การเงิน (Finance)'],['AUD123','ออดิท (Audit)'],['HR','ทรัพยากรบุคคล (HR)'],['KPI','ทีม KPI'],
   ['GRAPHIC','Content Creative'],['MKT','การตลาด (Marketing)'],['PROG','Programmer'],['CRM','ลูกค้าสัมพันธ์ (CRM)'],
   ['ADMIN','แอดมิน (Admin) X8'],['ADMIN','แอดมิน (Admin) X5'],['ADMIN','แอดมิน (Admin) X1'],['QC','QC (ตรวจสอบคุณภาพ)'],['BO','Data Provider']
 ];

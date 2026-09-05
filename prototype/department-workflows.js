@@ -1,5 +1,5 @@
 /* Familiar entry points; all mutations still use the validated existing flows. */
-const DEPARTMENT_WORK_LABELS={ADMIN:'บันทึกงานแอดมิน',GRAPHIC:'บันทึกกิจกรรมกราฟิก',CRM:'บันทึกการติดตามลูกค้า',FIN:'บันทึกงานการเงิน',HR:'บันทึกงานบุคคล',MKT:'บันทึกงานการตลาด',PROG:'บันทึกงานพัฒนา',QC:'บันทึกการตรวจคุณภาพ',AUD123:'บันทึกงานออดิท',AUDXB:'บันทึกงานออดิท',BO:'บันทึกงาน Back Office',BOM:'บันทึกงานบริหาร',KPI:'บันทึกงานวัดผล',SECRET:'บันทึกงานเลขานุการ'};
+const DEPARTMENT_WORK_LABELS={ADMIN:'บันทึกงานแอดมิน',GRAPHIC:'บันทึกกิจกรรมกราฟิก',CRM:'บันทึกการติดตามลูกค้า',FIN:'บันทึกงานการเงิน',HR:'บันทึกงานบุคคล',MKT:'บันทึกงานการตลาด',PROG:'บันทึกงานพัฒนา',QC:'บันทึกการตรวจคุณภาพ',AUD123:'บันทึกงานออดิท',AUDXB:'บันทึกงานออดิท',BO:'บันทึกงาน Back Office',BOM:'บันทึกงานบริหาร',KPI:'บันทึกงานวัดผล'};
 function departmentStart(){
  if(!ACCESS_PROFILE||document.getElementById('department-start'))return;
  const code=currentDept(),box=document.createElement('section');box.id='department-start';box.className='department-start';
