@@ -19,3 +19,5 @@ status.must_change_password=true;await ctx.onLoggedIn({access_token:'session'});
 const first=document.getElementById('first-password');first.elements.password.value='new-password-long';first.elements.confirm.value='different';await first.onsubmit({preventDefault(){}});assert.ok(first.querySelector('[role=alert]').textContent.includes('ไม่ตรง'));assert.equal(requests.filter(r=>r.action==='password').length,0);
 ctx.modal.innerHTML='<code data-initial-code>temporary-secret</code>';ctx.closeModal();assert.equal(ctx.modal.textContent,'','closing code modal clears sensitive DOM');
 console.log('PASS account UI: username/email routes, first-password gate, confirmation, optional email, UUID preserved on rename and ambiguous roster blocked');await window.happyDOM.close();
+
+const typos=ctx.liveAccountCandidates(['เบิ้ม','เบิิ้ม','นิ้ง','นิ้ิ้ง','วันตาน','วันตาล','พลับ','พลับอิอิ','แบงค์','แบงค์ฺ','แน่นอน'].map(employee_name=>({employee_name,department_code:'ADMIN'})),[]);assert.equal(typos.filter(r=>r.review_status==='review_identity').length,10);
