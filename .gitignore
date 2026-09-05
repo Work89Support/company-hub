@@ -17,3 +17,6 @@ dist/
 
 # Supabase CLI local state
 supabase/.temp/
+
+# Local source exports may contain internal briefs and staff assignments
+data/import/
