@@ -19,6 +19,9 @@ jobs:
       - name: Verify native intake behavior
         run: node scripts/check-native-entry.mjs
 
+      - name: Verify graphic membership pagination
+        run: node scripts/check-graphic-pagination.mjs
+
       - name: Verify KPI evidence entry
         run: node scripts/check-kpi-work.mjs
 
