@@ -32,7 +32,10 @@ async function integrityReadAll(factory,keys=['id']){
  const data=[];const pageSize=500;
  for(let offset=0;;offset+=pageSize){let query=factory();for(const key of keys)query=query.order(key,{ascending:true});const result=await query.range(offset,offset+pageSize-1);if(result.error)throw result.error;data.push(...(result.data||[]));if((result.data||[]).length<pageSize)return {data,error:null};}
 }
-sbAllRows=async function(table){return integrityReadAll(()=>SB.from(table).select('*'));};
+sbAllRows=async function(table){
+ const keys=table==='graphic_job_members'?['job_id','trello_member_id']:['id'];
+ return integrityReadAll(()=>SB.from(table).select('*'),keys);
+};
 openBoardActivitySource=function(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;closeModal();if(entryCanEdit(row))openActivityEntry(row.id);else openBoardActivity(id);};
 openReportDepartment=function(code){const r=integrityReportRange();goBoardFiltered({dept:code,reportFrom:r.from,reportTo:r.to});};
 const integrityOriginalApplyFilters=applyFilters;

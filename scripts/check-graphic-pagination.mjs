@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const source=fs.readFileSync(new URL('../prototype/reporting-integrity.js',import.meta.url),'utf8');
+const code=source.slice(source.indexOf('async function integrityReadAll('),source.indexOf('openBoardActivitySource='));
+const memberships=Array.from({length:1001},(_,i)=>({job_id:'same-job',trello_member_id:String(i).padStart(4,'0')})).reverse();
+const calls=[];
+const context=vm.createContext({SB:{from(table){return {select(){return this;},keys:[],order(key){this.keys.push(key);return this;},async range(a,b){calls.push([...this.keys]);const rows=table==='graphic_job_members'?memberships:[{id:2},{id:1}];if(this.keys.some(k=>!(k in rows[0])))return {error:new Error('column does not exist')};return {data:[...rows].sort((x,y)=>{for(const k of this.keys){if(x[k]!==y[k])return x[k]<y[k]?-1:1;}return 0;}).slice(a,b+1)};}};}}});
+vm.runInContext(code,context);
+const result=await context.sbAllRows('graphic_job_members');
+assert.equal(result.data.length,1001);
+assert.equal(new Set(result.data.map(r=>r.job_id+':'+r.trello_member_id)).size,1001);
+assert.equal(result.data[0].trello_member_id,'0000');
+assert.ok(calls.every(keys=>keys.join(',')==='job_id,trello_member_id'));
+const jobs=await context.sbAllRows('graphic_jobs');assert.equal(jobs.data[0].id,1);
+await assert.rejects(()=>context.integrityReadAll(()=>({order(){return this;},range(){return {error:new Error('offline')};}})),/offline/);
+console.log('PASS: 1001 composite-key memberships, stable page boundaries, regular IDs and error propagation');
