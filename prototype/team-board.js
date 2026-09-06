@@ -1,5 +1,13 @@
+// Missing entry fields belong to the completion queue, not the approval workflow.
+if(typeof boardActivityStatus==='function')boardActivityStatus=function(row){
+ const status=String(row.status||'').toLowerCase();
+ if(/completed|done|เสร็จ|สำเร็จ/.test(status))return 'done';
+ if(/waiting|pending|block|รอ|ค้าง|เลื่อน|ปัญหา/.test(status))return 'block';
+ if(/progress|doing|กำลัง|ดำเนิน/.test(status))return 'doing';
+ return 'todo';
+};
 /* Read the existing RLS-scoped work; names are never treated as login IDs. */
-let TEAM_BOARD={department:'',person:'',group:'person',query:'',limit:30};
+let TEAM_BOARD={department:'',person:'',group:'person',query:'',state:'open',limit:30};
 NAV.teamBoard={ic:'i-grid',t:'บอร์ดทีม / รายคน'};
 NAVGROUPS[0].items.splice(1,0,'teamBoard');
 for(const roles of [ROLE_ALLOW,SIMPLE_ALLOW])for(const role of Object.keys(roles))if(!roles[role].includes('teamBoard'))roles[role].push('teamBoard');
@@ -18,7 +26,9 @@ function teamWorkPeople(work){
  if(work._source==='issue')return [{key:'team:'+JSON.stringify([work.dept,work.assignee]),name:(work.assignee||'ยังไม่ระบุทีม')+' · ทีมรับผิดชอบ',linked:false}];
  return (work.assignees?.length?work.assignees:[work.assignee||'']).map(id=>({key:id?'user:'+id:teamPersonKey(work.dept,''),name:id?shortName(id):'ยังไม่มอบหมาย',linked:!!id}));
 }
-function teamBoardRows(){return boardAllWork().filter(w=>(!TEAM_BOARD.department||w.dept===TEAM_BOARD.department)&&(!TEAM_BOARD.person||teamWorkPeople(w).some(p=>p.key===TEAM_BOARD.person))&&(!TEAM_BOARD.query||[w.title,w.desc,...teamWorkPeople(w).map(p=>p.name)].join(' ').toLowerCase().includes(TEAM_BOARD.query.toLowerCase())));}
+function teamBoardRows(){return boardAllWork().filter(w=>(!TEAM_BOARD.department||w.dept===TEAM_BOARD.department)&&(!TEAM_BOARD.person||teamWorkPeople(w).some(p=>p.key===TEAM_BOARD.person))&&(TEAM_BOARD.state==='all'||(TEAM_BOARD.state==='done'?w.status==='done':w.status!=='done'))&&(!TEAM_BOARD.query||[w.title,w.desc,...teamWorkPeople(w).map(p=>p.name)].join(' ').toLowerCase().includes(TEAM_BOARD.query.toLowerCase()))).sort((a,b)=>teamWorkDay(b).localeCompare(teamWorkDay(a)));}
+function teamWorkDay(w){return String(w.sourceRow?.activity_date||w.sourceRow?.date||w.createdAt||w.startAt||'');}
+function teamWorkMeta(w){const date=teamWorkDay(w).slice(0,10);const due=typeof dashboardDueAt==='function'?dashboardDueAt(w):null;return w._deadline===false||['activity','issue'].includes(w._source)?(date?'วันที่ '+date:'ยังไม่มีวันที่'):due?'ส่ง '+due.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}):'ยังไม่กำหนดวันส่ง';}
 function openTeamWork(kind,id){
  if(kind==='activity'){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(row&&entryCanEdit(row))openActivityEntry(row.id);else openBoardActivity(id);}
  else if(kind==='issue')openProblem(id);else if(kind==='graphic')openGraphicJob(id);else openTask(id);
@@ -34,10 +44,11 @@ RENDER.teamBoard=function(){
  <label>แผนก<select class="fin" id="team-dept">${departments.map(d=>`<option value="${esc(d.code)}" ${d.code===TEAM_BOARD.department?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>
  <label>คน / บัญชี<select class="fin" id="team-person"><option value="">ทุกคน</option>${[...people.values()].map(p=>`<option value="${esc(p.key)}" ${p.key===TEAM_BOARD.person?'selected':''}>${esc(p.name)}${p.key.startsWith('name:')?' · รอเชื่อมบัญชี':''}</option>`).join('')}</select></label>
  <label>จัดคอลัมน์<select class="fin" id="team-group"><option value="person" ${TEAM_BOARD.group==='person'?'selected':''}>แยกรายคน</option><option value="status" ${TEAM_BOARD.group==='status'?'selected':''}>แยกสถานะ</option></select></label>
- <form id="team-search"><label>ค้นหางาน<input class="fin" name="query" value="${esc(TEAM_BOARD.query)}"></label><button class="tbtn">ค้นหา</button></form></div>
- <p role="status">${rows.length} งาน · งานที่มีหลายผู้รับผิดชอบจะแสดงในการ์ดของแต่ละคน โดยยอดรวมไม่นับซ้ำ</p><div class="team-work-board">${groups.map(g=>`<section class="team-work-column"><h3>${esc(g.title)} <small>${g.rows.length}</small></h3>${g.rows.slice(0,TEAM_BOARD.limit).map(w=>`<button class="team-work-card" data-team-kind="${esc(w._source)}" data-team-id="${esc(w.sourceId||w.id)}"><small>${esc(boardSourceLabel(w))} · ${esc(STATUS[w.status]?.t||w.status)}</small><b>${esc(w.title)}</b><span>${esc(teamWorkPeople(w).map(p=>p.name).join(', '))}</span>${w.sourceRow?.activity_date?`<span>${esc(activityDateLabel(w.sourceRow.activity_date))}</span>`:''}${w.desc?`<p>${esc(w.desc)}</p>`:''}</button>`).join('')||'<p class="muted">ไม่มีงานตามตัวกรอง</p>'}${g.rows.length>TEAM_BOARD.limit?`<button class="tbtn" data-team-more>แสดงเพิ่ม (${g.rows.length-TEAM_BOARD.limit})</button>`:''}</section>`).join('')||'<p>ยังไม่มีข้อมูลในแผนกนี้</p>'}</div>`;
+ <label>สถานะงาน<select class="fin" id="team-state">${Object.entries({open:'ยังไม่เสร็จ',done:'เสร็จแล้ว / ประวัติ',all:'ทั้งหมด'}).map(([k,v])=>`<option value="${k}" ${TEAM_BOARD.state===k?'selected':''}>${v}</option>`).join('')}</select></label><form id="team-search"><label>ค้นหางาน<input class="fin" name="query" value="${esc(TEAM_BOARD.query)}"></label><button class="tbtn">ค้นหา</button></form></div>
+ <p role="status">${rows.length} งาน · งานที่มีหลายผู้รับผิดชอบจะแสดงในการ์ดของแต่ละคน โดยยอดรวมไม่นับซ้ำ</p><div class="team-work-board">${groups.map(g=>`<section class="team-work-column"><h3>${esc(g.title)} <small>${g.rows.length}</small></h3>${g.rows.slice(0,TEAM_BOARD.limit).map(w=>`<button class="team-work-card" data-team-kind="${esc(w._source)}" data-team-id="${esc(w.sourceId||w.id)}"><span class="ux-card-top"><small>${esc(boardSourceLabel(w))}</small><span class="ux-status ${['done','block','review','doing'].includes(w.status)?w.status:'todo'}">${esc(STATUS[w.status]?.t||w.status)}</span></span><b>${esc(w.title)}</b>${TEAM_BOARD.group==='status'?`<span class="ux-card-owner">${esc(teamWorkPeople(w).map(p=>p.name).join(', '))}</span>`:''}${w.desc&&w.desc!==w.title?`<p>${esc(w.desc)}</p>`:''}<span class="ux-card-foot">${esc(teamWorkMeta(w))}<span>เปิดงาน ↗</span></span></button>`).join('')||'<p class="muted">ไม่มีงานตามตัวกรอง</p>'}${g.rows.length>TEAM_BOARD.limit?`<button class="tbtn" data-team-more>แสดงเพิ่ม (${g.rows.length-TEAM_BOARD.limit})</button>`:''}</section>`).join('')||'<p>ยังไม่มีข้อมูลในแผนกนี้</p>'}</div>`;
  document.getElementById('team-dept').onchange=e=>{TEAM_BOARD.department=e.target.value;TEAM_BOARD.person='';TEAM_BOARD.limit=30;RENDER.teamBoard();};
  document.getElementById('team-person').onchange=e=>{TEAM_BOARD.person=e.target.value;TEAM_BOARD.limit=30;RENDER.teamBoard();};
+ document.getElementById('team-state').onchange=e=>{TEAM_BOARD.state=e.target.value;TEAM_BOARD.limit=30;RENDER.teamBoard();};
  document.getElementById('team-group').onchange=e=>{TEAM_BOARD.group=e.target.value;RENDER.teamBoard();};
  document.getElementById('team-search').onsubmit=e=>{e.preventDefault();TEAM_BOARD.query=e.currentTarget.elements.query.value.trim();TEAM_BOARD.limit=30;RENDER.teamBoard();};
  main.querySelectorAll('[data-team-kind]').forEach(b=>b.onclick=()=>openTeamWork(b.dataset.teamKind,b.dataset.teamId));

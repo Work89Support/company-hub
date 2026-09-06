@@ -63,8 +63,24 @@ async function openActivityEntry(id){
  entryOwnerOptions(r?.employee_id||(!r?ACCESS_PROFILE.id:''));
  if(r&&canManageActivity(r)){const b=document.createElement('button');b.type='button';b.className='tbtn';b.textContent='เชื่อมบัญชีและให้เจ้าของเติมข้อมูล';b.onclick=async()=>{const owner=val('entry-employee_id');if(!owner){entryErrors({employee_id:'เลือกบัญชีที่จะให้เติมข้อมูลก่อน'});return;}b.disabled=true;try{const result=await SB.rpc('assign_activity_owner',{p_id:r.id,p_expected_revision:r.entry_revision,p_owner:owner});if(result.error)throw result.error;closeModal();await loadActivities();if(VIEW==='completeness')RENDER.completeness();toast('มอบหมายแล้ว เจ้าของจะเห็นรายการที่ต้องเติมเมื่อเปิดระบบ');}catch(e){b.disabled=false;const box=document.getElementById('entry-errors');box.hidden=false;box.textContent=e.message;}};document.getElementById('entry-owner-actions').append(b);}
 
+ entryFormLayout();
  const requestId=crypto.randomUUID();document.getElementById('native-activity-form').onsubmit=async ev=>{ev.preventDefault();await saveActivityEntry(r,requestId);};
 }
+
+// Conditional presentation only: preserve entered values and the existing RPC validation.
+function entryFormLayout(){
+ const form=document.getElementById('native-activity-form');if(!form)return;
+ const status=document.getElementById('entry-status'),category=document.getElementById('entry-category');
+ const list=document.createElement('datalist');list.id='entry-category-options';category.setAttribute('list',list.id);category.after(list);
+ const categories=()=>{const dept=val('entry-department_code');const values=[...new Set(ACTIVITY_ROWS.filter(r=>r.department_code===dept).map(r=>r.category?.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));list.innerHTML=values.map(v=>`<option value="${esc(v)}"></option>`).join('');};
+ categories();document.getElementById('entry-department_code').addEventListener('change',categories);
+ const hint=document.createElement('small');hint.className='muted';hint.textContent='เลือกประเภทที่เคยใช้ในแผนก หรือพิมพ์ประเภทใหม่';category.after(hint);
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='tbtn ux-entry-more';toggle.textContent='แสดงรายละเอียดเพิ่มเติม';toggle.setAttribute('aria-expanded','false');document.getElementById('entry-completed_date').closest('.field').before(toggle);
+ const update=()=>{const all=toggle.getAttribute('aria-expanded')==='true';for(const [key,wanted] of [['completed_date','Completed'],['result_note','Completed'],['operational_issue','Blocked']]){const field=document.getElementById('entry-'+key);field.closest('.field').hidden=!(all||status.value===wanted||field.value.trim());}toggle.textContent=all?'แสดงเฉพาะช่องที่เกี่ยวข้อง':'แสดงรายละเอียดเพิ่มเติม';};
+ toggle.onclick=()=>{toggle.setAttribute('aria-expanded',String(toggle.getAttribute('aria-expanded')!=='true'));update();};status.addEventListener('change',update);update();
+ const note=document.createElement('p');note.className='ux-form-note';note.textContent='กำลังทำ: ระบุงานและเวลาเริ่ม · เสร็จแล้ว: เติมเวลาจบ วันที่เสร็จ และผลลัพธ์ · ติดปัญหา: ระบุสิ่งที่ติดขัด';status.closest('.field').after(note);
+}
+
 function entryOwnerPlaceholder(name){return String(name||'').trim()||'เลือกเจ้าของงาน';}
 function entryOwnerOptions(selected=''){
  const dept=val('entry-department_code'),select=document.getElementById('entry-employee_id');
@@ -87,9 +103,9 @@ RENDER.completeness=function(){
 };
 function entryNotice(){
  if(!ACCESS_PROFILE||!ACTIVITY_READY)return;
- const previous=ENTRY_SCOPE;ENTRY_SCOPE=AUTH_DB_ROLE==='staff'?'mine':'team';const q=entryQueue();ENTRY_SCOPE=previous;
+ const previous=ENTRY_SCOPE;ENTRY_SCOPE='mine';const q=entryQueue();ENTRY_SCOPE=previous;
  const total=q.activities.length+q.issues.length;NAV.completeness.t='ข้อมูลที่ต้องเติม'+(total?' ('+total+')':'');buildNav();
- if(total&&ENTRY_NOTICE_USER!==ACCESS_PROFILE.id){ENTRY_NOTICE_USER=ACCESS_PROFILE.id;showModal(`<div class="modal-h"><h3>มีข้อมูลที่ต้องเติม ${nf(total)} รายการ</h3></div><div class="pad"><p>กิจกรรม ${nf(q.activities.length)} รายการ และปัญหา ${nf(q.issues.length)} เคส ยังมีข้อมูลไม่ครบ กรุณาตรวจและเติมในส่วนที่คุณรับผิดชอบ</p><button class="tbtn primary" onclick="closeModal();ENTRY_SCOPE=AUTH_DB_ROLE==='staff'?'mine':'team';go('completeness')">เปิดรายการที่ต้องเติม</button><button class="tbtn" onclick="closeModal()">รับทราบ — ติดตามต่อที่เมนูข้อมูลที่ต้องเติม</button></div>`);}
+ if(total&&ENTRY_NOTICE_USER!==ACCESS_PROFILE.id){ENTRY_NOTICE_USER=ACCESS_PROFILE.id;showModal(`<div class="modal-h"><h3>มีข้อมูลที่ต้องเติม ${nf(total)} รายการ</h3></div><div class="pad"><p>กิจกรรม ${nf(q.activities.length)} รายการ และปัญหา ${nf(q.issues.length)} เคส ยังมีข้อมูลไม่ครบ กรุณาตรวจและเติมในส่วนที่คุณรับผิดชอบ</p><button class="tbtn primary" onclick="closeModal();ENTRY_SCOPE='mine';go('completeness')">เปิดรายการที่ต้องเติม</button><button class="tbtn" onclick="closeModal()">รับทราบ — ติดตามต่อที่เมนูข้อมูลที่ต้องเติม</button></div>`);}
 }
 const entryLoadActivities=loadActivities;
 loadActivities=async function(){await entryLoadActivities();entryNotice();};

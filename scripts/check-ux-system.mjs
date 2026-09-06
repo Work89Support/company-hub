@@ -5,7 +5,25 @@ window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
 const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
-window.eval(source+`\nwindow.reviewAPI={previewAll:async()=>{
+window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
+ ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};AUTH_DB_ROLE='staff';VISIBLE_DEPTS=['CRM'];MANAGE_DEPTS=[];VIEW='dash';
+ TASKS.splice(0,TASKS.length,{id:'owned',title:'OWNED TASK',dept:'CRM',status:'doing',assignees:['ux-me'],createdAt:bangkokTodayISO()},{id:'other',title:'OTHER PERSON TASK',dept:'CRM',status:'doing',assignees:['someone-else']});
+ ACTIVITY_ROWS=[{id:91,employee_id:'ux-me',employee_name:'เจ้าของ',department_code:'CRM',activity:'NATIVE ENTRY',activity_date:bangkokTodayISO(),status:'In Progress',category:'ติดตามลูกค้า'},{id:92,employee_id:'ux-me',employee_name:'เจ้าของ',department_code:'CRM',activity:'IMPORTED ENTRY',activity_date:'2020-01-01',status:'Completed',source_document_id:'sheet-test'},{id:93,employee_id:'someone-else',department_code:'CRM',activity:'OTHER PERSON ENTRY',activity_date:bangkokTodayISO()}];
+ GRAPHIC_JOBS=[];PROBLEMS.splice(0,PROBLEMS.length);for(const key of Object.keys(DATA_HEALTH))DATA_HEALTH[key]={state:'ready',at:Date.now()};
+ RENDER.dash();if(!main.textContent.includes('OWNED TASK')||main.textContent.includes('OTHER PERSON TASK')||main.querySelector('[data-scope="visible"]'))throw new Error('Dashboard personal scope leaked');
+ main.querySelector('[data-work-tab="noDue"]').click();if(!main.textContent.includes('OWNED TASK'))throw new Error('Missing due drilldown lost actual row');
+ let opened;const original=openTeamWork;openTeamWork=(kind,id)=>opened=[kind,id];main.querySelector('[data-work-index]').click();openTeamWork=original;if(opened[1]!=='owned')throw new Error('Dashboard row did not open source');
+ VIEW='teamBoard';TEAM_BOARD.department='CRM';TEAM_BOARD.person='';TEAM_BOARD.state='done';RENDER.teamBoard();if(!main.textContent.includes('IMPORTED ENTRY')||main.querySelector('[data-team-id="owned"]'))throw new Error('Completed filter mixed open work');
+ VIEW='completeness';ENTRY_SCOPE='team';RENDER.completeness();if(ENTRY_SCOPE!=='mine'||main.textContent.includes('OTHER PERSON ENTRY'))throw new Error('Completeness scope leaked');
+ let origin=document.getElementById('ux-entry-origin');origin.value='imported';origin.dispatchEvent(new Event('change'));if(!main.textContent.includes('IMPORTED ENTRY')||main.textContent.includes('NATIVE ENTRY'))throw new Error('Imported queue filter failed');
+ origin=document.getElementById('ux-entry-origin');origin.value='native';origin.dispatchEvent(new Event('change'));if(!main.textContent.includes('NATIVE ENTRY')||main.textContent.includes('IMPORTED ENTRY'))throw new Error('Native queue filter failed');
+ await openActivityEntry();const status=document.getElementById('entry-status'),result=document.getElementById('entry-result_note'),issue=document.getElementById('entry-operational_issue');if(!result.closest('.field').hidden||!issue.closest('.field').hidden)throw new Error('New form should hide optional result and issue');
+ status.value='Blocked';status.dispatchEvent(new Event('change'));if(issue.closest('.field').hidden||!result.closest('.field').hidden)throw new Error('Blocked form fields incorrect');
+ issue.value='Keep this note';status.value='Completed';status.dispatchEvent(new Event('change'));if(result.closest('.field').hidden||issue.value!=='Keep this note'||issue.closest('.field').hidden)throw new Error('Status switch discarded existing note');
+ if(!document.querySelector('#entry-category-options option[value="ติดตามลูกค้า"]'))throw new Error('Department category suggestions missing');
+ closeModal();
+},
+previewAll:async()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'CRM',display_name:'ทีมตัวอย่าง',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=DEPTS.map(d=>d.code);MANAGE_DEPTS=DEPTS.map(d=>d.code);USERS['ux-me']={n:'ทีมตัวอย่าง',s:'ท',c:'#2158c8'};
  Object.keys(KPI).forEach(k=>delete KPI[k]);TASKS.splice(0,TASKS.length);PROBLEMS.splice(0,PROBLEMS.length);ANN.splice(0,ANN.length);FEED.splice(0,FEED.length);ACTIVITY_ROWS=[];GRAPHIC_JOBS=[];GRAPHIC_PROJECTS=[];GRAPHIC_READY=true;ACTIVITY_READY=true;IMPLEMENTATION_ACTIONS_READY=true;ACCESS_USERS_READY=true;ACCESS_USERS=[];ACCESS_USER_DEPTS=[];ENTRY_PEOPLE=[];
  TASKS.push({id:'UX-01',dbId:'ux-task-1',title:'ตรวจความครบถ้วนของข้อมูลลูกค้า',dept:'CRM',status:'doing',assignee:'ux-me',assignees:['ux-me'],creator:'ux-me',start:'09-05',due:'09-08',createdAt:'2026-09-05T03:00:00Z',dueAt:'2026-09-08T10:00:00Z',prio:'mid',tags:['ตรวจข้อมูล'],desc:'ตัวอย่างสำหรับตรวจหน้าตาเท่านั้น',spent:2});
@@ -58,4 +76,5 @@ const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=awai
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
 const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages)assert.ok(p.title,'Missing page title: '+p.view);
 if(process.env.UX_PREVIEW_DIR){fs.mkdirSync(process.env.UX_PREVIEW_DIR,{recursive:true});for(const r of pages){if(r.html)fs.writeFileSync(process.env.UX_PREVIEW_DIR+'/'+r.view+'.html',r.html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));}}
+await api.checkWorkspace();
 console.log('PASS UX: '+pages.length+' screens, preserved draft values and submission handler, activity form, source links, filters and script initialization');await window.happyDOM.close();
