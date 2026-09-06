@@ -62,6 +62,10 @@
  };
 
  for(const view of Object.keys(RENDER)){const original=RENDER[view];RENDER[view]=function(...args){const active=document.activeElement,keep=VIEW===view&&main.contains(active)&&active.tagName==='INPUT'&&['search','text'].includes(active.type)&&!!active.closest('.filterbar,.issue-work-filters,.activity-filters');const focus=keep?{id:active.id,placeholder:active.placeholder,value:active.value,start:active.selectionStart,end:active.selectionEnd}:null;const finish=()=>{enhance();if(focus&&VIEW===view){const input=focus.id?document.getElementById(focus.id):[...main.querySelectorAll('input')].find(n=>n.placeholder===focus.placeholder&&n.value===focus.value);if(input&&input.value===focus.value){input.focus({preventScroll:true});try{input.setSelectionRange(focus.start,focus.end);}catch{}}}};const result=original(...args);finish();if(result?.then)return result.then(value=>{if(VIEW===view)finish();return value;});return result;};}
+ // A loader can finish after the initial dashboard render. Refresh the counts once
+ // per health transition so a ready source never leaves a loading placeholder behind.
+ const workspaceHealth=integrityRenderHealth;let healthSignature='',healthQueued=false;
+ integrityRenderHealth=function(...args){const result=workspaceHealth(...args);const signature=JSON.stringify(Object.entries(DATA_HEALTH).map(([k,s])=>[k,s.state,s.at]));if(VIEW==='dash'&&signature!==healthSignature){healthSignature=signature;if(!healthQueued){healthQueued=true;queueMicrotask(()=>{healthQueued=false;if(VIEW==='dash')RENDER.dash();});}}return result;};
  const originalModal=showModal;showModal=function(...args){const result=originalModal(...args);enhanceModal();return result;};
  let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;enhance();});});observer.observe(main,{childList:true,subtree:true});
  window.companyUxEnhance=enhance;window.companyUxEnhanceModal=enhanceModal;enhance();
