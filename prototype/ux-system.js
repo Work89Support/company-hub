@@ -1,7 +1,7 @@
 /* Progressive presentation enhancement. Reuses existing nodes and handlers. */
 (function(){
  if(window.COMPANY_UX_READY)return;window.COMPANY_UX_READY=true;
- const style=document.createElement('link');style.rel='stylesheet';style.href='ux-system.css?v=20260906-2';document.head.append(style);document.body.classList.add('ux-ready');
+ const style=document.createElement('link');style.rel='stylesheet';style.href='ux-system.css?v=20260908-dialogs';document.head.append(style);document.body.classList.add('ux-ready');
  const PAGE_HINTS={reports:'เลือกช่วงเวลาและแผนกเพื่อดูผลสรุป แล้วเปิดรายการต้นทาง',monthly:'ตรวจยอดประจำเดือน แล้วบันทึกสรุปและสิ่งที่ต้องการการสนับสนุน',account:'จัดการชื่อ อีเมล และรหัสผ่านของคุณ',teamAccounts:'ตรวจรายชื่อแยกแผนก สร้างบัญชี และดูสถานะการตั้งรหัสผ่าน'};
  function health(){const node=document.getElementById('data-health');if(!node||node.dataset.uxHealth)return;const entries=Object.values(DATA_HEALTH),errors=entries.filter(s=>s.state==='error').length,ready=entries.filter(s=>s.state==='ready').length;const details=document.createElement('details');details.id='data-health';details.className='ux-health'+(errors?' has-error':'');details.dataset.uxHealth='1';details.setAttribute('role','status');details.open=errors>0;const summary=document.createElement('summary');summary.textContent=errors?`ข้อมูล ${errors} แหล่งโหลดไม่สำเร็จ · ดูรายละเอียด`:`สถานะข้อมูล · อัปเดตแล้ว ${ready}/${entries.length} แหล่ง`;const body=document.createElement('div');while(node.firstChild)body.append(node.firstChild);details.append(summary,body);node.replaceWith(details);}
  function sources(root){root.querySelectorAll('.source-row').forEach(row=>{if(row.closest('.ux-source'))return;const details=document.createElement('details');details.className='ux-source';const summary=document.createElement('summary');summary.textContent='แหล่งข้อมูลและขอบเขตการใช้งาน';row.before(details);details.append(summary,row);});}
@@ -66,7 +66,37 @@
  // per health transition so a ready source never leaves a loading placeholder behind.
  const workspaceHealth=integrityRenderHealth;let healthSignature='',healthQueued=false;
  integrityRenderHealth=function(...args){const result=workspaceHealth(...args);const signature=JSON.stringify(Object.entries(DATA_HEALTH).map(([k,s])=>[k,s.state,s.at]));if(VIEW==='dash'&&signature!==healthSignature){healthSignature=signature;if(!healthQueued){healthQueued=true;queueMicrotask(()=>{healthQueued=false;if(VIEW==='dash')RENDER.dash();});}}return result;};
- const originalModal=showModal;showModal=function(...args){const result=originalModal(...args);enhanceModal();return result;};
+ let modalOrigin=null;
+ function arrangeModal(){
+  const root=document.getElementById('modal'),header=root.querySelector('.modal-h');
+  root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.tabIndex=-1;
+  const title=header?.querySelector('h3');if(title){title.id='ux-dialog-title';root.setAttribute('aria-labelledby',title.id);}else{root.removeAttribute('aria-labelledby');root.setAttribute('aria-label','รายละเอียดและอัปเดต');}
+  const close=header?.querySelector('.x');if(close)close.setAttribute('aria-label',(close.getAttribute('onclick')||'').includes('closeModal')?'ปิดหน้าต่าง':'กลับไปรายละเอียด');
+  // Keep the original form and controls: feature handlers retain their values and submit target.
+  root.querySelectorAll('form').forEach(form=>{
+   if(form.querySelector('.ux-modal-actions'))return;
+   const last=form.lastElementChild;
+   if(last?.matches('button.tbtn.primary,button[type=submit]')){
+    const footer=document.createElement('div');footer.className='ux-modal-actions';last.before(footer);footer.append(last);
+    const cancel=document.createElement('button');cancel.type='button';cancel.className='tbtn ux-modal-cancel';cancel.textContent='ยกเลิก';cancel.onclick=()=>close?close.click():closeModal();footer.append(cancel);
+   }
+  });
+  root.scrollTop=0;root.querySelectorAll(':scope > .pad').forEach(n=>n.scrollTop=0);
+  document.body.classList.remove('nav-open');document.body.classList.add('ux-modal-open');
+  root.focus({preventScroll:true});
+ }
+ const originalModal=showModal;showModal=function(...args){if(!overlay.classList.contains('show'))modalOrigin=document.activeElement;const result=originalModal(...args);enhanceModal();arrangeModal();return result;};
+ const originalCloseModal=closeModal;closeModal=function(...args){const result=originalCloseModal(...args);document.body.classList.remove('ux-modal-open');if(modalOrigin?.isConnected)modalOrigin.focus({preventScroll:true});modalOrigin=null;return result;};
+ document.getElementById('overlay').onclick=e=>{if(e.target===e.currentTarget&&!modal.querySelector('input,textarea,select'))closeModal();};
+ document.getElementById('overlay').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();const close=modal.querySelector('.modal-h .x');if(close)close.click();else closeModal();return;}
+  if(e.key!=='Tab')return;
+  const items=[...modal.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')].filter(n=>!n.hidden&&n.getClientRects().length);
+  const first=items[0],last=items[items.length-1];
+  if(!first){e.preventDefault();modal.focus();return;}
+  if(e.shiftKey&&(document.activeElement===first||document.activeElement===modal)){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===modal)){e.preventDefault();first.focus();}
+ });
  let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;enhance();});});observer.observe(main,{childList:true,subtree:true});
  window.companyUxEnhance=enhance;window.companyUxEnhanceModal=enhanceModal;enhance();
 })();

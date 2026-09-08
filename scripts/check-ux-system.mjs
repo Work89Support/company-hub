@@ -22,7 +22,11 @@ window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
  status.value='Blocked';status.dispatchEvent(new Event('change'));if(issue.closest('.field').hidden||!result.closest('.field').hidden)throw new Error('Blocked form fields incorrect');
  issue.value='Keep this note';status.value='Completed';status.dispatchEvent(new Event('change'));if(result.closest('.field').hidden||issue.value!=='Keep this note'||issue.closest('.field').hidden)throw new Error('Status switch discarded existing note');
  if(!document.querySelector('#entry-category-options option[value="ติดตามลูกค้า"]'))throw new Error('Department category suggestions missing');
- closeModal();
+ if(modal.getAttribute('role')!=='dialog'||modal.getAttribute('aria-modal')!=='true'||!document.body.classList.contains('ux-modal-open'))throw new Error('Modal semantics or foreground state missing');
+ const form=document.getElementById('native-activity-form'),handler=form.onsubmit;
+ window.companyUxEnhanceModal();if(form.onsubmit!==handler||issue.value!=='Keep this note')throw new Error('Modal enhancement replaced draft controls');
+ overlay.click();if(!overlay.classList.contains('show'))throw new Error('Backdrop discarded editable form');
+ closeModal();if(document.body.classList.contains('ux-modal-open'))throw new Error('Modal close did not release scroll lock');
 },
 previewAll:async()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'CRM',display_name:'ทีมตัวอย่าง',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=DEPTS.map(d=>d.code);MANAGE_DEPTS=DEPTS.map(d=>d.code);USERS['ux-me']={n:'ทีมตัวอย่าง',s:'ท',c:'#2158c8'};
