@@ -5,7 +5,12 @@ window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
 const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system','entry-wizard','connected-systems'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
-window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
+window.eval(source+`\nwindow.reviewAPI={checkProductionFeed:()=>{
+ const oldCloud=CLOUD,oldProfile=ACCESS_PROFILE,saved=FEED.slice();
+ try{CLOUD=true;ACCESS_PROFILE={id:'feed-me'};FEED.push({t:'MY REAL UPDATE',live:true,account:'feed-me'},{t:'OTHER ACCOUNT UPDATE',live:true,account:'feed-other'});RENDER.ann();
+ if(!main.textContent.includes('MY REAL UPDATE')||main.textContent.includes('OTHER ACCOUNT UPDATE')||main.textContent.includes('T-1042'))throw new Error('Production feed mixed demo or another account');
+ }finally{CLOUD=oldCloud;ACCESS_PROFILE=oldProfile;FEED.splice(0,FEED.length,...saved);}
+},checkWorkspace:async()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};AUTH_DB_ROLE='staff';VISIBLE_DEPTS=['CRM'];MANAGE_DEPTS=[];VIEW='dash';
  TASKS.splice(0,TASKS.length,{id:'owned',title:'OWNED TASK',dept:'CRM',status:'doing',assignees:['ux-me'],createdAt:bangkokTodayISO()},{id:'other',title:'OTHER PERSON TASK',dept:'CRM',status:'doing',assignees:['someone-else']});
  ACTIVITY_ROWS=[{id:91,employee_id:'ux-me',employee_name:'เจ้าของ',department_code:'CRM',activity:'NATIVE ENTRY',activity_date:bangkokTodayISO(),status:'In Progress',category:'ติดตามลูกค้า'},{id:92,employee_id:'ux-me',employee_name:'เจ้าของ',department_code:'CRM',activity:'IMPORTED ENTRY',activity_date:'2020-01-01',status:'Completed',source_document_id:'sheet-test'},{id:93,employee_id:'someone-else',department_code:'CRM',activity:'OTHER PERSON ENTRY',activity_date:bangkokTodayISO()}];
@@ -120,5 +125,5 @@ const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=awai
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
 const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages)assert.ok(p.title,'Missing page title: '+p.view);
 if(process.env.UX_PREVIEW_DIR){fs.mkdirSync(process.env.UX_PREVIEW_DIR,{recursive:true});for(const r of pages){if(r.html)fs.writeFileSync(process.env.UX_PREVIEW_DIR+'/'+r.view+'.html',r.html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));}}
-await api.checkWorkspace();await api.checkWizard();api.checkConnected();
+api.checkProductionFeed();await api.checkWorkspace();await api.checkWizard();api.checkConnected();
 console.log('PASS UX: '+pages.length+' screens, preserved draft values and submission handler, activity form, source links, filters and script initialization');await window.happyDOM.close();

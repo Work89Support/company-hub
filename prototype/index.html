@@ -915,7 +915,7 @@ function toast(msg,type='ok'){
 }
 function refresh(){RENDER[VIEW](BOARD_DEPT);if(typeof saveState==='function')saveState();}
 function nextTaskId(){const nums=TASKS.map(t=>Number(String(t.id).split('-').pop())).filter(Number.isFinite);return 'T-'+((nums.length?Math.max(...nums):0)+1);}
-function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'เมื่อสักครู่'});}
+function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'เมื่อสักครู่',live:CLOUD,account:ACCESS_PROFILE?.id});}
 
 function canCreateTask(dept){return !!SB&&!!ACCESS_PROFILE&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(dept)));}
 function canManageTaskUi(t){return !!t&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(t.dept)));}
@@ -2056,8 +2056,8 @@ RENDER.ann=function(){
         <div style="flex:1"><h4>${a.pin?'📌 ':''}${a.title} <span class="pill" style="background:${st.c};font-size:10px">${st.t}</span></h4><div class="body">${a.body}</div>
         <div class="time">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 ${fmtDate(a.from)}${a.until?('–'+fmtDate(a.until)):''}`:''}</div>
         <div style="margin-top:6px;font-size:11.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="color:var(--green)">✓ รับทราบ ${ack}/${aud.length}</span><span class="muted">💬 ตอบกลับ ${(a.comments||[]).length}</span>${meNeed?'<span class="pill" style="background:var(--amber);font-size:10px">คุณยังไม่รับทราบ — คลิกเพื่อรับทราบ</span>':''}</div></div></div>`;}).join('')}</div></div>
-    <div class="card"><div class="card-h"><h3>${sic('i-bell')} ฟีดงานรวม</h3></div><div class="pad">
-      ${FEED.map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-bell')} ${CLOUD?'ความเคลื่อนไหวในรอบใช้งานนี้':'ฟีดงานรวม'}</h3></div><div class="pad">
+      ${FEED.filter(f=>!CLOUD||(f.live&&f.account===ACCESS_PROFILE?.id)).map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')||'<p class="muted">ยังไม่มีความเคลื่อนไหวในรอบใช้งานนี้ · ดูรายการงานจริงได้ที่ Action Tracker</p>'}</div></div>
   </div>`;
 };
 RENDER.talk=function(){
@@ -2683,7 +2683,7 @@ async function loadAuthenticatedProfile(session){
 }
 async function cloudLoad(){
   try{
-    TASKS.length=0;KB.length=0;ANN.length=0;GROUPS.length=0;
+    TASKS.length=0;KB.length=0;ANN.length=0;GROUPS.length=0;FEED.length=0;
     await cloudLoadTasks();
     await cloudLoadKnowledge();
     await cloudLoadAnnouncements();
