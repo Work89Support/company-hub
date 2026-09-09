@@ -39,3 +39,6 @@ jobs:
 
       - name: Verify report persistence, permissions and KPI approval
         run: PGLITE_MODULE=/tmp/company-hub-tests/node_modules/@electric-sql/pglite/dist/index.js node scripts/check-reporting-integrity-db.mjs
+
+      - name: Verify central audit consolidation and programmer KPI
+        run: PGLITE_MODULE=/tmp/company-hub-tests/node_modules/@electric-sql/pglite/dist/index.js node scripts/check-central-audit-programmer.mjs

@@ -7,7 +7,7 @@ import json
 import unicodedata
 from pathlib import Path
 
-DEPARTMENTS = {'BOM':'ทีมบริหาร','FIN':'การเงิน','AUD123':'ออดิท 123','AUDXB':'ออดิท XB','HR':'ทรัพยากรบุคคล','MKT':'การตลาด','PROG':'โปรแกรมเมอร์','CRM':'ลูกค้าสัมพันธ์','ADMIN':'แอดมิน','QC':'ตรวจสอบคุณภาพ','BO':'Back Office','KPI':'KPI','GRAPHIC':'กราฟิก'}
+DEPARTMENTS = {'BOM':'ทีมบริหาร','FIN':'การเงิน','AUD123':'ออดิทระบบส่วนกลาง','AUDXB':'ออดิทระบบส่วนกลาง','HR':'ทรัพยากรบุคคล','MKT':'การตลาด','PROG':'โปรแกรมเมอร์','CRM':'ลูกค้าสัมพันธ์','ADMIN':'แอดมิน','QC':'ตรวจสอบคุณภาพ','BO':'Back Office','KPI':'KPI','GRAPHIC':'กราฟิก'}
 SHARED = {'ทุกคน','all','hr','buki grace','บอส แก๋ม'}
 
 def prepare(activities, members):
@@ -16,7 +16,7 @@ def prepare(activities, members):
         name = str(row.get('employee_name') or '').strip()
         if not name or row.get('department_code') not in DEPARTMENTS:
             continue
-        key = (row['department_code'], name)
+        key = ('AUD123' if row['department_code']=='AUDXB' else row['department_code'], name)
         person = people.setdefault(key, {'rows':0,'sheets':set(),'member_ids':set()})
         person['rows'] += 1
         person['sheets'].add(row['source_sheet'])
