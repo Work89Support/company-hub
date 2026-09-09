@@ -29,14 +29,22 @@ window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
  closeModal();if(document.body.classList.contains('ux-modal-open'))throw new Error('Modal close did not release scroll lock');
 },
 checkConnected:()=>{
- ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};VIEW='connectedSystems';RENDER.connectedSystems();
- if(!modal||!main.querySelector('iframe')?.src.includes('Audit-Reconciliation-Control/#/exceptions'))throw new Error('Audit source URL missing');
- main.querySelector('[data-source-page="reports"]').click();if(!main.querySelector('iframe').src.endsWith('#/reports'))throw new Error('Audit page switch failed');
- main.querySelector('[data-system="domainwatch"]').click();if(main.querySelector('iframe'))throw new Error('Cross-site Domainwatch login embedded');
- if(![...main.querySelectorAll('a')].every(a=>a.hostname==='domain-watch-app-sandy.vercel.app'&&a.rel.includes('noopener')))throw new Error('Unsafe source link');
+ ACCESS_PROFILE={id:'ux-me',department_code:'AUD123',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=['AUD123','ADMIN','PROG'];VIEW='connectedSystems';RENDER.connectedSystems();
+ if(main.querySelector('iframe'))throw new Error('Source screen must not be embedded');
+ if(main.querySelectorAll('[data-department]').length!==3)throw new Error('Missing department results');
+ if(!main.textContent.includes('ยังไม่ได้เชื่อมผล'))throw new Error('Disconnected result must not imply zero');
+ const popup={};let url='';window.open=(u)=>{url=u;return popup;};
+ main.querySelector('#cr-connect').click();const hash=new URLSearchParams(url.split('#')[1]);
+ const data={version:1,from:hash.get('from'),to:hash.get('to'),fetchedAt:new Date().toISOString(),partial:false,rows:[{id:'case1',title:'ACTUAL AUDIT CASE',company:'A',date:hash.get('from'),ownerId:'person-1',owner:'Audit owner',status:'clarifying',waiting:true,closed:false}],runs:[]};
+ const message={type:'company-hub-results',nonce:hash.get('nonce'),source:'audit',data};
+ window.dispatchEvent(new MessageEvent('message',{origin:'https://evil.test',source:popup,data:message}));
+ if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Untrusted origin accepted');
+ window.dispatchEvent(new MessageEvent('message',{origin:'https://work89support.github.io',source:popup,data:message}));
+ if(!main.textContent.includes('ACTUAL AUDIT CASE')||!main.textContent.includes('Audit owner'))throw new Error('Native result handoff failed');
+ main.querySelector('[data-department="ADMIN"]').click();if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Department data leaked into other source');
  if(!main.textContent.includes('ยังไม่รวมเข้าคะแนน'))throw new Error('Missing metric provenance');
- for(const roles of [ROLE_ALLOW,SIMPLE_ALLOW])for(const list of Object.values(roles))if(!list.includes('connectedSystems'))throw new Error('Missing all-user source navigation');
- ACCESS_PROFILE=null;RENDER.connectedSystems();if(main.querySelector('iframe,a'))throw new Error('Source view requires Hub login');
+ ACCESS_PROFILE={id:'other-user',department_code:'AUD123'};RENDER.connectedSystems();main.querySelector('[data-department="AUD123"]').click();if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Previous account cache survived');
+ ACCESS_PROFILE=null;RENDER.connectedSystems();if(main.querySelector('a,button'))throw new Error('Source view requires Hub login');
 },
 checkWizard:async()=>{
  AUTH_DB_ROLE='admin';ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};MANAGE_DEPTS=['CRM'];VISIBLE_DEPTS=['CRM'];
