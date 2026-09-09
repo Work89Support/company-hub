@@ -70,7 +70,12 @@ export default {fetch:async(request:Request)=>{
  if(action==='provision'){
   const sourceName=String(b.name||'').normalize('NFC').trim(),name=clean(b.name),dept=clean(b.department_code);
   if(name.length<1||name.length>100||/[\r\n\x00-\x1f]/.test(String(b.name))||['ทุกคน','all','hr','buki grace','บอส แก๋ม'].includes(name.toLowerCase())||name.includes('/'))return json({error:'ต้องเป็นชื่อบุคคลเดียว'},400);
-  const department=required(await admin.from('departments').select('code,name').eq('code',dept).single());
+  if(b.department_codes!==undefined&&(!Array.isArray(b.department_codes)||b.department_codes.some((x:unknown)=>typeof x!=='string')))return json({error:'เลือกแผนกให้ถูกต้อง'},400);
+  const departmentCodes=[...new Set([dept,...(b.department_codes||[]).map(clean)])];
+  const position=clean(b.position_title||'พนักงาน');
+  if(departmentCodes.length>20||departmentCodes.some(x=>!x)||position.length>120)return json({error:'ข้อมูลแผนกหรือหน้าที่ยาวเกินไป'},400);
+  const department=required(await admin.from('departments').select('code,name').eq('code',dept).eq('active',true).single());
+  for(const code of departmentCodes)if(code!==dept)required(await admin.from('departments').select('code').eq('code',code).eq('active',true).single());
   const source=checked(await admin.from('daily_activities').select('id,employee_id').eq('department_code',dept).eq('employee_name',sourceName).limit(1000))??[];
   const members=dept==='GRAPHIC'?checked(await admin.from('graphic_trello_members').select('trello_member_id,linked_profile_id').eq('full_name',sourceName))??[]:[];
   if(!source.length&&!members.length)return json({error:'ไม่พบชื่อนี้ในข้อมูลต้นทาง'},400);
@@ -87,13 +92,13 @@ export default {fetch:async(request:Request)=>{
   // Default profile is inactive until the private directory and scope exist.
   // Credentials are only returned once the whole provision operation succeeds.
   try{
-   checked(await admin.from('profiles').upsert({id,email,display_name:display,role:'staff',department_code:dept,active:false,position_title:''}));
+   checked(await admin.from('profiles').upsert({id,email,display_name:display,role:'staff',department_code:dept,active:false,position_title:position}));
    checked(await admin.from('company_login_accounts').insert({profile_id:id,login_name:login,source_key:sourceKey,personal_name:name,created_by:user.id}));
    checked(await admin.from('profile_departments').delete().eq('profile_id',id).neq('department_code',dept));
-   checked(await admin.from('profile_departments').upsert({profile_id:id,department_code:dept,can_manage:false},{onConflict:'profile_id,department_code'}));
+   for(const code of departmentCodes)checked(await admin.from('profile_departments').upsert({profile_id:id,department_code:code,can_manage:false},{onConflict:'profile_id,department_code'}));
    checked(await admin.from('user_access_policies').insert({profile_id:id,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id}));
    checked(await admin.rpc('link_company_source_owner',{p_profile:id,p_name:sourceName,p_dept:dept}));
-   checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:id,old_access:{},new_access:{action:'username_account_created',role:'staff',department_code:dept}}));
+   checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:id,old_access:{},new_access:{action:'username_account_created',role:'staff',department_code:dept,department_codes:departmentCodes,position_title:position}}));
    checked(await admin.from('profiles').update({active:true}).eq('id',id));
   }catch(error){await admin.from('profiles').update({active:false}).eq('id',id);throw error;}
   return json({ok:true,profile_id:id,login_name:display,initial_password:password});
