@@ -37,4 +37,14 @@ await login('a');const updated=(await db.query('select * from save_issue_intake_
 await reject(()=>db.query("select save_verified_issue_resolution($1,'Resolved','Admin','','permanent','fixed','',1,'','',true)",[issue.id]),'staff cannot close');
 await login('lead');await reject(()=>db.query("select save_verified_issue_resolution($1,'Resolved','','','permanent','fixed','',1,'','',true)",[issue.id]),'missing owner blocks closure');await db.query("select save_verified_issue_resolution($1,'Resolved','Admin','','permanent','fixed','',1,'','',true)",[issue.id]);
 await login('admin');assert.equal((await db.query('select * from activity_edit_history')).rows.length,3);
+await db.exec('reset role; alter table departments add column active boolean default true');
+await db.exec(fs.readFileSync(new URL('202609090033_multi_department_directory.sql',root),'utf8'));
+await db.exec(`insert into profile_departments values('${ids.a}','FIN',false)`);
+await login('a');
+assert.deepEqual((await db.query('select department_code from activity_entry_people() order by department_code')).rows.map(r=>r.department_code),['ADMIN','FIN']);
+await save({...row,request_id:'10000000-0000-4000-8000-000000000010',department_code:'FIN'});
+await reject(()=>save({...row,request_id:'10000000-0000-4000-8000-000000000011',department_code:'FIN',employee_id:ids.foreign}),'secondary department does not permit writing for colleagues');
+await login('b');await reject(()=>save({...row,request_id:'10000000-0000-4000-8000-000000000012',department_code:'FIN',employee_id:ids.b}),'unassigned department denied');
+await login('foreign');assert.ok((await db.query('select * from activity_entry_people()')).rows.some(r=>r.id===ids.a&&r.department_code==='FIN'),'secondary member visible to department manager');
+await save({...row,request_id:'10000000-0000-4000-8000-000000000013',department_code:'FIN'});
 console.log('PASS database migrations, staff/lead/admin isolation, required fields, retries, revision conflicts, issue intake and closure');await db.close();

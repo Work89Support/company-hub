@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const {Window}=await import(process.env.DOM_MODULE||'happy-dom');
+const w=new Window(),d=w.document;
+d.body.innerHTML='<button id="saveAccessBtn" data-section="duties"></button><input id="editUserActive" type="checkbox" checked><input id="editUserEnforceDevice" type="checkbox" checked><input id="editUserEnforceIp" type="checkbox">';
+const calls=[];
+const ctx={document:d,confirm:()=>true,val:k=>({editUserPosition:'Staff',editUserRole:'staff',editUserDept:'FIN',editUserIpRules:'',editUserSessionMinutes:'5'}[k]||''),normSp:s=>s,selectedAccessValues:()=>['FIN'],accessDevicesFor:()=>[],ACCESS_PROFILE:{id:'admin'},SB:{rpc:async(n,a)=>{calls.push(n);return {}; }},closeModal(){},toast(){},loadAccessUsers:async()=>{},sbLogout:async()=>{}};
+const s=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
+vm.createContext(ctx);vm.runInContext(s.slice(s.indexOf('async function saveAccessUser(id){'),s.indexOf('async function setAccessDeviceStatus')),ctx);
+await ctx.saveAccessUser('employee');assert.deepEqual(calls,['set_user_access'],'editing duties succeeds without an approved device and never alters security');
+const b=d.getElementById('saveAccessBtn');b.disabled=false;b.dataset.section='security';await ctx.saveAccessUser('employee');assert.equal(calls.length,1,'security still requires an approved device');
+ctx.accessDevicesFor=()=>[{status:'approved'}];await ctx.saveAccessUser('employee');assert.deepEqual(calls,['set_user_access','set_user_login_policy'],'security saves only its own transaction');
+console.log('PASS independent access and security saves, pending-device gate preserved');
+await w.happyDOM.close();

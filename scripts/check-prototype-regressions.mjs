@@ -29,7 +29,7 @@ const checks = [
   ['Dashboard prevents empty NaN percent', /donePct=all\.length\?/],
   ['Employee access management page', /RENDER\.users\s*=\s*function/],
   ['Employee invitation through Edge Function', /invite-company-user/],
-  ['Employee access update through audited RPC', /SB\.rpc\('set_user_access'/],
+  ['Employee access update through audited RPC', /name='set_user_access';args=/],
   ['Login calls the server-side device and IP gate before loading data', /async function onLoggedIn\(session\)[\s\S]*validateAccessGate\(session\)[\s\S]*loadAuthenticatedProfile/],
   ['Access Gate is refreshed while a session remains open', /startAccessGateRefresh\(session\)/],
   ['Employee access page manages device and IP policy', /set_user_login_policy[\s\S]*set_user_device_status/],
