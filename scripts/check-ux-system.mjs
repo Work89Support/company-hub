@@ -4,7 +4,7 @@ const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'u
 window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
-const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system','entry-wizard'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
+const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system','entry-wizard','connected-systems'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
 window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};AUTH_DB_ROLE='staff';VISIBLE_DEPTS=['CRM'];MANAGE_DEPTS=[];VIEW='dash';
  TASKS.splice(0,TASKS.length,{id:'owned',title:'OWNED TASK',dept:'CRM',status:'doing',assignees:['ux-me'],createdAt:bangkokTodayISO()},{id:'other',title:'OTHER PERSON TASK',dept:'CRM',status:'doing',assignees:['someone-else']});
@@ -27,6 +27,16 @@ window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
  window.companyUxEnhanceModal();if(form.onsubmit!==handler||issue.value!=='Keep this note')throw new Error('Modal enhancement replaced draft controls');
  overlay.click();if(!overlay.classList.contains('show'))throw new Error('Backdrop discarded editable form');
  closeModal();if(document.body.classList.contains('ux-modal-open'))throw new Error('Modal close did not release scroll lock');
+},
+checkConnected:()=>{
+ ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};VIEW='connectedSystems';RENDER.connectedSystems();
+ if(!modal||!main.querySelector('iframe')?.src.includes('Audit-Reconciliation-Control/#/exceptions'))throw new Error('Audit source URL missing');
+ main.querySelector('[data-source-page="reports"]').click();if(!main.querySelector('iframe').src.endsWith('#/reports'))throw new Error('Audit page switch failed');
+ main.querySelector('[data-system="domainwatch"]').click();if(main.querySelector('iframe'))throw new Error('Cross-site Domainwatch login embedded');
+ if(![...main.querySelectorAll('a')].every(a=>a.hostname==='domain-watch-app-sandy.vercel.app'&&a.rel.includes('noopener')))throw new Error('Unsafe source link');
+ if(!main.textContent.includes('ยังไม่รวมเข้าคะแนน'))throw new Error('Missing metric provenance');
+ for(const roles of [ROLE_ALLOW,SIMPLE_ALLOW])for(const list of Object.values(roles))if(!list.includes('connectedSystems'))throw new Error('Missing all-user source navigation');
+ ACCESS_PROFILE=null;RENDER.connectedSystems();if(main.querySelector('iframe,a'))throw new Error('Source view requires Hub login');
 },
 checkWizard:async()=>{
  AUTH_DB_ROLE='admin';ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};MANAGE_DEPTS=['CRM'];VISIBLE_DEPTS=['CRM'];
@@ -102,5 +112,5 @@ const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=awai
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
 const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages)assert.ok(p.title,'Missing page title: '+p.view);
 if(process.env.UX_PREVIEW_DIR){fs.mkdirSync(process.env.UX_PREVIEW_DIR,{recursive:true});for(const r of pages){if(r.html)fs.writeFileSync(process.env.UX_PREVIEW_DIR+'/'+r.view+'.html',r.html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));}}
-await api.checkWorkspace();await api.checkWizard();
+await api.checkWorkspace();await api.checkWizard();api.checkConnected();
 console.log('PASS UX: '+pages.length+' screens, preserved draft values and submission handler, activity form, source links, filters and script initialization');await window.happyDOM.close();
