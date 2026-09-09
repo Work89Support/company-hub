@@ -1,7 +1,7 @@
 /* Native, read-only source results. Source credentials never enter Company Hub. */
 (function(){
  if(window.COMPANY_CONNECTED_SYSTEMS)return;window.COMPANY_CONNECTED_SYSTEMS=true;
- const sources={audit:{name:'Audit',origin:'https://work89support.github.io',url:'https://work89support.github.io/Audit-Reconciliation-Control/company-hub.html',home:'https://work89support.github.io/Audit-Reconciliation-Control/#/exceptions'},domainwatch:{name:'Domainwatch',origin:'https://domain-watch-app-sandy.vercel.app',url:'https://domain-watch-app-sandy.vercel.app/api/company-hub',home:'https://domain-watch-app-sandy.vercel.app/incidents'}};
+ const sources={audit:{name:'Audit',origin:'https://work89support.github.io',url:'https://work89support.github.io/Audit-Reconciliation-Control/company-hub.html?v=20260909-hub-pages',home:'https://work89support.github.io/Audit-Reconciliation-Control/#/exceptions'},domainwatch:{name:'Domainwatch',origin:'https://domain-watch-app-sandy.vercel.app',url:'https://domain-watch-app-sandy.vercel.app/api/company-hub',home:'https://domain-watch-app-sandy.vercel.app/incidents'}};
  const groups={AUD123:{name:'ออดิทส่วนกลาง',source:'audit'},ADMIN:{name:'แอดมิน',source:'domainwatch'},PROG:{name:'IT / โปรแกรมเมอร์',source:'domainwatch'}};
  const cache={};let active='AUD123',pending=null,identity=null,page=0,company='',person='',notice='';
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -27,7 +27,7 @@
  window.addEventListener('message',event=>{
   resetIdentity();const p=pending,m=event.data;
   if(!p||Date.now()-p.started>300000||event.source!==p.win||event.origin!==sources[p.source].origin||m?.type!=='company-hub-results'||m.nonce!==p.nonce||m.source!==p.source||p.identity!==ACCESS_PROFILE?.id)return;
-  const d=m.data;if(!d||d.version!==1||d.from!==p.from||d.to!==p.to||!Array.isArray(d.rows)||d.rows.length>10002||!Number.isFinite(Date.parse(d.fetchedAt)))return;
+  const d=m.data;if(!d||d.version!==1||d.from!==p.from||d.to!==p.to||!Array.isArray(d.rows)||d.rows.length>100000||!Number.isFinite(Date.parse(d.fetchedAt)))return;
   if(!d.rows.every(r=>r&&typeof r.id==='string'&&typeof r.title==='string'))return;
   cache[p.source]=d;pending=null;company='';person='';page=0;notice='เชื่อมผลจริงเรียบร้อยแล้ว';
   if(VIEW==='connectedSystems')RENDER.connectedSystems();
