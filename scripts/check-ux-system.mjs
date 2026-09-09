@@ -74,6 +74,9 @@ previewAll:async()=>{
  REP_PERIOD='today';const m=integrityReportModel();RENDER.reports();return m;
 }};`);
 const api=window.reviewAPI;
+assert.equal(api.integrityKpiAchievement(1,.9,{achievement_cap:1.2}),100/.9);
+assert.equal(api.integrityKpiAchievement(1,.5,{achievement_cap:1.2}),120);
+assert.equal(api.integrityKpiAchievement(null,.9,{achievement_cap:1.2}),null);
 assert.equal(api.workOwner({_source:'graphic',assignee:'12345678-1234-1234-1234-123456789abc'}),'ยังไม่มอบหมาย');
 assert.equal(api.workOwner({_source:'graphic',assignee:'ทีมออกแบบ'}),'ทีมออกแบบ');
 assert.deepEqual(JSON.parse(JSON.stringify(api.integrityRange('month','2024-02'))),{from:'2024-02-01',to:'2024-02-29'});
