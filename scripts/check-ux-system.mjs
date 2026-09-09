@@ -4,7 +4,7 @@ const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'u
 window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
-const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
+const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system','entry-wizard'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
 window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};AUTH_DB_ROLE='staff';VISIBLE_DEPTS=['CRM'];MANAGE_DEPTS=[];VIEW='dash';
  TASKS.splice(0,TASKS.length,{id:'owned',title:'OWNED TASK',dept:'CRM',status:'doing',assignees:['ux-me'],createdAt:bangkokTodayISO()},{id:'other',title:'OTHER PERSON TASK',dept:'CRM',status:'doing',assignees:['someone-else']});
@@ -27,6 +27,24 @@ window.eval(source+`\nwindow.reviewAPI={checkWorkspace:async()=>{
  window.companyUxEnhanceModal();if(form.onsubmit!==handler||issue.value!=='Keep this note')throw new Error('Modal enhancement replaced draft controls');
  overlay.click();if(!overlay.classList.contains('show'))throw new Error('Backdrop discarded editable form');
  closeModal();if(document.body.classList.contains('ux-modal-open'))throw new Error('Modal close did not release scroll lock');
+},
+checkWizard:async()=>{
+ AUTH_DB_ROLE='admin';ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};MANAGE_DEPTS=['CRM'];VISIBLE_DEPTS=['CRM'];
+ await openActivityEntry();let form=document.getElementById('native-activity-form');
+ const next=()=>[...modal.querySelectorAll('button')].find(b=>b.textContent==='ถัดไป');
+ next().click();if(modal.querySelector('.wizard-status').textContent.indexOf('1 จาก 4')<0)throw new Error('Wizard skipped required fields');
+ document.getElementById('entry-department_code').value='CRM';entryOwnerOptions('ux-me');
+ for(const [k,v] of Object.entries({activity:'Wizard draft',category:'ติดตามลูกค้า',start_time:'09:00',employee_id:'ux-me'}))document.getElementById('entry-'+k).value=v;
+ next().click();if(modal.querySelector('.wizard-status').textContent.indexOf('2 จาก 4')<0)throw new Error('Wizard did not advance: '+modal.querySelector('.entry-error-summary').textContent);
+ next().click();next().click();if(modal.querySelector('.wizard-review').hidden||!modal.querySelector('.wizard-review').textContent.includes('Wizard draft'))throw new Error('Review missing actual values');
+ modal.querySelector('.wizard-review button').click();if(document.getElementById('entry-activity').value!=='Wizard draft')throw new Error('Back discarded draft');
+ [...modal.querySelectorAll('button')].find(b=>b.textContent==='เก็บฉบับร่าง').click();closeModal();await openActivityEntry();modal.querySelector('.wizard-resume').click();if(document.getElementById('entry-activity').value!=='Wizard draft')throw new Error('Draft did not restore');
+ closeModal();ACCESS_PROFILE={id:'another-user',department_code:'CRM',active:true};await openActivityEntry();if(modal.querySelector('.wizard-resume'))throw new Error('Draft leaked between accounts');closeModal();ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};
+ openGraphicBrief();if(modal.querySelectorAll('.wizard-panel').length!==3)throw new Error('Graphic wizard missing');next().click();if(modal.querySelector('.wizard-status').textContent.indexOf('1 จาก 4')<0)throw new Error('Graphic required fields bypassed');closeModal();
+ openGraphicBrief();document.getElementById('gbTitle').value='Test submit';document.getElementById('gbBrief').value='Real control values';document.getElementById('gbDue').value='2026-09-20T10:00';next().click();next().click();next().click();
+ const originalSave=createGraphicJob;let calls=0,release;createGraphicJob=async()=>{calls++;await new Promise(resolve=>release=resolve);};const save=document.getElementById('gbSave');save.click();save.click();if(calls!==1)throw new Error('Double submit '+calls+' '+modal.querySelector('.entry-error-summary').textContent);release();await new Promise(resolve=>setTimeout(resolve,0));if(save.disabled)throw new Error('Save did not recover after retained form');createGraphicJob=async()=>{calls++;closeModal();};save.click();await new Promise(resolve=>setTimeout(resolve,0));if(calls!==2||overlay.classList.contains('show'))throw new Error('Retry did not call save and close');createGraphicJob=originalSave;
+ openNewIssue();if(modal.querySelectorAll('.wizard-panel').length!==3)throw new Error('Issue wizard missing');closeModal();
+ openCompose();if(modal.querySelectorAll('.wizard-panel').length!==3||document.getElementById('f_title').value)throw new Error('Task wizard missing or seeded with fake work');closeModal();
 },
 previewAll:async()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'CRM',display_name:'ทีมตัวอย่าง',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=DEPTS.map(d=>d.code);MANAGE_DEPTS=DEPTS.map(d=>d.code);USERS['ux-me']={n:'ทีมตัวอย่าง',s:'ท',c:'#2158c8'};
@@ -81,5 +99,5 @@ const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=awai
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
 const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages)assert.ok(p.title,'Missing page title: '+p.view);
 if(process.env.UX_PREVIEW_DIR){fs.mkdirSync(process.env.UX_PREVIEW_DIR,{recursive:true});for(const r of pages){if(r.html)fs.writeFileSync(process.env.UX_PREVIEW_DIR+'/'+r.view+'.html',r.html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));}}
-await api.checkWorkspace();
+await api.checkWorkspace();await api.checkWizard();
 console.log('PASS UX: '+pages.length+' screens, preserved draft values and submission handler, activity form, source links, filters and script initialization');await window.happyDOM.close();
