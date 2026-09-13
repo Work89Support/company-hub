@@ -68,6 +68,8 @@ export default {fetch:async(request:Request)=>{
   return json({ok:true,login_name:target.login_name,initial_password:password});
  }
  if(action==='provision'){
+  const initialPassword=b.initial_password;
+  if(initialPassword!==undefined&&(typeof initialPassword!=='string'||initialPassword.length<12||initialPassword.length>128))return json({error:'รหัสแรกเข้าที่กำหนดเองต้องมี 12–128 ตัวอักษร'},400);
   const sourceName=String(b.name||'').normalize('NFC').trim(),name=clean(b.name),dept=clean(b.department_code);
   if(name.length<1||name.length>100||/[\r\n\x00-\x1f]/.test(String(b.name))||['ทุกคน','all','hr','buki grace','บอส แก๋ม'].includes(name.toLowerCase())||name.includes('/'))return json({error:'ต้องเป็นชื่อบุคคลเดียว'},400);
   if(b.department_codes!==undefined&&(!Array.isArray(b.department_codes)||b.department_codes.some((x:unknown)=>typeof x!=='string')))return json({error:'เลือกแผนกให้ถูกต้อง'},400);
@@ -85,7 +87,7 @@ export default {fetch:async(request:Request)=>{
   if(existing)return json({existing:true,...existing});
   const same=checked(await admin.from('profiles').select('id').eq('department_code',dept).in('display_name',[name,display]).limit(1))??[];
   if(same.length)return json({error:'มีบัญชีชื่อนี้แล้ว ต้องจับคู่บัญชีเดิม'},409);
-  const password=secret(),email=crypto.randomUUID()+'@company-hub.invalid';
+  const password=initialPassword===undefined?secret():initialPassword,email=crypto.randomUUID()+'@company-hub.invalid';
   const created=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{company_role:'staff',department:dept},user_metadata:{display_name:display}});
   if(created.error||!created.data.user)throw new Error('CREATE_FAILED');
   const id=created.data.user.id;
