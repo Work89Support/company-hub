@@ -18,27 +18,13 @@ export default {fetch:async(request:Request)=>{
  const raw=await request.text();if(raw.length>10000)return json({error:'ข้อมูลยาวเกินไป'},400);
  const b=JSON.parse(raw),action=String(b.action||''),ip=(request.headers.get('x-forwarded-for')||'').split(',')[0].trim().replace(/^::ffff:/,'');
  if(!ip)return json({error:'ไม่พบข้อมูลการเชื่อมต่อ'},400);
- if(action==='lookup-email'){
-  const email=String(b.email||'').trim().toLowerCase();
-  if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json({error:'กรอกอีเมลให้ถูกต้อง'},400);
-  for(const [bucket,max] of [[await hash('lookup-ip:'+ip),30],[await hash('lookup-email:'+email),12]] as const){
-   if(!checked(await admin.rpc('consume_company_login_attempt',{p_bucket:bucket,p_max:max})))return json({error:'ลองหลายครั้งเกินไป กรุณารอ 10 นาที'},429);
-  }
-  const pattern=email.replace(/[\\%_*]/g,'\\$&');
-  const accounts=checked(await admin.from('company_login_accounts').select('profile_id,login_name').ilike('contact_email',pattern).limit(21))??[];
-  if(accounts.length>20)return json({error:'โปรดติดต่อผู้ดูแลเพื่อตรวจรายชื่ออีเมลนี้'},409);
-  if(!accounts.length)return json({accounts:[]});
-  const profiles=checked(await admin.from('profiles').select('id,display_name,department_code').in('id',accounts.map((a:any)=>a.profile_id)).eq('active',true))??[];
-  return json({accounts:accounts.flatMap((a:any)=>{const p=profiles.find((p:any)=>p.id===a.profile_id);return p?[{login_name:a.login_name,display_name:p.display_name,department_code:p.department_code}]:[]})});
- }
  if(action==='login'){
   const login=clean(b.login).toLowerCase(),password=String(b.password||'');
   if(!login||login.length>254||!password||password.length>1024)return json({error:'ชื่อหรือรหัสผ่านไม่ถูกต้อง'},401);
   for(const [bucket,max] of [[await hash('ip:'+ip),60],[await hash('name:'+login),12]] as const){
    if(!checked(await admin.rpc('consume_company_login_attempt',{p_bucket:bucket,p_max:max})))return json({error:'ลองหลายครั้งเกินไป กรุณารอ 10 นาที'},429);
   }
-  const account=checked(await admin.from('company_login_accounts').select('profile_id,credential_lock,credentials_valid_after,contact_email').eq('login_name',login).maybeSingle());
-  if(b.email!==undefined&&String(account?.contact_email||'').trim().toLowerCase()!==String(b.email).trim().toLowerCase())return json({error:'อีเมลและบัญชีที่เลือกไม่ตรงกัน'},401);
+  const account=checked(await admin.from('company_login_accounts').select('profile_id,credential_lock,credentials_valid_after').eq('login_name',login).maybeSingle());
   // Directory names are stored lower-case; display labels live in profiles.
   const profile=account?checked(await admin.from('profiles').select('email,active').eq('id',account.profile_id).maybeSingle()):null;
   const email=profile?.active&&!account?.credential_lock?profile.email:'invalid-login@company-hub.invalid';

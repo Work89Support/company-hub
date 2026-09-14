@@ -9,45 +9,11 @@ async function accountCall(action,body={},token){
  const result=await response.json();if(!response.ok)throw new Error(result.error||'ระบบบัญชียังไม่พร้อม');return result;
 }
 const accountEmailLogin=sbLogin;
-let ACCOUNT_EMAIL_CHOICE=null;
-function clearAccountEmailChoice(){
- ACCOUNT_EMAIL_CHOICE=null;document.getElementById('account-login-choice')?.remove();
- const input=document.getElementById('sbEmail'),pass=document.getElementById('sbPass'),button=document.getElementById('sbLoginBtn');
- if(!input||!pass||!button)return;
- const email=input.value.includes('@')&&!input.value.trim().endsWith(')');
- pass.value='';pass.hidden=email;button.textContent=email?'ถัดไป · เลือกชื่อ':'เข้าสู่ระบบ';
-}
-document.getElementById('sbEmail')?.addEventListener('input',clearAccountEmailChoice);
 sbLogin=async function(){
- const login=val('sbEmail').trim(),isEmail=login.includes('@')&&!login.endsWith(')');
+ const login=val('sbEmail').trim();if(login.includes('@')&&!login.endsWith(')'))return accountEmailLogin();
  const button=document.getElementById('sbLoginBtn'),error=document.getElementById('sbErr');button.disabled=true;error.textContent='';
- try{
-  let target=login;
-  if(isEmail){
-   const email=login.toLowerCase();
-   if(ACCOUNT_EMAIL_CHOICE?.email!==email){
-    const result=await accountCall('lookup-email',{email},null);
-    if(val('sbEmail').trim().toLowerCase()!==email)return;
-    ACCOUNT_EMAIL_CHOICE={email,accounts:result.accounts||[]};
-    document.getElementById('account-login-choice')?.remove();
-    if(ACCOUNT_EMAIL_CHOICE.accounts.length){
-     const label=document.createElement('label');label.id='account-login-choice';label.textContent='เลือกชื่อของคุณ';
-     const select=document.createElement('select');select.className='fin';select.id='account-login-person';select.setAttribute('aria-label','เลือกชื่อของคุณ');
-     const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='เลือกชื่อก่อนกรอกรหัสผ่าน';select.append(placeholder);
-     for(const row of ACCOUNT_EMAIL_CHOICE.accounts){const option=document.createElement('option');option.value=row.login_name;option.textContent=row.display_name+' · '+row.department_code;select.append(option);}
-     select.onchange=()=>{const pass=document.getElementById('sbPass');pass.value='';pass.hidden=!select.value;if(select.value)pass.focus();};
-     label.append(select);document.getElementById('sbPass').before(label);document.getElementById('sbPass').hidden=true;
-    }else{document.getElementById('sbPass').hidden=false;error.textContent='หากเป็นบัญชีอีเมลเดิม ให้กรอกรหัสผ่านเพื่อเข้าสู่ระบบ';}
-    document.getElementById('sbPass').value='';button.textContent='เข้าสู่ระบบ';return;
-   }
-   if(!ACCOUNT_EMAIL_CHOICE.accounts.length){await accountEmailLogin();return;}
-   target=document.getElementById('account-login-person')?.value;
-   if(!target){error.textContent='เลือกชื่อของคุณก่อน';return;}
-  }
-  if(!val('sbPass')){error.textContent='กรอกรหัสผ่านของบัญชีที่เลือก';return;}
-  const result=await accountCall('login',{login:target,password:val('sbPass'),...(isEmail?{email:login.toLowerCase()}:{})},null);
-  const r=await SB.auth.setSession(result.session);if(r.error)throw r.error;clearAccountEmailChoice();
- }catch(e){error.textContent=e.message;}finally{button.disabled=false;}
+ try{const result=await accountCall('login',{login,password:val('sbPass')},null);const r=await SB.auth.setSession(result.session);if(r.error)throw r.error;document.getElementById('sbPass').value='';}
+ catch(e){error.textContent=e.message;}finally{button.disabled=false;}
 };
 const accountOriginalLoggedIn=onLoggedIn;
 onLoggedIn=async function(session){
