@@ -17,6 +17,7 @@ pending=false;assert.equal((await send('list')).status,403,'staff cannot list or
 role='admin';allowed=false;assert.equal((await send('list')).status,403,'admin still requires device gate');allowed=true;assert.equal((await send('list')).status,200);
 verified=false;assert.equal((await send('reset',{profile_id:'other'})).status,401);verified=true;active=false;assert.equal((await send('status')).status,403);active=true;
 rate=false;assert.equal((await send('login',{login:'คน (ทีม)',password:'secret'})).status,429,'persistent rate limit consulted');
+rate=true;assert.equal((await send('login',{login:'person',email:'wrong@example.com',password:'test'})).status,401,'selected login must belong to submitted email');rate=false;assert.equal((await send('lookup-email',{email:'shared@example.com'})).status,429,'lookup rate limit');assert.equal((await send('lookup-email',{email:'bad'})).status,400);
 console.log('PASS account Edge: authentication, stale JWT, pending setup, device gate, staff/admin separation, password validation and serialized operations');
 // Simulate the production Auth trigger, which pre-creates a department scope.
 for(const [dept,extra] of [['GRAPHIC',[]],['CRM',[]],['CRM',['GRAPHIC','CRM']]]){
