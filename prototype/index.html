@@ -501,6 +501,7 @@ body.simple #deptNav,body.simple #deptLabel{display:none}
    DATA
 ============================================================ */
 const DEPTS = [
+  {code:'SC', name:'SC', color:'#0f9488'},
   {code:'KPI',   name:'แผนก KPI',            color:'#7a53e0'},
   {code:'MKT',   name:'การตลาด',             color:'#e2445c'},
   {code:'GRAPHIC',name:'กราฟิก',             color:'#2f8fe6'},
@@ -517,7 +518,7 @@ const DEPTS = [
 const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
 const deptName  = c => (DEPTS.find(d=>d.code===(c==='AUDXB'?'AUD123':c))||{}).name || c;
 /* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
-const DEPT_GROUP={KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',PROG:'03'};
+const DEPT_GROUP={SC:'04',KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',PROG:'03'};
 const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
 const deptGroup=c=>DEPT_GROUP[c]||'01';
 const REPORTING_PARENT={GRAPHIC:'MKT'};
@@ -775,6 +776,7 @@ const ORG=[
     {name:'CS Team',th:'ทีมลูกค้าสัมพันธ์',dept:'CRM',roles:['CRM — พนักงานติดตามลูกค้า','Data Support — พนักงานสนับสนุนข้อมูล']},
   ]},
   {code:'04',title:'OPERATIONS & QUALITY',th:'งานปฏิบัติการและคุณภาพ',color:'#7a53e0',teams:[
+    {name:'SC Team',th:'ทีม SC',dept:'SC'},
     {name:'Admin Team',th:'ทีมแอดมิน',dept:'ADMIN',roles:['Back Office Manager — ผู้จัดการออฟฟิศหลังบ้าน','Back Office Assistant — ผู้ช่วยออฟฟิศหลังบ้าน','Admin Head — หัวหน้าแอดมิน','Admin Staff — พนักงานแอดมิน','Career Levels — ระดับสายอาชีพ']},
     {name:'QC Team : Head + Staffs',th:'ทีมตรวจสอบคุณภาพ · หัวหน้า + พนักงาน',dept:'QC'},
   ]},

@@ -27,6 +27,7 @@ DOCUMENT_IDS = {
 }
 
 DEPARTMENTS = {
+    "SC": ("SC", "SC"),
     "ทีมบริหาร (Management)": ("BOM", "ทีมบริหาร (Management)"),
     "การเงิน (Finance)": ("FIN", "การเงิน (Finance)"),
     "ออดิท (Audit)": ("AUD123", "ออดิท (Audit)"),
