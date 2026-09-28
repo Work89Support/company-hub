@@ -5,6 +5,12 @@ const json=(body:unknown,status=200)=>Response.json(body,{status,headers});
 const hash=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(x=>x.toString(16).padStart(2,'0')).join('');
 const secret=()=>Array.from(crypto.getRandomValues(new Uint8Array(18))).map(x=>x.toString(16).padStart(2,'0')).join('');
 const clean=(v:unknown)=>String(v??'').normalize('NFC').trim().replace(/\s+/g,' ');
+const emailLoginChoice=(choices:Array<{login_name:string,display_name:string,department_code:string}>)=>{
+ if(choices.length===1)return {status:200,body:{mode:'single',account:choices[0],accounts:choices}};
+ if(choices.length>1&&choices.every(row=>row.department_code==='FIN'))return {status:200,body:{mode:'finance_shared',accounts:choices}};
+ if(choices.length>1)return {status:409,body:{error:'อีเมลนี้เชื่อมหลายบัญชีนอกแผนกการเงิน กรุณาติดต่อผู้ดูแล'}};
+ return {status:200,body:{accounts:[]}};
+};
 function checked<T>(r:{data:T,error:unknown}):T{if(r.error)throw new Error('DATABASE_OPERATION_FAILED');return r.data;}
 function required<T>(r:{data:T,error:unknown}):NonNullable<T>{const value=checked(r);if(value==null)throw new Error('REQUIRED_ROW_MISSING');return value;}
 export default {fetch:async(request:Request)=>{
@@ -29,7 +35,8 @@ export default {fetch:async(request:Request)=>{
   if(accounts.length>20)return json({error:'โปรดติดต่อผู้ดูแลเพื่อตรวจรายชื่ออีเมลนี้'},409);
   if(!accounts.length)return json({accounts:[]});
   const profiles=checked(await admin.from('profiles').select('id,display_name,department_code').in('id',accounts.map((a:any)=>a.profile_id)).eq('active',true))??[];
-  return json({accounts:accounts.flatMap((a:any)=>{const p=profiles.find((p:any)=>p.id===a.profile_id);return p?[{login_name:a.login_name,display_name:p.display_name,department_code:p.department_code}]:[]})});
+  const choices=accounts.flatMap((a:any)=>{const p=profiles.find((p:any)=>p.id===a.profile_id);return p?[{login_name:a.login_name,display_name:p.display_name,department_code:p.department_code}]:[]});
+  const resolved=emailLoginChoice(choices);return json(resolved.body,resolved.status);
  }
  if(action==='login'){
   const login=clean(b.login).toLowerCase(),password=String(b.password||'');

@@ -28,20 +28,25 @@ sbLogin=async function(){
    if(ACCOUNT_EMAIL_CHOICE?.email!==email){
     const result=await accountCall('lookup-email',{email},null);
     if(val('sbEmail').trim().toLowerCase()!==email)return;
-    ACCOUNT_EMAIL_CHOICE={email,accounts:result.accounts||[]};
+    const accounts=result.mode==='single'&&result.account?[result.account]:(result.accounts||[]);
+    ACCOUNT_EMAIL_CHOICE={email,mode:result.mode||'',accounts};
     document.getElementById('account-login-choice')?.remove();
-    if(ACCOUNT_EMAIL_CHOICE.accounts.length){
-     const label=document.createElement('label');label.id='account-login-choice';label.textContent='เลือกชื่อของคุณ';
+    if(ACCOUNT_EMAIL_CHOICE.mode==='finance_shared'){
+     const label=document.createElement('label');label.id='account-login-choice';label.textContent='อีเมลส่วนกลางฝ่ายการเงิน · เลือกชื่อของคุณ';
      const select=document.createElement('select');select.className='fin';select.id='account-login-person';select.setAttribute('aria-label','เลือกชื่อของคุณ');
      const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='เลือกชื่อก่อนกรอกรหัสผ่าน';select.append(placeholder);
      for(const row of ACCOUNT_EMAIL_CHOICE.accounts){const option=document.createElement('option');option.value=row.login_name;option.textContent=row.display_name+' · '+row.department_code;select.append(option);}
      select.onchange=()=>{const pass=document.getElementById('sbPass');pass.value='';pass.hidden=!select.value;if(select.value)pass.focus();};
      label.append(select);document.getElementById('sbPass').before(label);document.getElementById('sbPass').hidden=true;
+    }else if(ACCOUNT_EMAIL_CHOICE.mode==='single'){
+     const note=document.createElement('p');note.id='account-login-choice';note.textContent='บัญชี: '+ACCOUNT_EMAIL_CHOICE.accounts[0].display_name;
+     document.getElementById('sbPass').before(note);document.getElementById('sbPass').hidden=false;document.getElementById('sbPass').focus();
     }else{document.getElementById('sbPass').hidden=false;error.textContent='หากเป็นบัญชีอีเมลเดิม ให้กรอกรหัสผ่านเพื่อเข้าสู่ระบบ';}
     document.getElementById('sbPass').value='';button.textContent='เข้าสู่ระบบ';return;
    }
    if(!ACCOUNT_EMAIL_CHOICE.accounts.length){await accountEmailLogin();return;}
-   target=document.getElementById('account-login-person')?.value;
+   if(ACCOUNT_EMAIL_CHOICE.mode==='single')target=ACCOUNT_EMAIL_CHOICE.accounts[0].login_name;
+   else target=document.getElementById('account-login-person')?.value;
    if(!target){error.textContent='เลือกชื่อของคุณก่อน';return;}
   }
   if(!val('sbPass')){error.textContent='กรอกรหัสผ่านของบัญชีที่เลือก';return;}
