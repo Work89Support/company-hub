@@ -1,0 +1,67 @@
+{
+  "tested_at": "2026-10-02T05:22:01.872Z",
+  "target_users": 100,
+  "mode": "read-only production infrastructure test; no login attempts and no business-data writes",
+  "results": [
+    {
+      "name": "static_shell_100_users",
+      "virtual_users": 100,
+      "requests": 1300,
+      "success": 1300,
+      "errors": 0,
+      "error_rate": 0,
+      "duration_ms": 2452,
+      "requests_per_second": 530.28,
+      "latency_ms": {
+        "p50": 61.2,
+        "p95": 1988.5,
+        "p99": 2338.4,
+        "max": 2382.7
+      },
+      "bytes": 278774200,
+      "statuses": {
+        "200": 1300
+      }
+    },
+    {
+      "name": "dashboard_database_bundle_100_users",
+      "virtual_users": 100,
+      "requests": 800,
+      "success": 800,
+      "errors": 0,
+      "error_rate": 0,
+      "duration_ms": 3122,
+      "requests_per_second": 256.21,
+      "latency_ms": {
+        "p50": 2403.5,
+        "p95": 2889.2,
+        "p99": 2983.8,
+        "max": 3047.8
+      },
+      "bytes": 8813200,
+      "statuses": {
+        "200": 800
+      }
+    },
+    {
+      "name": "edge_preflight_100_users",
+      "virtual_users": 100,
+      "requests": 100,
+      "success": 100,
+      "errors": 0,
+      "error_rate": 0,
+      "duration_ms": 358,
+      "requests_per_second": 279.4,
+      "latency_ms": {
+        "p50": 258.7,
+        "p95": 292.9,
+        "p99": 352.7,
+        "max": 356.8
+      },
+      "bytes": 200,
+      "statuses": {
+        "200": 100
+      }
+    }
+  ]
+}

@@ -27,7 +27,7 @@ export default {fetch:async(request:Request)=>{
  if(action==='lookup-email'){
   const email=String(b.email||'').trim().toLowerCase();
   if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return json({error:'กรอกอีเมลให้ถูกต้อง'},400);
-  for(const [bucket,max] of [[await hash('lookup-ip:'+ip),30],[await hash('lookup-email:'+email),12]] as const){
+  for(const [bucket,max] of [[await hash('lookup-ip:'+ip),300],[await hash('lookup-email:'+email),12]] as const){
    if(!checked(await admin.rpc('consume_company_login_attempt',{p_bucket:bucket,p_max:max})))return json({error:'ลองหลายครั้งเกินไป กรุณารอ 10 นาที'},429);
   }
   const pattern=email.replace(/[\\%_*]/g,'\\$&');
@@ -41,8 +41,12 @@ export default {fetch:async(request:Request)=>{
  if(action==='login'){
   const login=clean(b.login).toLowerCase(),password=String(b.password||'');
   if(!login||login.length>254||!password||password.length>1024)return json({error:'ชื่อหรือรหัสผ่านไม่ถูกต้อง'},401);
-  for(const [bucket,max] of [[await hash('ip:'+ip),60],[await hash('name:'+login),12]] as const){
-   if(!checked(await admin.rpc('consume_company_login_attempt',{p_bucket:bucket,p_max:max})))return json({error:'ลองหลายครั้งเกินไป กรุณารอ 10 นาที'},429);
+  const ipBucket=await hash('ip:'+ip),nameBucket=await hash('name:'+login);
+  // Check existing failed-attempt counters before Auth. Successful sign-ins do
+  // not consume the shared office-IP allowance, so 100 staff behind one NAT can
+  // sign in together while repeated failures still stop before password checks.
+  for(const [bucket,max] of [[ipBucket,300],[nameBucket,12]] as const){
+   if(!checked(await admin.rpc('company_login_attempt_allowed',{p_bucket:bucket,p_max:max})))return json({error:'ลองหลายครั้งเกินไป กรุณารอ 10 นาที'},429);
   }
   const account=checked(await admin.from('company_login_accounts').select('profile_id,credential_lock,credentials_valid_after,contact_email').eq('login_name',login).maybeSingle());
   if(b.email!==undefined&&String(account?.contact_email||'').trim().toLowerCase()!==String(b.email).trim().toLowerCase())return json({error:'อีเมลและบัญชีที่เลือกไม่ตรงกัน'},401);
@@ -50,7 +54,14 @@ export default {fetch:async(request:Request)=>{
   const profile=account?checked(await admin.from('profiles').select('email,active').eq('id',account.profile_id).maybeSingle()):null;
   const email=profile?.active&&!account?.credential_lock?profile.email:'invalid-login@company-hub.invalid';
   const signed=await client().auth.signInWithPassword({email,password});
-  if(signed.error||!signed.data.session||!profile?.active)return json({error:'ชื่อหรือรหัสผ่านไม่ถูกต้อง'},401);
+  if(signed.error||!signed.data.session||!profile?.active){
+   let limited=false;
+   for(const [bucket,max] of [[ipBucket,300],[nameBucket,12]] as const){
+    if(!checked(await admin.rpc('consume_company_login_attempt',{p_bucket:bucket,p_max:max})))limited=true;
+   }
+   return json({error:limited?'ลองหลายครั้งเกินไป กรุณารอ 10 นาที':'ชื่อหรือรหัสผ่านไม่ถูกต้อง'},limited?429:401);
+  }
+  checked(await admin.rpc('clear_company_login_attempt',{p_bucket:nameBucket}));
   return json({session:signed.data.session});
  }
  const token=(request.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
