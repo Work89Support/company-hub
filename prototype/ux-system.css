@@ -76,3 +76,23 @@ body.ux-modal-open{overflow:hidden}
 .ux-ready [data-ux-view="tracker"] .tracker-mode,
 .ux-ready [data-ux-view="tracker"] .tracker-guide,
 .ux-ready [data-ux-view="tracker"] .tracker-source-health{display:none!important}
+/* Release UI baseline: shared interactions, touch targets and dense-data navigation. */
+.ux-ready .tbtn{min-height:40px;border-radius:var(--radius-md,10px);transition:background .15s,border-color .15s,box-shadow .15s,transform .08s}
+.ux-ready .tbtn:active:not(:disabled){transform:translateY(1px);box-shadow:none}
+.ux-ready .tbtn[aria-busy=true]{cursor:progress}
+.ux-ready .tbtn.sm{min-height:36px}
+.ux-ready .ux-status{border-radius:var(--radius-sm,6px);padding:4px 9px;font-size:11px!important}
+.ux-ready :is(.board,.tracker-table,.issue-register,.gp-board){overscroll-behavior-inline:contain;scrollbar-gutter:stable}
+@media(max-width:600px){
+ .ux-ready .topbar .tbtn{min-width:44px;width:44px;height:44px;padding:9px}
+ .ux-ready .topbar .avatar{width:36px;height:36px}
+ .ux-ready .topbar{min-height:60px}
+ .ux-ready .page-h{align-items:flex-start}
+ .ux-ready .page-h>button{min-height:44px}
+ .ux-ready :is(.ux-segments button,.tracker-source-chip,summary){min-height:44px}
+ .ux-ready .ux-summary-grid{grid-template-columns:minmax(0,1fr)}
+ .ux-ready .ux-summary{padding:16px}
+}
+@media(prefers-reduced-motion:reduce){
+ .ux-ready *{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}

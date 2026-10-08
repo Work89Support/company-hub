@@ -8,9 +8,14 @@ const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).jo
 window.eval(source+`\nwindow.reviewAPI={trackerEvidenceURLs,checkTracker:()=>{
  for(const key of ['tasks','issues','graphic'])DATA_HEALTH[key]={state:'ready'};IMPLEMENTATION_ACTIONS.splice(0,IMPLEMENTATION_ACTIONS.length,{id:'AP-01',title:'แผนตั้งต้น',department_code:'CRM',due_date:'2026-09-01',status:'not_started'});
  TASKS.splice(0,TASKS.length,{id:42,dept:'CRM',title:'งานจริงจากต้นทาง',status:'doing',assignees:[]});GRAPHIC_JOBS=[];PROBLEMS.splice(0,PROBLEMS.length);TRACKER_MODE='actual';TRACKER_SOURCE='';TRACKER_WORK_STATUS='open';TRACKER_WORK_DEPT='';VIEW='tracker';RENDER.tracker();
+ if(!main.querySelector('#tracker-source option[value=task]'))throw new Error('Task source option missing');
  if(!main.textContent.includes('งานจริงจากต้นทาง')||main.textContent.includes('แผนตั้งต้น'))throw new Error('Tracker mixed seeded plans with actual work');
  const original=openBoardWork;let opened;openBoardWork=(kind,id)=>opened=[kind,id];main.querySelector('[data-tracker-row]').click();openBoardWork=original;if(opened?.[0]!=='task'||opened[1]!==42)throw new Error('Tracker source link mismatch');
  const sel=main.querySelector('#tracker-work-status');sel.value='done';sel.dispatchEvent(new Event('change'));if(main.querySelector('[data-tracker-row]'))throw new Error('Tracker status filter failed');
+ TRACKER_WORK_STATUS='open';DATA_HEALTH.issues={state:'error'};TRACKER_SOURCE='';RENDER.tracker();
+ if(main.querySelector('[data-tracker-row]')||!main.querySelector('#tracker-actual-export').disabled||!main.textContent.includes('ปัญหา'))throw new Error('Incomplete source must not appear as a confirmed total');
+ TRACKER_SOURCE='task';RENDER.tracker();if(!main.querySelector('[data-tracker-row]')||main.querySelector('#tracker-actual-export').disabled)throw new Error('Ready selected source should remain usable');
+ TRACKER_SOURCE='';DATA_HEALTH.issues={state:'ready'};
  TRACKER_WORK_STATUS='open';TRACKER_MODE='plan';RENDER.tracker();if(!main.textContent.includes('แผนตั้งต้น')||!main.textContent.includes('ไม่ใช่สถานะความพร้อม'))throw new Error('Legacy plan provenance missing');
  TRACKER_MODE='actual';TASKS.splice(0,TASKS.length);IMPLEMENTATION_ACTIONS.splice(0,IMPLEMENTATION_ACTIONS.length);
 },setCatalog:v=>{KPI_CATALOG=v;},renderKpiEvidencePanel,workOwner,integrityRange,integrityInRange,integrityDay,integrityOnTime,integrityReadAll,integrityKpiAchievement,dashboardDueAt,integrityReportRows,run:()=>{

@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Company Hub — ระบบศูนย์รวมงานองค์กร (Prototype v2)</title>
+<title>Company Hub — ศูนย์รวมงานองค์กร</title>
+<meta name="description" content="Company Hub ศูนย์รวมงาน กิจกรรม ปัญหาหน้างาน KPI SOP และประกาศสำหรับพนักงานทุกแผนก">
+<meta name="theme-color" content="#123a86">
+<meta property="og:title" content="Company Hub — ศูนย์รวมงานองค์กร">
+<meta property="og:description" content="ติดตามงาน บันทึกกิจกรรม แก้ปัญหา และวัดผล KPI ในที่เดียว">
+<meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,11 +21,14 @@
   --ink:#182338; --muted:#67769a; --line:#e4eaf3; --line-2:#eef2f9; --bg:#f4f7fc; --white:#ffffff; --surface:#ffffff;
   --gray:#b7c0d0; --green:#00a878; --amber:#e8971b; --red:#e2445c; --sky:#2f8fe6; --purple:#7a53e0;
   --radius:12px; --shadow:0 2px 10px rgba(20,58,134,.06); --shadow-lg:0 12px 40px rgba(20,58,134,.18);
+  --text-secondary:#53617a; --text-tertiary:#66738a;
+  --radius-sm:6px; --radius-md:10px; --radius-lg:14px; --radius-xl:20px;
 }
 body.dark{
   --bg:#0e1626; --white:#16213a; --surface:#16213a; --ink:#e8eef8; --muted:#93a1bf;
   --line:#28344f; --line-2:#1f2b44; --blue-50:#1b2942; --blue-100:#26385c;
   --blue-700:#9cc0ff; --blue-400:#3f74d8; --shadow:0 2px 10px rgba(0,0,0,.35); --shadow-lg:0 14px 40px rgba(0,0,0,.5);
+  --text-secondary:#b6c1d6; --text-tertiary:#9eabc3;
 }
 body.dark .ai-note,body.dark .exec-summary{background:linear-gradient(120deg,#1b2942,#173430);border-color:#28344f}
 body.dark .pin{background:linear-gradient(90deg,#1b2942,var(--surface))}
@@ -350,7 +359,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 .orgteam{margin:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--blue-50)}
 .orgteam>b{font-size:12.5px}
 .orgteam .tsub{color:var(--muted);font-size:10.5px;margin-top:1px}
-.orgrole{display:flex;align-items:center;gap:7px;font-size:11px;padding:3px 0;color:#42506e}
+.orgrole{display:flex;align-items:center;gap:7px;font-size:12px;padding:3px 0;color:var(--text-secondary)}
 .execbox{background:linear-gradient(160deg,var(--blue-900),var(--blue-700));color:#fff;padding:12px 30px;border-radius:12px;text-align:center;box-shadow:var(--shadow)}
 @media(max-width:1100px){.orggrid{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.orggrid{grid-template-columns:1fr}}
@@ -398,6 +407,7 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 .sidebar .navgroup{margin-top:12px}
 body.simple #deptNav,body.simple #deptLabel{display:none}
 .login-bg{position:fixed;inset:0;background:linear-gradient(150deg,#0b2a6b,#1e3a8a);display:flex;align-items:center;justify-content:center;z-index:5000}
+body.login-open{overflow:hidden}
 .login-card{background:#fff;border-radius:16px;padding:32px 30px;width:min(380px,92vw);box-shadow:0 24px 70px rgba(0,0,0,.30);text-align:center}
 .login-logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#2563eb,#1e3a8a);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:18px;font-family:sans-serif}
 .login-card h2{margin:0 0 4px;font-size:19px;color:#1e3a8a}
@@ -405,9 +415,9 @@ body.simple #deptNav,body.simple #deptLabel{display:none}
 .login-card input{width:100%;padding:11px 13px;margin-bottom:10px;border:1px solid #cbd8ec;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box}
 .login-card input:focus{outline:2px solid #2563eb;border-color:#2563eb}
 .login-btn{width:100%;padding:12px;background:#2563eb;color:#fff;border:0;border-radius:9px;font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit}
-.login-btn:hover{background:#1d4ed8}.login-btn:disabled{opacity:.6}
+.login-btn:hover{background:#1d4ed8}.login-btn:active{background:#173fa8;transform:translateY(1px)}.login-btn:disabled{opacity:.6;cursor:wait}
 .login-err{color:#e2445c;font-size:12px;min-height:16px;margin-bottom:6px}
-.login-foot{margin-top:14px;font-size:11px;color:#94a3b8}
+.login-foot{margin-top:14px;font-size:11px;color:#52627a}
 #modal [hidden]{display:none!important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -726,7 +736,7 @@ const SOPS = [
 ];
 
 /* เอกสารกลาง / ระเบียบ */
-const DOCS=[{id:'REG-01',title:'ระเบียบการประชุมติดตามผลการดำเนินงานประจำเดือน',en:'Monthly Performance Review Meeting Regulation',owner:'Executive / KPI',rev:'Rev.00',
+const DOCS=[{id:'REG-01',title:'ระเบียบการประชุมติดตามผลการดำเนินงานประจำเดือน',en:'Monthly Performance Review Meeting Regulation',owner:'Executive / KPI / Secret',rev:'Rev.00',
  sections:[
   {h:'1. วัตถุประสงค์',items:['ให้ผู้บริหารติดตามผลการดำเนินงานของทุกหน่วยงานอย่างเป็นระบบและต่อเนื่อง','เปรียบเทียบผลจริงกับเป้าหมาย/KPI และระบุประเด็นที่ต้องเร่งแก้ไข','ให้ทุกมติและงานติดตามมีผู้รับผิดชอบ กำหนดเวลา และสถานะที่ชัดเจน','ให้การตัดสินใจของ Executive Board ใช้ข้อมูลชุดเดียวกันและตรวจสอบย้อนหลังได้']},
   {h:'2. ขอบเขตและหน่วยงานที่เข้าร่วม',items:['ใช้กับการประชุมติดตามประจำเดือนของทุกหน่วยงาน จัดลำดับตามโครงสร้าง 4 กลุ่ม: 01 Corporate & Governance / 02 Brand, Content & Marketing / 03 Technology & Customer / 04 Operations & Quality']},
@@ -737,8 +747,8 @@ const DOCS=[{id:'REG-01',title:'ระเบียบการประชุม
   {h:'7. กติกาการนำเสนอ',items:['แต่ละทีม 10–15 นาที','เรื่องตามเป้ารายงานย่อ เน้นเวลากับ Yellow/Red หรือเรื่องที่ต้องตัดสินใจ','ข้อมูลต้องมีตัวเลข/หลักฐานรองรับ','ห้ามเล่ากิจกรรมย้อนหลังโดยไม่มีข้อสรุป/Action']},
   {h:'8. ระบบสถานะงาน',items:['Green = เป็นไปตามแผน','Yellow = มีความเสี่ยง ต้องมีแผนแก้ไข','Red = ไม่เป็นไปตามเป้า/เกินกำหนด ต้องระบุสาเหตุ + Owner + Due ใหม่','Completed = เสร็จสิ้น ปิดงานเมื่อมีหลักฐานยืนยัน']},
   {h:'9. การควบคุม Action Item',items:['ทุก Action ต้องมี: Action / Owner / Due Date / Status / Remark','Action ที่ยังไม่ Completed ต้องยกไปติดตามเป็นวาระแรกในเดือนถัดไป','Action ที่เกิน Due ต้องระบุสาเหตุ + กำหนด Due ใหม่ โดยไม่ลบประวัติเดิม','เปลี่ยน Owner/Due ที่มีผลต่อแผนหลัก ต้องได้รับความเห็นชอบจากผู้บังคับบัญชา/ประธาน']},
-  {h:'10. การบันทึกและเผยแพร่มติ',items:['ผู้ประสานงานที่ได้รับมอบหมายจัดทำ Meeting Minutes + Action List ภายใน 1 วันทำการ','ผู้เข้าร่วมตรวจ/แจ้งแก้ไขภายใน 1 วันทำการ','เอกสารฉบับสุดท้ายเป็นข้อมูลอ้างอิงเดือนถัดไป']},
-  {h:'11. การขาดประชุมและการมอบหมายแทน',items:['แจ้งผู้ประสานงานที่ได้รับมอบหมายล่วงหน้า + มอบผู้แทนที่มีข้อมูลเพียงพอ','ไม่ส่งรายงาน/ไม่เข้าประชุมโดยไม่มีผู้แทน บันทึกไว้ใน Minutes']},
+  {h:'10. การบันทึกและเผยแพร่มติ',items:['Secret Team จัดทำ Meeting Minutes + Action List ภายใน 1 วันทำการ','ผู้เข้าร่วมตรวจ/แจ้งแก้ไขภายใน 1 วันทำการ','เอกสารฉบับสุดท้ายเป็นข้อมูลอ้างอิงเดือนถัดไป']},
+  {h:'11. การขาดประชุมและการมอบหมายแทน',items:['แจ้ง Secret Team ล่วงหน้า + มอบผู้แทนที่มีข้อมูลเพียงพอ','ไม่ส่งรายงาน/ไม่เข้าประชุมโดยไม่มีผู้แทน บันทึกไว้ใน Minutes']},
   {h:'12. หลักการสรุปการประชุม',items:['ติดตามผล → ระบุปัญหา → ตัดสินใจ → มอบหมาย → ปิดงาน']},
   {h:'13. การอนุมัติใช้ระเบียบ',items:['จัดทำโดย ______ · ตรวจสอบโดย ______ · อนุมัติโดย Executive Board']},
  ]}];
@@ -765,6 +775,7 @@ const ORG=[
     {name:'Audit Team : Head + Staffs',th:'ทีมออดิท · หัวหน้า + พนักงาน'},
     {name:'HR Team : Head + Staffs',th:'ทีม HR · หัวหน้า + พนักงาน'},
     {name:'KPI Team : Head + Staffs',th:'ทีม KPI · หัวหน้า + พนักงาน',dept:'KPI'},
+    {name:'Secret Team : Head + Staffs',th:'ทีมซีเคร็ท · หัวหน้า + พนักงาน'},
     {name:'Data Provider Team : Head + Staffs',th:'ทีมบัญชี/ข้อมูล · ใช้ KPI ร่วมกับ BC',dept:'BO'},
   ]},
   {code:'02',title:'BRAND, CONTENT & MARKETING',th:'งานคอนเทนต์และการตลาด',color:'#00a878',teams:[
@@ -1422,7 +1433,16 @@ function gpEventTitle(e){return ({trello_status_changed:'ย้ายสถา�
 async function openGraphicJob(id){const j=GRAPHIC_JOBS.find(x=>x.id===id);if(!j)return;const cs=gpJobChecks(id),fs=gpJobFiles(id),p=gpProject(j.project_id),members=gpJobMemberRows(id);showModal(`<div class="modal-h"><div><h3>${esc(j.title)}</h3><div class="muted">กำลังโหลดรายละเอียดและกิจกรรม…</div></div><button class="x" onclick="closeModal()">×</button></div>`);try{const [cm,ev]=await Promise.all([SB.from('graphic_job_comments').select('*').eq('job_id',id).order('created_at',{ascending:false}).limit(200),SB.from('graphic_job_events').select('*').eq('job_id',id).order('created_at',{ascending:false}).limit(300)]);if(cm.error)throw cm.error;if(ev.error)throw ev.error;const comments=cm.data||[],events=ev.data||[];showModal(`<div class="modal-h"><div><div class="gp-meta"><span class="tag">G-${j.job_no}</span><span class="tag" style="color:${GP_STATUS[j.status].c}">${GP_STATUS[j.status].t}</span>${j.source==='Trello'?'<span class="tag">Trello</span>':''}</div><h3 style="margin-top:7px">${esc(j.title)}</h3><div class="muted" style="font-size:11.5px">${esc(p.name||'ไม่ระบุโปรเจกต์')} · กำหนด ${gpDate(j.due_at)}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">${j.cover_url?`<img class="gp-cover-lg" src="${esc(j.cover_url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}${members.length?`<div class="field"><label>สมาชิกที่รับผิดชอบ</label><div class="gp-member-list">${members.map(m=>`<span class="gp-member">${gpAvatar(m)} ${esc(m.full_name||m.username)}</span>`).join('')}</div></div>`:''}<div class="field"><label>บรีฟ</label><div class="v" style="white-space:pre-wrap">${esc(j.brief||'-')}</div></div><div class="two"><div class="field"><label>ผู้ของาน</label><div class="v">${esc(j.requester_name||'-')}</div></div><div class="field"><label>ผู้รับผิดชอบ</label><div class="v">${esc(j.assignee_name||'ยังไม่มอบหมาย')}</div></div></div><div class="field"><label>เปลี่ยนสถานะ / บันทึก Feedback</label><input class="fin" id="gjNote" maxlength="2000" placeholder="เหตุผลที่ตีกลับ หรือหมายเหตุการส่งมอบ"><div class="gp-status-actions" style="margin-top:7px">${Object.entries(GP_STATUS).map(([s,m])=>`<button class="tbtn sm" style="${s===j.status?'border-color:'+m.c+';color:'+m.c:''}" onclick="moveGraphicJob('${id}','${s}')">${m.t}</button>`).join('')}</div></div><div class="field"><label>Checklist</label><div>${cs.map(x=>`<label class="checkbox" style="padding:5px 0"><input type="checkbox" ${x.done?'checked':''} onchange="toggleGraphicCheck('${x.id}',this.checked)"> ${esc(x.title)}</label>`).join('')||'<div class="muted">ไม่มี Checklist</div>'}</div><div style="display:flex;gap:6px;margin-top:7px"><input class="fin" id="gjCheck" placeholder="เพิ่มรายการ"><button class="tbtn sm" onclick="addGraphicCheck('${id}')">+เพิ่ม</button></div></div><div class="field"><label>ไฟล์งาน / ลิงก์ (${fs.length})</label>${fs.map(f=>`<div class="gp-file-row">${f.preview_url?`<img class="gp-file-preview" src="${esc(f.preview_url)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:''}<div style="min-width:0;flex:1"><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name||f.url)}</a><div class="gp-meta">${esc(f.mime_type||f.file_type)}${f.size_bytes?` · ${nf(Math.round(f.size_bytes/1024))} KB`:''}</div></div><span class="tag">${esc(f.file_type)}</span></div>`).join('')||'<div class="muted">ยังไม่มีไฟล์</div>'}<div class="two" style="margin-top:8px"><input class="fin" id="gjFileName" placeholder="ชื่อไฟล์"><input class="fin" id="gjFileUrl" type="url" placeholder="https://drive.google.com/..."></div><div style="display:flex;gap:6px"><select class="fin" id="gjFileType"><option value="reference">ไฟล์อ้างอิง</option><option value="working">ไฟล์กำลังทำ</option><option value="final">ไฟล์ Final</option></select><button class="tbtn sm" onclick="addGraphicFile('${id}')">+เพิ่มลิงก์</button></div></div><div class="field"><label>ความคิดเห็น (${comments.length})</label><div style="display:flex;gap:6px;margin-bottom:9px"><textarea class="fin" id="gjComment" rows="2" placeholder="เขียนความคิดเห็นหรือวางลิงก์งาน"></textarea><button class="tbtn primary" onclick="addGraphicComment('${id}')">ส่ง</button></div><div class="gp-comments">${comments.map(c=>{const links=gpExtractLinks(c.body);return `<div class="gp-comment"><div class="gp-comment-head">${c.author_avatar_url?`<img class="gp-avatar" src="${esc(c.author_avatar_url)}" alt="">`:'<span class="gp-avatar fallback">•</span>'}<b>${esc(c.author_name||c.source)}</b><span class="muted">${gpDateTime(c.created_at)}</span></div><div class="gp-comment-body">${esc(c.body)}</div>${links.length?`<div class="gp-comment-links">${links.map((u,i)=>`<a class="tbtn sm" href="${esc(u)}" target="_blank" rel="noopener">เปิดลิงก์ ${i+1} ↗</a>`).join('')}</div>`:''}</div>`;}).join('')||'<div class="muted">ยังไม่มีความคิดเห็น</div>'}</div></div><div class="field"><label>ประวัติกิจกรรม (${events.length})</label>${events.map(e=>`<div class="gp-activity"><b>${esc(gpEventTitle(e))}</b>${e.note?` · ${esc(e.note)}`:''}<div class="muted">${gpDateTime(e.created_at)}</div></div>`).join('')||'<div class="muted">ยังไม่มีกิจกรรม</div>'}</div>${j.trello_url?`<a class="tbtn" href="${esc(j.trello_url)}" target="_blank" rel="noopener">เปิดการ์ด Trello ↗</a>`:''}</div>`);}catch(e){showModal(`<div class="modal-h"><h3>เปิดรายละเอียดไม่สำเร็จ</h3><button class="x" onclick="closeModal()">×</button></div><div class="pad ai-note">${esc(e.message||'')}</div>`);}}
 function openGraphicDue(id){const j=GRAPHIC_JOBS.find(x=>x.id===id);if(!j)return;if(!canManageGraphic()){openGraphicJob(id);return;}showModal(`<div class="modal-h"><div><span class="tag">G-${j.job_no}</span><h3 style="margin-top:7px">กำหนดวันส่งงาน</h3><div class="muted" style="font-size:11.5px">${esc(j.title)}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="field"><label>กำหนดส่ง *</label><input type="datetime-local" class="fin" id="gjDue" value="${gpInputDateTime(j.due_at)}"></div><button class="tbtn primary" onclick="updateGraphicDue('${id}')">บันทึกกำหนดส่ง</button></div>`);}
 async function updateGraphicDue(id){const j=GRAPHIC_JOBS.find(x=>x.id===id),value=val('gjDue');if(!j||!value){toast('กรุณาระบุกำหนดส่ง','info');return;}try{const r=await SB.from('graphic_jobs').update({due_at:new Date(value).toISOString()}).eq('id',id).select().single();if(r.error)throw r.error;Object.assign(j,r.data);closeModal();RENDER[VIEW](BOARD_DEPT);toast('บันทึกกำหนดส่ง G-'+j.job_no+' แล้ว');}catch(e){toast('บันทึกกำหนดส่งไม่สำเร็จ · '+(e.message||e),'info');}}
-async function moveGraphicJob(id,status,fromDrag=false){try{const r=await SB.rpc('move_graphic_job',{target_job:id,next_status:status,event_note:normSp(val('gjNote'))});if(r.error)throw r.error;const i=GRAPHIC_JOBS.findIndex(x=>x.id===id);GRAPHIC_JOBS[i]=r.data;if(!fromDrag)closeModal();RENDER.graphic();toast('อัปเดตเป็น “'+GP_STATUS[status].t+'” แล้ว');}catch(e){toast('เปลี่ยนสถานะไม่สำเร็จ · '+(e.message||''),'info');}}
+function graphicCompletionMissing(job,checks,files,members=[]){
+ const missing=[];
+ if(!job?.assignee_id&&!members.some(m=>m.profile_id||m.linked_profile_id))missing.push('เชื่อมบัญชีผู้รับผิดชอบ');
+ if(checks.some(c=>!c.done))missing.push('ทำ Checklist ให้ครบ');
+ if(!files.some(f=>f.file_type==='final'&&gpSafeHttpUrl(f.url)))missing.push('แนบลิงก์ไฟล์ Final');
+ return missing;
+}
+async function moveGraphicJob(id,status,fromDrag=false){try{
+ if(status==='done'){const job=GRAPHIC_JOBS.find(j=>j.id===id),missing=graphicCompletionMissing(job,gpJobChecks(id),gpJobFiles(id),gpJobMemberRows(id));if(missing.length){toast('ยังปิดงานไม่ได้ · '+missing.join(' · '),'info');return;}}
+const r=await SB.rpc('move_graphic_job',{target_job:id,next_status:status,event_note:normSp(val('gjNote'))});if(r.error)throw r.error;const i=GRAPHIC_JOBS.findIndex(x=>x.id===id);GRAPHIC_JOBS[i]=r.data;if(!fromDrag)closeModal();RENDER.graphic();toast('อัปเดตเป็น “'+GP_STATUS[status].t+'” แล้ว');}catch(e){toast('เปลี่ยนสถานะไม่สำเร็จ · '+(e.message||''),'info');}}
 async function addGraphicComment(job){const body=normSp(val('gjComment'));if(!body)return;try{const r=await SB.from('graphic_job_comments').insert({job_id:job,author_profile_id:ACCESS_PROFILE.id,author_name:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'',body,source:'Company Hub'});if(r.error)throw r.error;await openGraphicJob(job);}catch(e){toast('เพิ่มความคิดเห็นไม่สำเร็จ · '+(e.message||''),'info');}}
 async function toggleGraphicCheck(id,done){try{const r=await SB.from('graphic_job_checklist_items').update({done}).eq('id',id).select().single();if(r.error)throw r.error;const i=GRAPHIC_CHECKS.findIndex(x=>x.id===id);GRAPHIC_CHECKS[i]=r.data;}catch(e){toast('อัปเดต Checklist ไม่สำเร็จ','info');}}
 async function addGraphicCheck(job){const title=normSp(val('gjCheck'));if(!title)return;try{const r=await SB.from('graphic_job_checklist_items').insert({job_id:job,title,position:gpJobChecks(job).length}).select().single();if(r.error)throw r.error;GRAPHIC_CHECKS.push(r.data);openGraphicJob(job);}catch(e){toast('เพิ่ม Checklist ไม่สำเร็จ','info');}}
@@ -2602,8 +2622,31 @@ const SUPA_URL='https://mfvbggjwqgeaoezlgiqo.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mdmJnZ2p3cWdlYW9lemxnaXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2ODMxNDYsImV4cCI6MjEwMjI1OTE0Nn0.1Oo8hhqdxJ97j5N6bQBXNsdaeurnq7-QJv_atikNeYs';
 let SB=null,CLOUD=false,SB_UID=null,_sbSaveT=null,_sbApplying=false,_cloudStarted=false,ACCESS_GATE_TIMER=null,ACCESS_GATE_STATE=null;
 function cloudEnabled(){return !!(SUPA_URL&&SUPA_KEY&&window.supabase&&window.supabase.createClient);}
-function showLogin(){var l=document.getElementById('loginBg');if(l)l.style.display='flex';}
-function hideLogin(){var l=document.getElementById('loginBg');if(l)l.style.display='none';}
+let LOGIN_PREVIOUS_FOCUS=null;
+function loginBackground(active){
+  for(const node of [document.querySelector('.app'),document.getElementById('overlay'),document.querySelector('.talk-fab'),document.querySelector('.help-win')].filter(Boolean)){
+    if(active){node.inert=true;node.setAttribute('aria-hidden','true');}
+    else{node.inert=false;node.removeAttribute('aria-hidden');}
+  }
+  document.body.classList.toggle('login-open',active);
+}
+function loginFocusable(root){return [...root.querySelectorAll('input:not([hidden]):not([disabled]),select:not([hidden]):not([disabled]),button:not([hidden]):not([disabled]),a[href],[tabindex="0"]')].filter(node=>node.getClientRects().length);}
+function prepareLoginDialog(root){
+  if(root.dataset.a11yReady)return;root.dataset.a11yReady='true';
+  root.addEventListener('keydown',event=>{
+    if(event.key!=='Tab')return;
+    const items=loginFocusable(root),first=items[0],last=items.at(-1);if(!first){event.preventDefault();root.focus();return;}
+    if(event.shiftKey&&(document.activeElement===first||document.activeElement===root)){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
+}
+function showLogin(){var l=document.getElementById('loginBg');if(!l)return;prepareLoginDialog(l);if(l.style.display==='none')LOGIN_PREVIOUS_FOCUS=document.activeElement;l.style.display='flex';loginBackground(true);requestAnimationFrame(()=>{const preferred=l.querySelector('#sbEmail:not([hidden]),input:not([hidden]),select:not([hidden]),button:not([hidden])');preferred?.focus({preventScroll:true});});}
+function hideLogin(){var l=document.getElementById('loginBg');if(!l)return;l.style.display='none';loginBackground(false);if(LOGIN_PREVIOUS_FOCUS?.isConnected)LOGIN_PREVIOUS_FOCUS.focus({preventScroll:true});LOGIN_PREVIOUS_FOCUS=null;}
+function setLoginBusy(busy,label='กำลังเข้าสู่ระบบ…'){
+  const button=document.getElementById('sbLoginBtn');if(!button)return;
+  if(busy){button.dataset.idleLabel=button.textContent;button.dataset.busyLabel=label;button.textContent=label;button.disabled=true;button.setAttribute('aria-busy','true');}
+  else{if(button.textContent===button.dataset.busyLabel)button.textContent=button.dataset.idleLabel||'เข้าสู่ระบบ';button.disabled=false;button.removeAttribute('aria-busy');delete button.dataset.busyLabel;}
+}
 function accessDeviceId(){
   const key='ch_access_device_id';let id='';try{id=localStorage.getItem(key)||'';}catch(e){}
   if(!/^[0-9a-f-]{20,80}$/i.test(id)){id=crypto.randomUUID?crypto.randomUUID():('dev-'+Date.now()+'-'+Math.random().toString(16).slice(2));try{localStorage.setItem(key,id);}catch(e){}}
@@ -2795,11 +2838,11 @@ async function sbLogin(){
   var em=(val('sbEmail')||'').trim(), pw=val('sbPass')||'';
   var er=document.getElementById('sbErr'); if(er)er.textContent='';
   if(!em||!pw){if(er)er.textContent='กรุณากรอกชื่อหรืออีเมลและรหัสผ่าน';return;}
-  var btn=document.getElementById('sbLoginBtn'); if(btn)btn.disabled=true;
+  var btn=document.getElementById('sbLoginBtn'); setLoginBusy(true);
   try{ var res=await SB.auth.signInWithPassword({email:em,password:pw});
     if(res.error){ if(er)er.textContent='เข้าสู่ระบบไม่สำเร็จ: '+res.error.message; }
   }catch(e){ if(er)er.textContent='ผิดพลาด: '+e.message; }
-  if(btn)btn.disabled=false;
+  setLoginBusy(false);
 }
 async function sbLogout(){ clearInterval(ACCESS_GATE_TIMER);try{ if(SB) await SB.auth.signOut(); }catch(e){} location.reload(); }
 
@@ -2874,16 +2917,16 @@ function closeManual(){if(_hlp)_hlp.classList.remove('show');}
 <script src="department-workflows.js?v=20260905-kpi-catalog"></script>
 <link rel="stylesheet" href="team-board.css?v=20260905">
 <script src="team-board.js?v=20260906-3"></script>
-<script src="company-accounts.js?v=20260928-finance-shared-only"></script>
+<script src="company-accounts.js?v=20260915-shared-email"></script>
 <script src="reporting-integrity.js?v=20260909-live-review"></script>
-<div id="loginBg" class="login-bg" style="display:none">
+<div id="loginBg" class="login-bg" style="display:none" role="dialog" aria-modal="true" aria-labelledby="loginTitle" aria-describedby="loginPurpose" tabindex="-1">
   <div class="login-card">
     <div class="login-logo">CH</div>
-    <h2>เข้าสู่ระบบ Company Hub</h2>
-    <p>ใช้ชื่อ (แผนก) หรืออีเมลของบัญชีเดิม</p>
-    <input id="sbEmail" type="text" placeholder="ชื่อ (แผนก) หรืออีเมล" autocomplete="username">
-    <input id="sbPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter')sbLogin()">
-    <div id="sbErr" class="login-err"></div>
+    <h2 id="loginTitle">เข้าสู่ระบบ Company Hub</h2>
+    <p id="loginPurpose">ศูนย์รวมงาน กิจกรรม ปัญหา และ KPI สำหรับพนักงานทุกแผนก<br>ใช้ชื่อ (แผนก) หรืออีเมลของบัญชีเดิม</p>
+    <input id="sbEmail" type="text" placeholder="ชื่อ (แผนก) หรืออีเมล" autocomplete="username" aria-describedby="loginPurpose sbErr">
+    <input id="sbPass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" aria-describedby="sbErr" onkeydown="if(event.key==='Enter')sbLogin()">
+    <div id="sbErr" class="login-err" role="alert" aria-live="assertive"></div>
     <button id="sbLoginBtn" class="login-btn" onclick="sbLogin()">เข้าสู่ระบบ</button>
     <p>ลืมรหัสผ่าน: ติดต่อผู้ดูแลเพื่อรับรหัสเข้าครั้งใหม่</p>
     <div class="login-foot">ตรวจสิทธิ์บัญชี · แผนก · เครื่อง · IP ก่อนเปิดข้อมูลทุกครั้ง</div>

@@ -1,0 +1,14 @@
+{
+  "name": "company-hub-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:static && npm run test:ui",
+    "test:static": "node scripts/check-prototype-regressions.mjs && node scripts/check-native-entry.mjs && node scripts/check-login-accessibility.mjs && node scripts/check-release-readiness.mjs && node scripts/check-graphic-pagination.mjs && node scripts/check-kpi-work.mjs && node scripts/check-company-accounts.mjs",
+    "test:ui": "node scripts/check-ux-system.mjs && node scripts/check-team-board.mjs && node scripts/check-access-sections.mjs && node scripts/check-department-workflows.mjs && node scripts/check-company-accounts-ui.mjs && node scripts/check-reporting-integrity.mjs && node scripts/check-demo-flow-fixes.mjs && node scripts/check-active-kpi.mjs && node scripts/check-central-audit-programmer.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.4.5",
+    "happy-dom": "20.11.2"
+  }
+}

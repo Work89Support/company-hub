@@ -20,7 +20,7 @@ function clearAccountEmailChoice(){
 document.getElementById('sbEmail')?.addEventListener('input',clearAccountEmailChoice);
 sbLogin=async function(){
  const login=val('sbEmail').trim(),isEmail=login.includes('@')&&!login.endsWith(')');
- const button=document.getElementById('sbLoginBtn'),error=document.getElementById('sbErr');button.disabled=true;error.textContent='';
+ const button=document.getElementById('sbLoginBtn'),error=document.getElementById('sbErr');setLoginBusy(true,isEmail&&!ACCOUNT_EMAIL_CHOICE?'กำลังค้นหาบัญชี…':'กำลังเข้าสู่ระบบ…');error.textContent='';
  try{
   let target=login;
   if(isEmail){
@@ -52,7 +52,7 @@ sbLogin=async function(){
   if(!val('sbPass')){error.textContent='กรอกรหัสผ่านของบัญชีที่เลือก';return;}
   const result=await accountCall('login',{login:target,password:val('sbPass'),...(isEmail?{email:login.toLowerCase()}:{})},null);
   const r=await SB.auth.setSession(result.session);if(r.error)throw r.error;clearAccountEmailChoice();
- }catch(e){error.textContent=e.message;}finally{button.disabled=false;}
+ }catch(e){error.textContent=e.message;}finally{setLoginBusy(false);}
 };
 const accountOriginalLoggedIn=onLoggedIn;
 onLoggedIn=async function(session){

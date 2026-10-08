@@ -80,7 +80,8 @@ async function loadActivities(){
     if(VIEW==='timeline')RENDER.timeline();
   }catch(error){
     ACTIVITY_READY=false;
-    if(VIEW==='activity') main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="ai-note"><b>ยังเปิดข้อมูลกิจกรรมไม่ได้</b><br>กรุณารัน Migration 008 · ${esc(error.message||'')}</div>`;
+    if(VIEW==='activity') main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="ai-note" role="alert"><b>โหลดข้อมูลกิจกรรมไม่สำเร็จ</b><br>กรุณาลองโหลดหน้าใหม่ หรือติดต่อผู้ดูแลระบบพร้อมแจ้งเวลาที่พบปัญหา</div>`;
+    console.error('activity load failed',error);
     throw error;
   }
 }

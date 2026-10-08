@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Company Hub — ระบบศูนย์รวมงานองค์กร</title>
+<meta name="description" content="Company Hub ศูนย์รวมงาน กิจกรรม ปัญหาหน้างาน KPI SOP และประกาศสำหรับพนักงานทุกแผนก">
+<meta name="theme-color" content="#123a86">
+<link rel="icon" href="prototype/favicon.svg" type="image/svg+xml">
 <meta http-equiv="refresh" content="0; url=prototype/index.html">
 <link rel="canonical" href="prototype/index.html">
 <style>
@@ -19,10 +22,12 @@
   a.btn{display:inline-block;background:#2563eb;color:#fff;text-decoration:none;
         padding:12px 24px;border-radius:10px;font-weight:600;font-size:15px}
   a.btn:hover{background:#1d4ed8}
+  a.btn:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2563eb;
        margin:0 3px;animation:b 1s infinite alternate}
   .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
   @keyframes b{to{opacity:.2;transform:translateY(-4px)}}
+  @media(prefers-reduced-motion:reduce){.dot{animation:none}}
 </style>
 </head>
 <body>

@@ -1,9 +1,9 @@
-# Company Hub — ระบบศูนย์รวมงานองค์กร (Prototype)
+# Company Hub — ระบบศูนย์รวมงานองค์กร
 
 ระบบแท็กงาน / มอบหมายงาน / ศูนย์รวมความรู้ / วัดผล KPI / คู่มือ SOP สำหรับองค์กร
 ธีมน้ำเงิน-ขาว · ฟอนต์ Kanit · รูปแบบอ้างอิง Monday.com
 
-> **สถานะ:** Operational prototype — ล็อกอินและข้อมูล Task/SOP/Knowledge/KPI/Operational Issues
+> **สถานะ:** Production candidate — ล็อกอินและข้อมูล Task/SOP/Knowledge/KPI/Operational Issues
 > ใช้ตาราง Supabase แยกตามแผนกแล้ว ส่วน UI และข้อมูลบุคลากรเดิมยังอยู่ในช่วง
 > เปลี่ยนผ่านก่อนพัฒนาเป็นระบบเต็มรูปแบบ
 
@@ -15,6 +15,15 @@
 เปิดไฟล์ `prototype/index.html` ด้วยเบราว์เซอร์ได้เลย (ดับเบิลคลิก) — ไม่ต้องติดตั้งอะไร
 
 ใน VS Code แนะนำติดตั้งส่วนขยาย **Live Server** แล้วคลิก "Go Live" เพื่อดูแบบ auto-reload
+
+## ตรวจก่อนเผยแพร่
+
+```bash
+npm install
+npm test
+```
+
+เกณฑ์ UI กลางอยู่ที่ [`DESIGN.md`](DESIGN.md) และต้องตรวจ desktop/mobile, light/dark, keyboard-only และ text zoom 200% ก่อนทุก release
 
 ## สิ่งที่ลองได้ใน Prototype
 - **สลับมุมมอง** ที่มุมขวาบน: 👤 พนักงาน / 🧑‍💼 หัวหน้างาน / 👔 ผู้บริหาร — เมนูและแดชบอร์ดจะเปลี่ยนตามระดับ

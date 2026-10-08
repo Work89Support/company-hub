@@ -3,7 +3,7 @@ const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'u
 const depts=html.match(/const DEPTS = \[[\s\S]*?\n\];/)[0];
 assert.ok(!depts.includes('SECRET'));
 let definitions=[],results=[];
-const ctx={console,KPI:{},SB:{from(table){return {select(){return this;},eq(){return this;},order(){return this;},then(resolve){resolve({data:table==='kpi_definitions'?definitions:results});}};}}};
+const ctx={console,KPI:{},integrityReadAll:async build=>await build(),integrityKpiAchievement:(actual,target,payload={})=>actual==null||!target?null:Math.min(actual/target*100,Number(payload.achievement_cap||Infinity)*100),SB:{from(table){return {select(){return this;},eq(){return this;},order(){return this;},then(resolve){resolve({data:table==='kpi_definitions'?definitions:results});}};}}};
 vm.createContext(ctx);vm.runInContext(depts+html.match(/let KPI_CATALOG=\{\};[\s\S]*?(?=async function cloudLoadIssues)/)[0],ctx);
 definitions=[{id:'one',department_code:'GRAPHIC',name:'A',target:.95,weight:.5,prototype_payload:{unit:'ratio'}},{id:'two',department_code:'GRAPHIC',name:'B',target:.98,weight:.5}];
 await ctx.cloudLoadKpis();assert.equal(Object.keys(ctx.KPI).length,0,'missing results must not produce zero score');assert.equal(vm.runInContext('KPI_CATALOG.GRAPHIC.length',ctx),2);
