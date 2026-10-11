@@ -772,14 +772,14 @@ const ANN = [
 ];
 let ANN_SEQ=3;
 
-/* แผนผังองค์กร (Company Chart) — โครงสร้างใช้งานจริง 4 กลุ่ม / 13 แผนก */
+/* แผนผังองค์กร (Company Chart) — โครงสร้างใช้งานจริง 4 กลุ่ม / 14 แผนก */
 const ORG=[
   {code:'01',title:'CORPORATE & GOVERNANCE',th:'บริหารและกำกับองค์กร',color:'#2158c8',teams:[
     {name:'Back Office Management',th:'บริหารงานหลังบ้าน · หัวหน้า / ผู้ช่วยหัวหน้า / พนักงาน',dept:'BOM'},
     {name:'การเงิน',th:'Finance · หัวหน้า / พนักงาน',dept:'FIN'},
     {name:'ทรัพยากรบุคคล (HR)',th:'Human Resources · หัวหน้า / ผู้ช่วย / พนักงาน',dept:'HR'},
     {name:'แผนก KPI',th:'KPI Management · หัวหน้า / พนักงาน',dept:'KPI'},
-    {name:'Back Office (BC)',th:'งานบัญชีและข้อมูลหลังบ้าน · หัวหน้า / พนักงาน',dept:'BO'},
+    {name:'Data provider (BC)',th:'งานบัญชีและข้อมูลหลังบ้าน · หัวหน้า / พนักงาน',dept:'BO'},
   ]},
   {code:'02',title:'BRAND, CONTENT & MARKETING',th:'คอนเทนต์และการตลาด',color:'#07835f',teams:[
     {name:'การตลาด',th:'Marketing · หัวหน้า / พนักงาน',dept:'MKT'},
@@ -788,6 +788,7 @@ const ORG=[
   {code:'03',title:'TECHNOLOGY & CUSTOMER',th:'เทคโนโลยีและลูกค้าสัมพันธ์',color:'#c96c08',teams:[
     {name:'โปรแกรมเมอร์',th:'Programmer · หัวหน้า / พนักงาน',dept:'PROG'},
     {name:'ลูกค้าสัมพันธ์ (CRM)',th:'Customer Relationship Management · หัวหน้า / พนักงาน',dept:'CRM'},
+    {name:'AI Automation',th:'พัฒนาระบบ AI และงานอัตโนมัติ · หัวหน้า / พนักงาน'},
   ]},
   {code:'04',title:'OPERATIONS & QUALITY',th:'ปฏิบัติการและคุณภาพ',color:'#7146ba',teams:[
     {name:'SC',th:'งานปฏิบัติการ SC · หัวหน้า / พนักงาน',dept:'SC'},
@@ -2027,7 +2028,7 @@ RENDER.org=function(){
   main.innerHTML=`${crumb('หน้าแรก','แผนผังองค์กร')}
   <div class="page-h"><div><h1>แผนผังองค์กร (Company Chart)</h1><p>โครงสร้างใช้งานจริง แบ่งตามกลุ่มงานและแผนกในระบบ</p></div></div>
   <div style="display:flex;justify-content:center;margin-bottom:6px"><div class="execbox"><b style="font-size:15px">Executive Board</b><div style="font-size:11.5px;opacity:.85">บอร์ดบริหาร</div></div></div>
-  <div class="org-summary"><div class="chip"><b>4</b> กลุ่มงาน</div><div class="chip"><b>13</b> แผนก</div><div class="chip">ออดิทระบบเป็นส่วนกลาง</div></div>
+  <div class="org-summary"><div class="chip"><b>4</b> กลุ่มงาน</div><div class="chip"><b>14</b> แผนก</div><div class="chip">ออดิทระบบเป็นส่วนกลาง</div></div>
   <div class="orggrid">
     ${ORG.map(g=>`<div class="orgcol">
       <div class="orghead" style="background:${g.color}"><div class="c">กลุ่ม ${g.code}</div><b>${g.title}</b><div class="th">${g.th}</div><div class="org-count">${g.teams.length} แผนก</div></div>

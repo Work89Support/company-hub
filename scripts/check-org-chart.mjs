@@ -9,7 +9,7 @@ const groups=Function(`"use strict";return (${match[1]})`)();
 const expected={
   '01':['BOM','FIN','HR','KPI','BO'],
   '02':['MKT','GRAPHIC'],
-  '03':['PROG','CRM'],
+  '03':['PROG','CRM',undefined],
   '04':['SC','ADMIN','QC','AUD123'],
 };
 
@@ -17,8 +17,10 @@ assert.equal(groups.length,4,'Organization chart must contain four work groups')
 for(const group of groups){
   assert.deepEqual(group.teams.map(team=>team.dept),expected[group.code],`Group ${group.code} department order or membership is incorrect`);
 }
-assert.equal(groups.flatMap(group=>group.teams).length,13,'Organization chart must contain thirteen departments');
+assert.equal(groups.flatMap(group=>group.teams).length,14,'Organization chart must contain fourteen departments');
 assert.doesNotMatch(match[1],/Secret Team|Recheck|เลขานุการ|ซีเคร็ท/,'Removed departments must not return to the organization chart');
 assert.match(match[1],/ออดิทระบบ \(ส่วนกลาง\)/,'Central Audit must be represented as one shared department');
+assert.match(match[1],/AI Automation/,'AI Automation must be represented in Technology & Customer');
+assert.match(match[1],/Data provider \(BC\)/,'Data provider (BC) must use the approved organization name');
 
-console.log('PASS organization chart: 4 groups, 13 current departments, no removed teams');
+console.log('PASS organization chart: 4 groups, 14 current departments, no removed teams');
