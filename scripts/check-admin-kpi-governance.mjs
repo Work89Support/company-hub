@@ -45,9 +45,11 @@ assert.match(frontend,/adminKpiCanReview/);
 assert.match(frontend,/voidAdminKpi/);
 assert.match(frontend,/adminKpiSetView\('admin'\)/,'KPI page must offer a focused Admin evaluation view');
 assert.match(frontend,/adminKpiSetView\('evidence'\)/,'KPI page must keep cross-department evidence in a separate view');
-assert.match(frontend,/#main:not\(\.admin-kpi-evidence-view\)>\.admin-kpi-legacy/,'legacy KPI sections must be hidden in the default focused view');
+assert.match(frontend,/adminKpiSetView\('monitor'\)/,'KPI page must expose monitoring and audit history');
+assert.match(frontend,/kpi_evaluation_audit/,'KPI monitoring must read the protected audit trail');
+assert.match(frontend,/#main:not\(\.admin-kpi-evidence-view\):not\(\.admin-kpi-monitor-view\)>\.admin-kpi-legacy/,'legacy KPI sections must be hidden in the default focused view');
 assert.match(frontend,/\^https\?:\\\/\\\/\\S\+\$/i,'evidence URL validation must exist in UI');
-assert.match(index,/kpi-admin-evaluation\.js\?v=20261011-admin-kpi-ux/,'KPI module must be loaded by production page');
+assert.match(index,/kpi-admin-evaluation\.js\?v=20261011-admin-kpi-final/,'KPI module must be loaded by production page');
 
 const ids={staff:'00000000-0000-4000-8000-000000000001',evaluator:'00000000-0000-4000-8000-000000000002',reviewer:'00000000-0000-4000-8000-000000000003',admin:'00000000-0000-4000-8000-000000000004'};
 await db.exec(`insert into profiles(id,email,display_name,role,department_code,position_title) values
