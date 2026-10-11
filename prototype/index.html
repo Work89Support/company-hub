@@ -350,15 +350,20 @@ textarea,select.fin,input.fin{width:100%;padding:9px 12px;border:1px solid var(-
 #hamb{display:none}
 .scrim{display:none;position:fixed;inset:0;background:rgba(11,42,107,.4);z-index:55}
 /* Org chart */
-.orggrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:start}
-.orgcol{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
-.orghead{color:#fff;padding:11px 14px}
+.org-summary{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:12px 0 18px}
+.org-summary .chip{display:flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid var(--line);border-radius:999px;background:var(--surface);box-shadow:var(--shadow);font-size:12px;color:var(--muted)}
+.org-summary .chip b{font-size:15px;color:var(--text)}
+.orggrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start}
+.orgcol{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);min-width:0}
+.orghead{color:#fff;padding:14px 15px;min-height:84px}
 .orghead .c{font-size:10px;opacity:.85}
 .orghead b{font-size:13px;display:block;line-height:1.25;margin-top:1px}
 .orghead .th{font-size:11px;opacity:.92;font-weight:300;margin-top:2px}
-.orgteam{margin:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--blue-50)}
-.orgteam>b{font-size:12.5px}
-.orgteam .tsub{color:var(--muted);font-size:10.5px;margin-top:1px}
+.orgteam{margin:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--blue-50);transition:.18s ease}
+.orgteam.hlink:hover{transform:translateY(-1px);border-color:var(--blue-300);box-shadow:0 7px 18px rgba(32,74,130,.09)}
+.orgteam>b{font-size:12.5px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.orgteam .tsub{color:var(--muted);font-size:10.5px;margin-top:3px;line-height:1.45}
+.org-count{display:inline-flex;margin-top:8px;font-size:10px;font-weight:600;padding:3px 7px;border-radius:999px;background:rgba(255,255,255,.2);white-space:nowrap}
 .orgrole{display:flex;align-items:center;gap:7px;font-size:12px;padding:3px 0;color:var(--text-secondary)}
 .execbox{background:linear-gradient(160deg,var(--blue-900),var(--blue-700));color:#fff;padding:12px 30px;border-radius:12px;text-align:center;box-shadow:var(--shadow)}
 @media(max-width:1100px){.orggrid{grid-template-columns:1fr 1fr}}
@@ -747,8 +752,8 @@ const DOCS=[{id:'REG-01',title:'ระเบียบการประชุม
   {h:'7. กติกาการนำเสนอ',items:['แต่ละทีม 10–15 นาที','เรื่องตามเป้ารายงานย่อ เน้นเวลากับ Yellow/Red หรือเรื่องที่ต้องตัดสินใจ','ข้อมูลต้องมีตัวเลข/หลักฐานรองรับ','ห้ามเล่ากิจกรรมย้อนหลังโดยไม่มีข้อสรุป/Action']},
   {h:'8. ระบบสถานะงาน',items:['Green = เป็นไปตามแผน','Yellow = มีความเสี่ยง ต้องมีแผนแก้ไข','Red = ไม่เป็นไปตามเป้า/เกินกำหนด ต้องระบุสาเหตุ + Owner + Due ใหม่','Completed = เสร็จสิ้น ปิดงานเมื่อมีหลักฐานยืนยัน']},
   {h:'9. การควบคุม Action Item',items:['ทุก Action ต้องมี: Action / Owner / Due Date / Status / Remark','Action ที่ยังไม่ Completed ต้องยกไปติดตามเป็นวาระแรกในเดือนถัดไป','Action ที่เกิน Due ต้องระบุสาเหตุ + กำหนด Due ใหม่ โดยไม่ลบประวัติเดิม','เปลี่ยน Owner/Due ที่มีผลต่อแผนหลัก ต้องได้รับความเห็นชอบจากผู้บังคับบัญชา/ประธาน']},
-  {h:'10. การบันทึกและเผยแพร่มติ',items:['Secret Team จัดทำ Meeting Minutes + Action List ภายใน 1 วันทำการ','ผู้เข้าร่วมตรวจ/แจ้งแก้ไขภายใน 1 วันทำการ','เอกสารฉบับสุดท้ายเป็นข้อมูลอ้างอิงเดือนถัดไป']},
-  {h:'11. การขาดประชุมและการมอบหมายแทน',items:['แจ้ง Secret Team ล่วงหน้า + มอบผู้แทนที่มีข้อมูลเพียงพอ','ไม่ส่งรายงาน/ไม่เข้าประชุมโดยไม่มีผู้แทน บันทึกไว้ใน Minutes']},
+  {h:'10. การบันทึกและเผยแพร่มติ',items:['ผู้บันทึกการประชุมที่ได้รับมอบหมายจัดทำ Meeting Minutes + Action List ภายใน 1 วันทำการ','ผู้เข้าร่วมตรวจ/แจ้งแก้ไขภายใน 1 วันทำการ','เอกสารฉบับสุดท้ายเป็นข้อมูลอ้างอิงเดือนถัดไป']},
+  {h:'11. การขาดประชุมและการมอบหมายแทน',items:['แจ้งผู้จัดประชุมหรือผู้บันทึกการประชุมล่วงหน้า + มอบผู้แทนที่มีข้อมูลเพียงพอ','ไม่ส่งรายงาน/ไม่เข้าประชุมโดยไม่มีผู้แทน บันทึกไว้ใน Minutes']},
   {h:'12. หลักการสรุปการประชุม',items:['ติดตามผล → ระบุปัญหา → ตัดสินใจ → มอบหมาย → ปิดงาน']},
   {h:'13. การอนุมัติใช้ระเบียบ',items:['จัดทำโดย ______ · ตรวจสอบโดย ______ · อนุมัติโดย Executive Board']},
  ]}];
@@ -767,29 +772,28 @@ const ANN = [
 ];
 let ANN_SEQ=3;
 
-/* แผนผังองค์กร (Company Chart) — จากต้นฉบับจริง */
+/* แผนผังองค์กร (Company Chart) — โครงสร้างใช้งานจริง 4 กลุ่ม / 13 แผนก */
 const ORG=[
-  {code:'01',title:'CORPORATE & GOVERNANCE',th:'งานบริหารและกำกับองค์กร',color:'#2158c8',teams:[
-    {name:'Management Team',th:'ทีมบริหาร'},
-    {name:'Finance Team : Head + Staffs',th:'ทีมการเงิน · หัวหน้า + พนักงาน',dept:'FIN'},
-    {name:'Audit Team : Head + Staffs',th:'ทีมออดิท · หัวหน้า + พนักงาน'},
-    {name:'HR Team : Head + Staffs',th:'ทีม HR · หัวหน้า + พนักงาน'},
-    {name:'KPI Team : Head + Staffs',th:'ทีม KPI · หัวหน้า + พนักงาน',dept:'KPI'},
-    {name:'Secret Team : Head + Staffs',th:'ทีมซีเคร็ท · หัวหน้า + พนักงาน'},
-    {name:'Data Provider Team : Head + Staffs',th:'ทีมบัญชี/ข้อมูล · ใช้ KPI ร่วมกับ BC',dept:'BO'},
+  {code:'01',title:'CORPORATE & GOVERNANCE',th:'บริหารและกำกับองค์กร',color:'#2158c8',teams:[
+    {name:'Back Office Management',th:'บริหารงานหลังบ้าน · หัวหน้า / ผู้ช่วยหัวหน้า / พนักงาน',dept:'BOM'},
+    {name:'การเงิน',th:'Finance · หัวหน้า / พนักงาน',dept:'FIN'},
+    {name:'ทรัพยากรบุคคล (HR)',th:'Human Resources · หัวหน้า / ผู้ช่วย / พนักงาน',dept:'HR'},
+    {name:'แผนก KPI',th:'KPI Management · หัวหน้า / พนักงาน',dept:'KPI'},
+    {name:'Back Office (BC)',th:'งานบัญชีและข้อมูลหลังบ้าน · หัวหน้า / พนักงาน',dept:'BO'},
   ]},
-  {code:'02',title:'BRAND, CONTENT & MARKETING',th:'งานคอนเทนต์และการตลาด',color:'#00a878',teams:[
-    {name:'Content Creative Team',th:'ทีมคอนเทนต์',dept:'GRAPHIC',roles:['Content Creative — คิดคอนเทนต์ (นับ KPI ร่วมกับการตลาด/MKT)','Graphic Design — ออกแบบกราฟฟิก (KPI กราฟิก)']},
-    {name:'Marketing Team',th:'ทีมการตลาด',dept:'MKT',roles:['Director — หัวหน้าผู้จัดการ','Manager (HR) — ผู้จัดการ','IT Support — ผู้ดูแลระบบ','SEO — หัวหน้า/พนักงาน','Social Media — หัวหน้า/พนักงาน']},
+  {code:'02',title:'BRAND, CONTENT & MARKETING',th:'คอนเทนต์และการตลาด',color:'#07835f',teams:[
+    {name:'การตลาด',th:'Marketing · หัวหน้า / พนักงาน',dept:'MKT'},
+    {name:'กราฟิก',th:'Graphic Production · หัวหน้า / พนักงาน · รายงานผลร่วมกับการตลาด',dept:'GRAPHIC'},
   ]},
-  {code:'03',title:'TECHNOLOGY & CUSTOMER',th:'งานเทคโนโลยีและลูกค้าสัมพันธ์',color:'#e8971b',teams:[
-    {name:'Programmer Team : Head + Staffs',th:'ทีมโปรแกรมเมอร์ · หัวหน้า + พนักงาน',dept:'PROG'},
-    {name:'CS Team',th:'ทีมลูกค้าสัมพันธ์',dept:'CRM',roles:['CRM — พนักงานติดตามลูกค้า','Data Support — พนักงานสนับสนุนข้อมูล']},
+  {code:'03',title:'TECHNOLOGY & CUSTOMER',th:'เทคโนโลยีและลูกค้าสัมพันธ์',color:'#c96c08',teams:[
+    {name:'โปรแกรมเมอร์',th:'Programmer · หัวหน้า / พนักงาน',dept:'PROG'},
+    {name:'ลูกค้าสัมพันธ์ (CRM)',th:'Customer Relationship Management · หัวหน้า / พนักงาน',dept:'CRM'},
   ]},
-  {code:'04',title:'OPERATIONS & QUALITY',th:'งานปฏิบัติการและคุณภาพ',color:'#7a53e0',teams:[
-    {name:'SC Team',th:'ทีม SC',dept:'SC'},
-    {name:'Admin Team',th:'ทีมแอดมิน',dept:'ADMIN',roles:['Back Office Manager — ผู้จัดการออฟฟิศหลังบ้าน','Back Office Assistant — ผู้ช่วยออฟฟิศหลังบ้าน','Admin Head — หัวหน้าแอดมิน','Admin Staff — พนักงานแอดมิน','Career Levels — ระดับสายอาชีพ']},
-    {name:'QC Team : Head + Staffs',th:'ทีมตรวจสอบคุณภาพ · หัวหน้า + พนักงาน',dept:'QC'},
+  {code:'04',title:'OPERATIONS & QUALITY',th:'ปฏิบัติการและคุณภาพ',color:'#7146ba',teams:[
+    {name:'SC',th:'งานปฏิบัติการ SC · หัวหน้า / พนักงาน',dept:'SC'},
+    {name:'แอดมิน',th:'Admin · บริหารแอดมิน / หัวหน้า / รองและผู้ช่วย / พนักงาน',dept:'ADMIN'},
+    {name:'QC Chat',th:'ตรวจสอบคุณภาพแชต · หัวหน้า / พนักงาน',dept:'QC'},
+    {name:'ออดิทระบบ (ส่วนกลาง)',th:'Central Audit · หน่วยงานส่วนกลางเดียว · หัวหน้า / พนักงาน',dept:'AUD123'},
   ]},
 ];
 const FEED = [
@@ -2021,18 +2025,18 @@ RENDER.users=function(){
 
 RENDER.org=function(){
   main.innerHTML=`${crumb('หน้าแรก','แผนผังองค์กร')}
-  <div class="page-h"><div><h1>แผนผังองค์กร (Company Chart)</h1><p>โครงสร้างทีมและสายงาน · จัดกลุ่มให้อ่านง่ายสำหรับผู้บริหาร</p></div></div>
+  <div class="page-h"><div><h1>แผนผังองค์กร (Company Chart)</h1><p>โครงสร้างใช้งานจริง แบ่งตามกลุ่มงานและแผนกในระบบ</p></div></div>
   <div style="display:flex;justify-content:center;margin-bottom:6px"><div class="execbox"><b style="font-size:15px">Executive Board</b><div style="font-size:11.5px;opacity:.85">บอร์ดบริหาร</div></div></div>
-  <div class="muted" style="text-align:center;font-size:11.5px;margin-bottom:14px">จัดกลุ่มเพื่อให้เห็นภาพรวม โดยยังคงทีมและสายงานย่อยตามต้นฉบับ</div>
+  <div class="org-summary"><div class="chip"><b>4</b> กลุ่มงาน</div><div class="chip"><b>13</b> แผนก</div><div class="chip">ออดิทระบบเป็นส่วนกลาง</div></div>
   <div class="orggrid">
     ${ORG.map(g=>`<div class="orgcol">
-      <div class="orghead" style="background:${g.color}"><div class="c">${g.code}</div><b>${g.title}</b><div class="th">${g.th}</div></div>
-      <div style="padding-bottom:4px">${g.teams.map(t=>`<div class="orgteam${t.dept?' hlink':''}" ${t.dept?`onclick="goBoardFiltered({dept:'${t.dept}'})" title="ดูบอร์ดงานทีมนี้"`:''}><b>${t.name}${t.dept?' <span style="font-size:10px;color:var(--blue-700);font-weight:400">ดูงาน →</span>':''}</b><div class="tsub">${t.th}</div>
+      <div class="orghead" style="background:${g.color}"><div class="c">กลุ่ม ${g.code}</div><b>${g.title}</b><div class="th">${g.th}</div><div class="org-count">${g.teams.length} แผนก</div></div>
+      <div style="padding-bottom:4px">${g.teams.map(t=>`<div class="orgteam${t.dept?' hlink':''}" ${t.dept?`onclick="goBoardFiltered({dept:'${t.dept}'})" title="ดูงานของ ${t.name}"`:''}><b><span>${t.name}</span>${t.dept?'<span style="font-size:10px;color:var(--blue-700);font-weight:500;white-space:nowrap">ดูงาน →</span>':''}</b><div class="tsub">${t.th}</div>
         ${t.roles?`<div style="margin-top:6px">${t.roles.map(r=>`<div class="orgrole"><span class="dot" style="background:${g.color}"></span>${r}</div>`).join('')}</div>`:''}
       </div>`).join('')}</div>
     </div>`).join('')}
   </div>
-  <div class="muted" style="font-size:11px;margin-top:12px">หมายเหตุ: มุมมองนี้จัดกลุ่มเพื่อความเข้าใจง่าย ไม่ได้เปลี่ยนโครงสร้างจริงจากเอกสารต้นฉบับ · Source: COMPANY CHART</div>`;
+  <div class="muted" style="font-size:11px;margin-top:12px">ข้อมูลตามแผนกที่เปิดใช้งานใน Company Hub · คลิกการ์ดแผนกเพื่อดูงานตามสิทธิ์ของบัญชี</div>`;
 };
 RENDER.sop=function(){
   const q=F.q.toLowerCase();
