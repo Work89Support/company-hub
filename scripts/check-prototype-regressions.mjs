@@ -22,6 +22,8 @@ const checks = [
   ['Graphic pagination', /GP_COLUMN_PAGE_SIZE\s*=\s*30/],
   ['Graphic realtime refresh', /table:'graphic_jobs'/],
   ['Dashboard includes Graphic jobs', /function dashboardAllWork\(\)/],
+  ['Board and dashboard attribute responsibility to each record creator', /function boardResponsibilityByCreator\(t\)[\s\S]*_responsibilityBasis:'creator'[\s\S]*function dashboardAllWork\(\)[^\n]*\.map\(boardResponsibilityByCreator\)[\s\S]*function boardAllWork\(\)[^\n]*\.map\(boardResponsibilityByCreator\)/],
+  ['Unknown creator names render their own initial instead of a question mark', /const u = id => \{[\s\S]*Array\.from\(name\)\[0\]/],
   ['Production board unifies RLS-visible sources', /function boardAllWork\(\)[\s\S]*boardActivityRows\(\)[\s\S]*boardIssueRows\(\)/],
   ['Production board routes each source to its real detail', /function openBoardWork\(source,id\)[\s\S]*openBoardActivity[\s\S]*openProblem/],
   ['Department board no longer reads only demo TASKS', /RENDER\.board=function\(deptFilter\)[\s\S]*base=boardAllWork\(\)/],
