@@ -25,6 +25,7 @@ const category=document.getElementById('newIssueCategory');category.value='Syste
 const owner=document.getElementById('newIssueOwner');owner.value='Support';owner.dispatchEvent(new window.Event('change'));category.value='Payment';category.dispatchEvent(new window.Event('change'));assert.equal(owner.value,'Support','explicit owner choice survives category changes');
 ctx.RENDER.dash();assert.equal(main.querySelectorAll('.department-action').length,3);assert.ok(main.textContent.includes('แจ้งปัญหาหน้างาน'));
 ctx.ACCESS_PROFILE.department_code='FIN';ctx.RENDER.myTasks();assert.ok(main.textContent.includes('บันทึกงานการเงิน'));assert.ok(!main.textContent.includes('เปิดบอร์ดงานกราฟิก'));
+ctx.ACCESS_PROFILE.department_code='AIAUTO';ctx.RENDER.myTasks();assert.ok(main.textContent.includes('บันทึกงาน AI Automation'));
 ctx.ACCESS_PROFILE.department_code='GRAPHIC';ctx.RENDER.dash();assert.ok(main.textContent.includes('เปิดบอร์ดงานกราฟิก'));assert.equal(ctx.GP_STATUS.review.t,'ส่งงาน (ตรวจสอบ)');
 assert.ok(ctx.gpJobCard({id:'a',title:'test'}).includes('tabindex="0"'));
 console.log('PASS department entry points, 15-column register, pagination/filtering, safe text, owner selection, visible required fields and Trello card keyboard access');await window.happyDOM.close();

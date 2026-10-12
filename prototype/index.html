@@ -529,11 +529,12 @@ const DEPTS = [
   {code:'AUD123',name:'ออดิทระบบ (ส่วนกลาง)',       color:'#c77d3a'},
   {code:'BOM',   name:'Back Office Mgmt',     color:'#6d4c9f'},
   {code:'PROG',  name:'โปรแกรมเมอร์ (Programmer)', color:'#2b9098'},
+  {code:'AIAUTO',name:'AI Automation',         color:'#4f46b8'},
 ];
 const deptColor = c => (DEPTS.find(d=>d.code===c)||{}).color || '#888';
 const deptName  = c => (DEPTS.find(d=>d.code===(c==='AUDXB'?'AUD123':c))||{}).name || c;
 /* แม็ปแผนก → กลุ่มงานตามแผนผังองค์กร (4 กลุ่ม) + ระดับตำแหน่ง */
-const DEPT_GROUP={SC:'04',KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',PROG:'03'};
+const DEPT_GROUP={SC:'04',KPI:'01',FIN:'01',BO:'01',HR:'01',MKT:'02',GRAPHIC:'02',CRM:'03',ADMIN:'04',QC:'04',AUD123:'04',AUDXB:'04',BOM:'01',PROG:'03',AIAUTO:'03'};
 const GROUP_NAME={'01':'01 Corporate & Governance','02':'02 Brand, Content & Marketing','03':'03 Technology & Customer','04':'04 Operations & Quality'};
 const deptGroup=c=>DEPT_GROUP[c]||'01';
 const REPORTING_PARENT={GRAPHIC:'MKT'};
@@ -788,7 +789,7 @@ const ORG=[
   {code:'03',title:'TECHNOLOGY & CUSTOMER',th:'เทคโนโลยีและลูกค้าสัมพันธ์',color:'#c96c08',teams:[
     {name:'โปรแกรมเมอร์',th:'Programmer · หัวหน้า / พนักงาน',dept:'PROG'},
     {name:'ลูกค้าสัมพันธ์ (CRM)',th:'Customer Relationship Management · หัวหน้า / พนักงาน',dept:'CRM'},
-    {name:'AI Automation',th:'พัฒนาระบบ AI และงานอัตโนมัติ · หัวหน้า / พนักงาน'},
+    {name:'AI Automation',th:'พัฒนาระบบ AI และงานอัตโนมัติ · ผู้ดูแลระบบ',dept:'AIAUTO'},
   ]},
   {code:'04',title:'OPERATIONS & QUALITY',th:'ปฏิบัติการและคุณภาพ',color:'#7146ba',teams:[
     {name:'SC',th:'งานปฏิบัติการ SC · หัวหน้า / พนักงาน',dept:'SC'},
