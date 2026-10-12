@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+from pathlib import Path
+import re
+
+root = Path(__file__).resolve().parents[1]
+index = (root / "prototype/index.html").read_text()
+styles = "\n".join(re.findall(r"<style>(.*?)</style>", index, re.S))
+
+shell_start = '''<!doctype html><html lang="th"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>
+''' + styles + '''
+body{margin:0;background:#f5f7fb;font-family:Kanit,"Noto Sans Thai",sans-serif}.capture{display:grid;grid-template-columns:245px 1fr;min-height:900px}.capture-side{background:linear-gradient(180deg,#1d447d,#12315f);color:#fff;padding:24px 18px}.capture-brand{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:800}.capture-logo{width:43px;height:43px;border-radius:12px;background:#fff;color:#17417e;display:grid;place-items:center}.capture-side small{display:block;color:#c7d7ee}.capture-nav{margin-top:38px;display:grid;gap:8px}.capture-nav span{padding:12px 14px;border-radius:10px;color:#dce7f6}.capture-nav .active{background:#fff;color:#17417e;font-weight:700}.capture-main{padding:32px 42px}.capture-top{height:56px;border-bottom:1px solid #dbe3ef;background:#fff;display:flex;align-items:center;padding:0 34px;color:#60708a}.capture-top b{margin-left:auto;background:#2563d5;color:#fff;padding:10px 16px;border-radius:10px}main{max-width:1220px;margin:auto}.account-profile-hero{margin-top:10px}.tbtn{font-family:inherit}.capture-demo{float:right;margin-top:-22px;padding:5px 10px;border-radius:999px;background:#fff3d6;color:#855500;font-size:10px;font-weight:700}
+</style><body><div class="capture"><aside class="capture-side"><div class="capture-brand"><span class="capture-logo">CH</span><div>Company Hub<small>ศูนย์รวมงานองค์กร</small></div></div><div class="capture-nav"><span>แดชบอร์ด</span><span>บอร์ดทีม / รายคน</span><span>บันทึกกิจกรรม</span><span>KPI แดชบอร์ด</span><span>ประกาศ & อัปเดต</span><span class="active">บัญชีของฉัน</span><span>บัญชีทีม</span></div></aside><div><div class="capture-top">ค้นหางาน / รหัส / แท็ก แล้วกด Enter <b>+ เพิ่มงานใหม่</b></div><div class="capture-main"><main>
+'''
+shell_end = "</main></div></div></div></body></html>"
+
+account = '''
+<div class="crumb">หน้าแรก / <b>บัญชีของฉัน</b></div><span class="capture-demo">ภาพคู่มือ · ข้อมูลตัวอย่าง</span>
+<section class="account-profile-hero"><div class="account-hero-avatar">พ</div><div class="account-hero-copy"><span class="account-eyebrow">บัญชีผู้ใช้งาน</span><h1>พนักงานตัวอย่าง</h1><p>เจ้าหน้าที่ประสานงาน · พนักงาน</p><div class="account-hero-depts"><span style="--dept-color:#12a77b">ลูกค้าสัมพันธ์ (CRM)</span></div></div><div class="account-hero-state"><span class="account-status ready">พร้อมใช้งาน</span><button class="tbtn sm">เปิดคู่มือบัญชี</button></div></section>
+<section class="account-meta-grid"><article><span>แผนกหลัก</span><b>ลูกค้าสัมพันธ์ (CRM)</b></article><article><span>ตำแหน่ง / สิทธิ์</span><b>เจ้าหน้าที่ประสานงาน</b><small>พนักงาน</small></article><article><span>วิธีเข้าสู่ระบบ</span><b>อีเมลเดิม</b></article><article><span>สถานะบัญชี</span><b>พร้อมใช้งาน</b><small>ข้อมูลและสิทธิ์ผูกกับบัญชีนี้</small></article></section>
+<div class="account-info-grid"><section class="card pad account-info-card"><div class="account-card-head"><span class="account-card-icon">ID</span><div><h3>ข้อมูลบัญชี</h3><p>ข้อมูลที่ใช้ระบุตัวตนในระบบ</p></div></div><dl class="account-detail-list"><div><dt>ชื่อที่แสดง</dt><dd>พนักงานตัวอย่าง</dd></div><div><dt>อีเมลเข้าใช้</dt><dd>employee@example.com</dd></div><div><dt>แผนกที่มองเห็น</dt><dd><div class="account-hero-depts"><span style="--dept-color:#12a77b">ลูกค้าสัมพันธ์ (CRM)</span></div></dd></div></dl></section><section class="card pad account-security-card"><div class="account-card-head"><span class="account-card-icon secure">✓</span><div><h3>การเข้าสู่ระบบและความปลอดภัย</h3><p>บัญชีนี้ใช้ระบบอีเมลเดิม</p></div></div><div class="account-security-note"><b>เข้าสู่ระบบด้วยอีเมลที่ลงทะเบียน</b><p>หากต้องการเปลี่ยนชื่อ อีเมล รหัสผ่าน หรือแผนก ให้แจ้งผู้ดูแลระบบเพื่อยืนยันตัวตนก่อนแก้ไข</p></div><ul class="account-check-list"><li>สิทธิ์การมองเห็นอ้างอิงตามแผนกและบทบาท</li><li>งานเดิมยังผูกกับบัญชีนี้ครบถ้วน</li><li>ไม่ต้องสร้างบัญชีใหม่เมื่อเปลี่ยนแปลงข้อมูล</li></ul></section></div>
+'''
+
+team = '''
+<div class="crumb">หน้าแรก / <b>บัญชีทีม</b></div><span class="capture-demo">ภาพคู่มือ · ข้อมูลตัวอย่าง</span><div class="page-h account-page-head"><div><h1>บัญชีทีม</h1><p>จัดการรายชื่อแบบตาราง แบ่งตามแผนกหลัก · หนึ่งบัญชีอยู่ได้หลายแผนก</p></div><button class="tbtn primary">+ สร้างบัญชี</button></div>
+<div class="account-summary"><div><b>90</b><span>บัญชีทั้งหมด</span></div><div><b>81</b><span>พร้อมใช้</span></div><div><b>6</b><span>รอตั้งรหัส</span></div><div><b>3</b><span>ปิดใช้งาน</span></div></div>
+<div class="account-filters"><label>ค้นหาชื่อหรืออีเมล<input class="fin" value="" placeholder="พิมพ์ชื่อ ชื่อเข้าใช้ หรืออีเมล"></label><label>แผนก<select class="fin"><option>ทุกแผนก</option></select></label><label>สถานะ<select class="fin"><option>ทุกสถานะ</option></select></label></div><div class="resultline">พบ 90 จาก 90 บัญชี · แบ่งตามแผนกหลัก</div>
+<section class="account-dept-section"><div class="account-dept-title" style="--dept-color:#12a77b"><span></span><h3>ลูกค้าสัมพันธ์ (CRM)</h3><b>3 คน</b></div><div class="account-sheet"><table><thead><tr><th>ชื่อ / ชื่อเข้าใช้</th><th>อีเมล</th><th>แผนกที่รับผิดชอบ</th><th>ตำแหน่ง / สิทธิ์</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>
+<tr><td><b>พนักงานตัวอย่าง 1</b><small>staff.crm.01</small></td><td>employee1@example.com</td><td><div class="account-dept-chips"><span style="--dept-color:#12a77b">ลูกค้าสัมพันธ์</span></div></td><td><b>เจ้าหน้าที่ CRM</b><small>พนักงาน</small></td><td><span class="account-status ready">พร้อมใช้</span></td><td><div class="account-actions"><button class="tbtn sm">แก้แผนก / หน้าที่</button><button class="tbtn sm">ออกรหัสใหม่</button></div></td></tr>
+<tr><td><b>หัวหน้าตัวอย่าง</b><small>lead.crm.01</small></td><td>lead@example.com</td><td><div class="account-dept-chips"><span style="--dept-color:#12a77b">ลูกค้าสัมพันธ์</span><span style="--dept-color:#3d7ee8">AI Automation</span></div></td><td><b>หัวหน้า CRM</b><small>หัวหน้างาน</small></td><td><span class="account-status ready">พร้อมใช้</span></td><td><div class="account-actions"><button class="tbtn sm">แก้แผนก / หน้าที่</button><button class="tbtn sm">ออกรหัสใหม่</button></div></td></tr>
+<tr><td><b>พนักงานตัวอย่าง 2</b><small>staff.crm.02</small></td><td><span class="muted">ยังไม่กรอก</span></td><td><div class="account-dept-chips"><span style="--dept-color:#12a77b">ลูกค้าสัมพันธ์</span></div></td><td><b>เจ้าหน้าที่ CRM</b><small>พนักงาน</small></td><td><span class="account-status pending">รอตั้งรหัส</span></td><td><div class="account-actions"><button class="tbtn sm">แก้แผนก / หน้าที่</button><button class="tbtn sm">ออกรหัสใหม่</button></div></td></tr>
+</tbody></table></div></section>
+'''
+
+(Path("/private/tmp/account-manual.html")).write_text(shell_start + account + shell_end)
+(Path("/private/tmp/team-accounts-manual.html")).write_text(shell_start + team + shell_end)
