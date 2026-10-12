@@ -8,10 +8,11 @@ function entryCanEdit(r){return !!ACCESS_PROFILE&&(r.employee_id===ACCESS_PROFIL
 function entryState(r){return /Completed|เสร็จ/i.test(r.status||'')?'Completed':/block|ติด|ปัญหา/i.test(r.status||'')?'Blocked':/progress|doing|กำลัง/i.test(r.status||'')?'In Progress':'';}
 function entryVerifiedSameDayProject(r){
  const source=String(r?.source_key||''),note=String(r?.verification_note||''),start=String(r?.source_start_raw||''),end=String(r?.source_end_raw||'');
+ const verifiedNote=note.includes('ทุกงานทำเสร็จภายในวัน')||note.includes('งานเสร็จภายในวันเดียวกันทั้งหมด');
  return /^manual:(companyhub|domainwatch|audit-reconciliation-control):\d{4}-\d{2}-\d{2}$/.test(source)
   &&entryState(r)==='Completed'&&r.completed_date===r.activity_date&&r.time_flag==='ok'
   &&!r.start_time&&!r.end_time
-  &&note.includes('ทุกงานทำเสร็จภายในวัน')
+  &&verifiedNote
   &&start.includes('เสร็จภายในวันเดียวกัน')&&end.includes('เสร็จภายในวันเดียวกัน');
 }
 function entryMissing(r){

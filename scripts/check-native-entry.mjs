@@ -19,6 +19,10 @@ const verifiedProject={...valid,start_time:null,end_time:null,source_key:'manual
 assert.equal(context.entryVerifiedSameDayProject(verifiedProject),true);
 assert.equal(context.entryMissing(verifiedProject).includes('เวลาเริ่ม'),false);
 assert.equal(context.entryMissing(verifiedProject).includes('เวลาจบ'),false);
+const verifiedSeptember={...verifiedProject,source_key:'manual:audit-reconciliation-control:2026-09-30',activity_date:'2026-09-30',completed_date:'2026-09-30',verification_note:'ผู้ใช้ยืนยันวันที่ 2026-10-12 ว่างานเสร็จภายในวันเดียวกันทั้งหมด; ไม่มีเวลาเริ่ม–จบที่ยืนยันได้ จึงไม่คำนวณชั่วโมง'};
+assert.equal(context.entryVerifiedSameDayProject(verifiedSeptember),true);
+assert.equal(context.entryMissing(verifiedSeptember).includes('เวลาเริ่ม'),false);
+assert.equal(context.entryMissing(verifiedSeptember).includes('เวลาจบ'),false);
 assert.equal(context.entryVerifiedSameDayProject({...verifiedProject,source_key:'gsheet:row:1'}),false);
 assert.ok(context.entryMissing({...verifiedProject,source_key:'gsheet:row:1'}).includes('เวลาเริ่ม'));
 assert.equal(context.entryCanEdit({employee_id:'other'}),false);
