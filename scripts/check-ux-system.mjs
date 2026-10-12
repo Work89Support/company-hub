@@ -123,7 +123,7 @@ assert.equal(m.activity.length,1);assert.equal(m.activity[0].id,2);assert.equal(
 api.checkTracker();assert.equal(api.trackerEvidenceURLs('javascript:alert(1) https://example.com/proof').length,1);
 const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=await api.integrityReadAll(()=>({order(key){calls.push(key);return this;},range(a,b){return Promise.resolve({data:data.slice(a,b+1)});}}));assert.equal(r.data.length,1001);assert.equal(new Set(r.data.map(x=>x.id)).size,1001);assert.equal(calls.length,3);
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
-const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages)assert.ok(p.title,'Missing page title: '+p.view);
+const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages){assert.ok(p.title,'Missing page title: '+p.view);assert.ok(!p.html?.includes('id="data-health"'),'Healthy source diagnostics visible on '+p.view);}
 if(process.env.UX_PREVIEW_DIR){fs.mkdirSync(process.env.UX_PREVIEW_DIR,{recursive:true});for(const r of pages){if(r.html)fs.writeFileSync(process.env.UX_PREVIEW_DIR+'/'+r.view+'.html',r.html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));}}
 api.checkProductionFeed();await api.checkWorkspace();await api.checkWizard();api.checkConnected();
 console.log('PASS UX: '+pages.length+' screens, preserved draft values and submission handler, activity form, source links, filters and script initialization');await window.happyDOM.close();
