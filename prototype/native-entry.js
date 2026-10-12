@@ -6,16 +6,24 @@ NAVGROUPS[0].items.push('completeness');
 for(const r of Object.keys(ROLE_ALLOW)){ROLE_ALLOW[r].push('completeness');SIMPLE_ALLOW[r].push('completeness');}
 function entryCanEdit(r){return !!ACCESS_PROFILE&&(r.employee_id===ACCESS_PROFILE.id||canManageActivity(r));}
 function entryState(r){return /Completed|เสร็จ/i.test(r.status||'')?'Completed':/block|ติด|ปัญหา/i.test(r.status||'')?'Blocked':/progress|doing|กำลัง/i.test(r.status||'')?'In Progress':'';}
+function entryVerifiedSameDayProject(r){
+ const source=String(r?.source_key||''),note=String(r?.verification_note||''),start=String(r?.source_start_raw||''),end=String(r?.source_end_raw||'');
+ return /^manual:(companyhub|domainwatch|audit-reconciliation-control):\d{4}-\d{2}-\d{2}$/.test(source)
+  &&entryState(r)==='Completed'&&r.completed_date===r.activity_date&&r.time_flag==='ok'
+  &&!r.start_time&&!r.end_time
+  &&note.includes('ทุกงานทำเสร็จภายในวัน')
+  &&start.includes('เสร็จภายในวันเดียวกัน')&&end.includes('เสร็จภายในวันเดียวกัน');
+}
 function entryMissing(r){
- const m=[],s=entryState(r);
+ const m=[],s=entryState(r),timeOptional=entryVerifiedSameDayProject(r);
  if(!r.employee_id)m.push(r.employee_name?.trim()?'เชื่อมบัญชีเข้าใช้งานของ '+r.employee_name.trim():'บัญชีเข้าใช้งานของเจ้าของงาน');
  if(!String(r.activity||'').trim())m.push('รายละเอียดกิจกรรม');
  if(!String(r.category||'').trim())m.push('ประเภทงาน');
  if(!r.activity_date)m.push('วันที่ทำงาน');
  if(!s)m.push('สถานะ');
- if(!r.start_time)m.push('เวลาเริ่ม');
+ if(!r.start_time&&!timeOptional)m.push('เวลาเริ่ม');
  if(s==='Completed'){
-  if(!r.end_time)m.push('เวลาจบ');if(!r.completed_date)m.push('วันที่เสร็จ');if(!String(r.result_note||'').trim())m.push('ผลลัพธ์');
+  if(!r.end_time&&!timeOptional)m.push('เวลาจบ');if(!r.completed_date)m.push('วันที่เสร็จ');if(!String(r.result_note||'').trim())m.push('ผลลัพธ์');
  }
  if(s==='Blocked'&&!String(r.operational_issue||'').trim())m.push('ปัญหาที่ติดขัด');
  if(['suspicious','overnight','excluded_all_day'].includes(r.time_flag))m.push('ยืนยันช่วงเวลาทำงาน');

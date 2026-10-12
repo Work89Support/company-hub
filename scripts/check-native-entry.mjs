@@ -15,6 +15,12 @@ assert.equal(Object.keys(context.entryValidate({...valid,activity_date:'2026-09-
 assert.ok(context.entryValidate({...valid,end_time:'09:00'}).end_time);
 assert.ok(context.entryValidate({...valid,activity_date:'2026-09-05'}).activity_date);
 assert.ok(context.entryMissing({...valid,employee_id:null}).includes('บัญชีเข้าใช้งานของเจ้าของงาน'));
+const verifiedProject={...valid,start_time:null,end_time:null,source_key:'manual:companyhub:2026-10-12',time_flag:'ok',verification_note:'ผู้ใช้ยืนยันวันที่ 2026-10-12 ว่าทุกงานทำเสร็จภายในวัน',source_start_raw:'ยืนยันว่าเสร็จภายในวันเดียวกัน; ไม่ระบุเวลาเริ่ม',source_end_raw:'ยืนยันว่าเสร็จภายในวันเดียวกัน; ไม่ระบุเวลาจบ'};
+assert.equal(context.entryVerifiedSameDayProject(verifiedProject),true);
+assert.equal(context.entryMissing(verifiedProject).includes('เวลาเริ่ม'),false);
+assert.equal(context.entryMissing(verifiedProject).includes('เวลาจบ'),false);
+assert.equal(context.entryVerifiedSameDayProject({...verifiedProject,source_key:'gsheet:row:1'}),false);
+assert.ok(context.entryMissing({...verifiedProject,source_key:'gsheet:row:1'}).includes('เวลาเริ่ม'));
 assert.equal(context.entryCanEdit({employee_id:'other'}),false);
 assert.equal(context.entryCanEdit({employee_id:'me'}),true);
 assert.ok(context.issueEntryMissing({status:'Resolved',problem:'p',impact:'i',impactScope:'project',owner:'o',solution:'s',resmin:1,verified:false}).includes('หัวหน้ายืนยันผล'));
