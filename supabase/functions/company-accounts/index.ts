@@ -5,10 +5,9 @@ const json=(body:unknown,status=200)=>Response.json(body,{status,headers});
 const hash=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(x=>x.toString(16).padStart(2,'0')).join('');
 const secret=()=>Array.from(crypto.getRandomValues(new Uint8Array(18))).map(x=>x.toString(16).padStart(2,'0')).join('');
 const clean=(v:unknown)=>String(v??'').normalize('NFC').trim().replace(/\s+/g,' ');
-const emailLoginChoice=(choices:Array<{login_name:string,display_name:string,department_code:string}>)=>{
+const emailLoginChoice=(choices:Array<{login_name:string,display_name:string,department_code:string,position_title?:string,department_codes?:string[]}>)=>{
  if(choices.length===1)return {status:200,body:{mode:'single',account:choices[0],accounts:choices}};
- if(choices.length>1&&choices.every(row=>row.department_code==='FIN'))return {status:200,body:{mode:'finance_shared',accounts:choices}};
- if(choices.length>1)return {status:409,body:{error:'อีเมลนี้เชื่อมหลายบัญชีนอกแผนกการเงิน กรุณาติดต่อผู้ดูแล'}};
+ if(choices.length>1)return {status:200,body:{mode:'choose_name',accounts:choices}};
  return {status:200,body:{accounts:[]}};
 };
 function checked<T>(r:{data:T,error:unknown}):T{if(r.error)throw new Error('DATABASE_OPERATION_FAILED');return r.data;}
@@ -34,8 +33,10 @@ export default {fetch:async(request:Request)=>{
   const accounts=checked(await admin.from('company_login_accounts').select('profile_id,login_name').ilike('contact_email',pattern).limit(21))??[];
   if(accounts.length>20)return json({error:'โปรดติดต่อผู้ดูแลเพื่อตรวจรายชื่ออีเมลนี้'},409);
   if(!accounts.length)return json({accounts:[]});
-  const profiles=checked(await admin.from('profiles').select('id,display_name,department_code').in('id',accounts.map((a:any)=>a.profile_id)).eq('active',true))??[];
-  const choices=accounts.flatMap((a:any)=>{const p=profiles.find((p:any)=>p.id===a.profile_id);return p?[{login_name:a.login_name,display_name:p.display_name,department_code:p.department_code}]:[]});
+  const profileIds=accounts.map((a:any)=>a.profile_id);
+  const profiles=checked(await admin.from('profiles').select('id,display_name,department_code,position_title').in('id',profileIds).eq('active',true))??[];
+  const scopes=checked(await admin.from('profile_departments').select('profile_id,department_code').in('profile_id',profileIds))??[];
+  const choices=accounts.flatMap((a:any)=>{const p=profiles.find((p:any)=>p.id===a.profile_id);return p?[{login_name:a.login_name,display_name:p.display_name,department_code:p.department_code,position_title:p.position_title||'',department_codes:scopes.filter((s:any)=>s.profile_id===p.id).map((s:any)=>s.department_code)}]:[]});
   const resolved=emailLoginChoice(choices);return json(resolved.body,resolved.status);
  }
  if(action==='login'){
@@ -89,6 +90,69 @@ export default {fetch:async(request:Request)=>{
  if(!checked(await admin.rpc('company_credentials_ready',{p_profile:user.id,p_iat:iat}))||!checked(await admin.rpc('edge_access_allowed',{p_profile_id:user.id,p_ip:ip})))return json({error:'เครื่องหรือบัญชียังไม่ได้รับอนุญาต'},403);
  if(!['admin','exec'].includes(actor.role))return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
  if(action==='list')return json({accounts:checked(await admin.from('company_login_accounts').select('profile_id,login_name,contact_email,must_change_password,source_key').order('login_name'))});
+ if(action==='bootstrap-roster'){
+  const password=String(b.initial_password||''),rows=Array.isArray(b.rows)?b.rows:[];
+  if(password.length<12||password.length>128)return json({error:'รหัสแรกเข้าต้องมี 12–128 ตัวอักษร'},400);
+  if(!rows.length||rows.length>25)return json({error:'ส่งรายชื่อครั้งละ 1–25 บัญชี'},400);
+  const departments=checked(await admin.from('departments').select('code').eq('active',true))??[];
+  const validDepartments=new Set(departments.map((d:any)=>d.code));
+  const results=[];
+  for(const row of rows){
+   let createdId='';
+   try{
+    const profileId=clean(row.profile_id),display=clean(row.display_name),personal=clean(row.personal_name||display.replace(/ \([^()]+\)$/,'')),email=String(row.contact_email||'').trim().toLowerCase();
+    const primary=clean(row.primary_department).toUpperCase(),departmentCodes=[...new Set([primary,...(Array.isArray(row.department_codes)?row.department_codes:[]).map((x:unknown)=>clean(x).toUpperCase())])];
+    const sourceAliases=(Array.isArray(row.source_aliases)?row.source_aliases:[]).map((alias:any)=>({department_code:clean(alias?.department_code).toUpperCase(),name:clean(alias?.name)})).filter((alias:any)=>alias.name&&departmentCodes.includes(alias.department_code));
+    const position=clean(row.position_title||'พนักงาน'),requestedRole=clean(row.role||'staff'),role=requestedRole==='lead'?'lead':'staff';
+    if(!display||display.length>150||!personal||personal.length>100||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||!validDepartments.has(primary)||departmentCodes.some(code=>!validDepartments.has(code))||position.length>120)throw new Error('ROSTER_ROW_INVALID');
+    if(profileId){
+     const target=required(await admin.from('company_login_accounts').select('profile_id,credential_version,login_name').eq('profile_id',profileId).single());
+     const targetProfile=required(await admin.from('profiles').select('active,role').eq('id',profileId).single());
+     if(!targetProfile.active||targetProfile.role==='admin')throw new Error('TARGET_NOT_ELIGIBLE');
+     checked(await admin.from('profiles').update({display_name:display,position_title:position,role,department_code:primary}).eq('id',profileId));
+     checked(await admin.from('company_login_accounts').update({contact_email:email,personal_name:personal,login_name:display.toLowerCase()}).eq('profile_id',profileId));
+     for(const code of departmentCodes)checked(await admin.from('profile_departments').upsert({profile_id:profileId,department_code:code,can_manage:role==='lead'},{onConflict:'profile_id,department_code'}));
+     checked(await admin.from('user_access_policies').upsert({profile_id:profileId,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'profile_id'}));
+     const lock=crypto.randomUUID();checked(await admin.rpc('begin_company_credential_change',{p_profile:profileId,p_lock:lock,p_reset:true,p_revision:target.credential_version}));
+     const changed=await admin.auth.admin.updateUserById(profileId,{password,app_metadata:{company_role:role,department:primary},user_metadata:{display_name:display,position_title:position}});if(changed.error)throw new Error('RESET_FAILED');
+     checked(await admin.rpc('finish_company_credential_change',{p_profile:profileId,p_lock:lock,p_pending:true}));
+     for(const alias of sourceAliases){
+      checked(await admin.from('daily_activities').update({employee_id:profileId}).eq('department_code',alias.department_code).eq('employee_name',alias.name).is('employee_id',null));
+      if(alias.department_code==='GRAPHIC'){
+       const members=checked(await admin.from('graphic_trello_members').select('trello_member_id,linked_profile_id').eq('full_name',alias.name))??[];
+       if(members.some((member:any)=>member.linked_profile_id&&member.linked_profile_id!==profileId))throw new Error('SOURCE_ALREADY_ASSIGNED');
+       checked(await admin.from('graphic_trello_members').update({linked_profile_id:profileId,account_status:'linked',updated_at:new Date().toISOString()}).eq('full_name',alias.name).is('linked_profile_id',null));
+       for(const member of members)checked(await admin.from('graphic_job_members').update({profile_id:profileId}).eq('trello_member_id',member.trello_member_id).is('profile_id',null));
+      }
+     }
+     checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:profileId,old_access:{},new_access:{action:'roster_account_reset',role,department_code:primary,department_codes:departmentCodes,position_title:position,enforce_ip:false}}));
+     results.push({ok:true,profile_id:profileId,login_name:display,created:false});continue;
+    }
+    const login=display.toLowerCase();
+    const duplicate=checked(await admin.from('company_login_accounts').select('profile_id').eq('login_name',login).maybeSingle());if(duplicate)throw new Error('LOGIN_ALREADY_EXISTS');
+    const internalEmail=crypto.randomUUID()+'@company-hub.invalid';
+    const created=await admin.auth.admin.createUser({email:internalEmail,password,email_confirm:true,app_metadata:{company_role:role,department:primary},user_metadata:{display_name:display,position_title:position}});
+    if(created.error||!created.data.user)throw new Error('CREATE_FAILED');createdId=created.data.user.id;
+    checked(await admin.from('profiles').upsert({id:createdId,email:internalEmail,display_name:display,position_title:position,role,department_code:primary,active:false}));
+    checked(await admin.from('company_login_accounts').insert({profile_id:createdId,login_name:login,source_key:await hash('roster\x1f'+primary+'\x1f'+display),personal_name:personal,contact_email:email,created_by:user.id}));
+    for(const code of departmentCodes)checked(await admin.from('profile_departments').upsert({profile_id:createdId,department_code:code,can_manage:role==='lead'},{onConflict:'profile_id,department_code'}));
+    checked(await admin.from('user_access_policies').upsert({profile_id:createdId,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'profile_id'}));
+    for(const alias of sourceAliases){
+     checked(await admin.from('daily_activities').update({employee_id:createdId}).eq('department_code',alias.department_code).eq('employee_name',alias.name).is('employee_id',null));
+     if(alias.department_code==='GRAPHIC'){
+      const members=checked(await admin.from('graphic_trello_members').select('trello_member_id,linked_profile_id').eq('full_name',alias.name))??[];
+      if(members.some((member:any)=>member.linked_profile_id&&member.linked_profile_id!==createdId))throw new Error('SOURCE_ALREADY_ASSIGNED');
+      checked(await admin.from('graphic_trello_members').update({linked_profile_id:createdId,account_status:'linked',updated_at:new Date().toISOString()}).eq('full_name',alias.name).is('linked_profile_id',null));
+      for(const member of members)checked(await admin.from('graphic_job_members').update({profile_id:createdId}).eq('trello_member_id',member.trello_member_id).is('profile_id',null));
+     }
+    }
+    checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:createdId,old_access:{},new_access:{action:'roster_account_created',role,department_code:primary,department_codes:departmentCodes,position_title:position,enforce_ip:false}}));
+    checked(await admin.from('profiles').update({active:true}).eq('id',createdId));
+    results.push({ok:true,profile_id:createdId,login_name:display,created:true});
+   }catch(error){if(createdId)await admin.from('profiles').update({active:false}).eq('id',createdId);results.push({ok:false,login_name:clean(row.display_name),error:error instanceof Error?error.message:'FAILED'});}
+  }
+  return json({ok:results.every((r:any)=>r.ok),results});
+ }
  if(action==='reset'){
   const target=required(await admin.from('company_login_accounts').select('profile_id,login_name,credential_version').eq('profile_id',b.profile_id).single());
   const targetProfile=required(await admin.from('profiles').select('role,active').eq('id',target.profile_id).single());
