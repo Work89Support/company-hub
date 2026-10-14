@@ -1,5 +1,5 @@
 /* Login credentials live in Supabase Auth; work ownership always stays on UUID. */
-let ACCOUNT_STATUS=null,ACCOUNT_STARTING=false,ACCOUNT_CANDIDATES=[],ACCOUNT_INITIAL_CODES=[],ACCOUNT_BATCH_RUNNING=false;
+let ACCOUNT_STATUS=null,ACCOUNT_STARTING=false,ACCOUNT_CANDIDATES=[],ACCOUNT_INITIAL_CODES=[],ACCOUNT_BATCH_RUNNING=false,ACCOUNT_BOOTSTRAP_PLAN=null;
 let ACCOUNT_LIST=[],ACCOUNT_TABLE_QUERY='',ACCOUNT_TABLE_DEPT='',ACCOUNT_TABLE_STATUS='';
 NAV.account={ic:'i-user',t:'บัญชีของฉัน'};NAV.teamAccounts={ic:'i-users',t:'บัญชีทีม'};
 NAVGROUPS[2].items.push('account','teamAccounts');
@@ -16,7 +16,7 @@ function clearAccountEmailChoice(){
  const input=document.getElementById('sbEmail'),pass=document.getElementById('sbPass'),button=document.getElementById('sbLoginBtn');
  if(!input||!pass||!button)return;
  const email=input.value.includes('@')&&!input.value.trim().endsWith(')');
- pass.value='';pass.hidden=email;button.textContent=email?'ถัดไป · เลือกชื่อ':'เข้าสู่ระบบ';
+ pass.value='';pass.hidden=email;button.textContent=email?'ถัดไป':'เข้าสู่ระบบ';
 }
 document.getElementById('sbEmail')?.addEventListener('input',clearAccountEmailChoice);
 sbLogin=async function(){
@@ -32,15 +32,15 @@ sbLogin=async function(){
     const accounts=result.mode==='single'&&result.account?[result.account]:(result.accounts||[]);
     ACCOUNT_EMAIL_CHOICE={email,mode:result.mode||'',accounts};
     document.getElementById('account-login-choice')?.remove();
-    if(ACCOUNT_EMAIL_CHOICE.mode==='finance_shared'){
-     const label=document.createElement('label');label.id='account-login-choice';label.textContent='อีเมลส่วนกลางฝ่ายการเงิน · เลือกชื่อของคุณ';
+    if(ACCOUNT_EMAIL_CHOICE.mode==='choose_name'){
+     const label=document.createElement('label');label.id='account-login-choice';label.textContent='อีเมลนี้มีหลายบัญชี · เลือกชื่อและตำแหน่งของคุณ';
      const select=document.createElement('select');select.className='fin';select.id='account-login-person';select.setAttribute('aria-label','เลือกชื่อของคุณ');
      const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='เลือกชื่อก่อนกรอกรหัสผ่าน';select.append(placeholder);
-     for(const row of ACCOUNT_EMAIL_CHOICE.accounts){const option=document.createElement('option');option.value=row.login_name;option.textContent=row.display_name+' · '+row.department_code;select.append(option);}
+     for(const row of ACCOUNT_EMAIL_CHOICE.accounts){const option=document.createElement('option');option.value=row.login_name;const duties=[row.position_title,(row.department_codes||[row.department_code]).map(deptName).join(', ')].filter(Boolean).join(' · ');option.textContent=row.display_name+(duties?' · '+duties:'');select.append(option);}
      select.onchange=()=>{const pass=document.getElementById('sbPass');pass.value='';pass.hidden=!select.value;if(select.value)pass.focus();};
      label.append(select);document.getElementById('sbPass').before(label);document.getElementById('sbPass').hidden=true;
     }else if(ACCOUNT_EMAIL_CHOICE.mode==='single'){
-     const note=document.createElement('p');note.id='account-login-choice';note.textContent='บัญชี: '+ACCOUNT_EMAIL_CHOICE.accounts[0].display_name;
+     const row=ACCOUNT_EMAIL_CHOICE.accounts[0],duties=[row.position_title,(row.department_codes||[row.department_code]).map(deptName).join(', ')].filter(Boolean).join(' · ');const note=document.createElement('p');note.id='account-login-choice';note.textContent='บัญชี: '+row.display_name+(duties?' · '+duties:'');
      document.getElementById('sbPass').before(note);document.getElementById('sbPass').hidden=false;document.getElementById('sbPass').focus();
     }else{document.getElementById('sbPass').hidden=false;error.textContent='หากเป็นบัญชีอีเมลเดิม ให้กรอกรหัสผ่านเพื่อเข้าสู่ระบบ';}
     document.getElementById('sbPass').value='';button.textContent='เข้าสู่ระบบ';return;
@@ -128,15 +128,22 @@ RENDER.teamAccounts=async function(){
  main.innerHTML='<p>กำลังโหลดบัญชีทีม…</p>';
  try{const {accounts}=await accountCall('list');if(VIEW!=='teamAccounts')return;
  ACCOUNT_LIST=accounts||[];if(typeof loadAccessUsers==='function')await loadAccessUsers();if(VIEW!=='teamAccounts')return;
- main.innerHTML=`${crumb('หน้าแรก','บัญชีทีม')}<div class="page-h account-page-head"><div><h1>บัญชีทีม</h1><p>จัดการรายชื่อแบบตาราง แบ่งตามแผนกหลัก · หนึ่งบัญชีอยู่ได้หลายแผนก</p></div><button class="tbtn primary" onclick="document.getElementById('account-create-panel').open=true;document.getElementById('account-create-panel').scrollIntoView({behavior:'smooth'})">+ สร้างบัญชี</button></div><details class="card pad account-create-panel" id="account-create-panel"><summary><b>สร้างบัญชีจากรายชื่อเดิม</b><span>เปิดเมื่อเพิ่มพนักงานใหม่</span></summary><div class="account-create-body"><label>รหัสแรกเข้าสำหรับบัญชีใหม่ในรอบนี้ (ไม่บังคับ)<input class="fin" id="account-custom-initial-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" placeholder="เว้นว่างเพื่อสุ่มแยกรายคน"></label><p>กำหนดเองได้ 12–128 ตัวอักษร ทุกบัญชีต้องเปลี่ยนรหัสเมื่อเข้าครั้งแรก</p><button class="tbtn primary" id="account-live-roster">ดูรายชื่อจากงานในระบบ</button> <button class="tbtn" id="account-create-reviewed" disabled>สร้างบัญชีชื่อที่ตรวจผ่าน</button><p id="account-batch-status" role="status"></p><div id="account-initial-codes"></div><details><summary>นำเข้ารายชื่อที่ตรวจไว้เพิ่มเติม</summary><label>เปิดไฟล์รายชื่อที่เตรียมไว้ (.json)<input type="file" id="account-roster" accept="application/json,.json"></label></details><p>ตรวจชื่อทีละคนก่อนสร้าง ชื่อกลุ่มและชื่อใกล้เคียงจะไม่ถูกสร้างอัตโนมัติ</p><div id="account-candidates"></div></div></details><section id="account-directory"></section><p id="account-admin-error" role="alert"></p>`;
+ main.innerHTML=`${crumb('หน้าแรก','บัญชีทีม')}<div class="page-h account-page-head"><div><h1>บัญชีทีม</h1><p>จัดการรายชื่อแบบตาราง แบ่งตามแผนกหลัก · หนึ่งบัญชีอยู่ได้หลายแผนก</p></div><button class="tbtn primary" onclick="document.getElementById('account-create-panel').open=true;document.getElementById('account-create-panel').scrollIntoView({behavior:'smooth'})">+ สร้างบัญชี</button></div><details class="card pad account-create-panel" id="account-create-panel"><summary><b>สร้างบัญชีจากรายชื่อเดิม</b><span>เปิดเมื่อเพิ่มพนักงานใหม่</span></summary><div class="account-create-body"><label>รหัสแรกเข้าสำหรับบัญชีในรอบนี้<input class="fin" id="account-custom-initial-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label><p>กำหนดได้ 12–128 ตัวอักษร และต้องเปลี่ยนเมื่อเข้าครั้งแรก</p><button class="tbtn primary" id="account-live-roster">ดูรายชื่อจากงานในระบบ</button> <button class="tbtn" id="account-create-reviewed" disabled>สร้างบัญชีชื่อที่ตรวจผ่าน</button><p id="account-batch-status" role="status"></p><div id="account-initial-codes"></div><details><summary>นำเข้ารายชื่อที่ตรวจไว้เพิ่มเติม</summary><label>ไฟล์รายชื่อ (.json)<input type="file" id="account-roster" accept="application/json,.json"></label></details><details><summary>เปิดใช้บัญชีจากแผนอีเมลที่ตรวจแล้ว</summary><p>สร้างบัญชีที่ขาด อัปเดตอีเมล/ตำแหน่ง/แผนก ออกรหัสใหม่ทั้งหมด และยังไม่ล็อก IP</p><label>ไฟล์แผนบัญชี (.json)<input type="file" id="account-bootstrap-plan" accept="application/json,.json"></label><button class="tbtn" id="account-bootstrap-apply" disabled>ตรวจและเปิดใช้บัญชีทั้งหมด</button><p id="account-bootstrap-status" role="status"></p></details><div id="account-candidates"></div></div></details><section id="account-directory"></section><p id="account-admin-error" role="alert"></p>`;
  renderAccountDirectory();
  document.getElementById('account-live-roster').onclick=loadLiveAccountCandidates;
  document.getElementById('account-create-reviewed').onclick=createReviewedAccounts;
  renderInitialAccountCodes();
  document.getElementById('account-roster').onchange=async e=>{try{const file=e.target.files[0];if(!file||file.size>1000000)throw new Error('ไฟล์ต้องมีขนาดไม่เกิน 1 MB');const rows=JSON.parse(await file.text());if(!Array.isArray(rows)||rows.length>500)throw new Error('รูปแบบรายชื่อไม่ถูกต้อง');ACCOUNT_CANDIDATES=rows;renderAccountCandidates();}catch(e){document.getElementById('account-admin-error').textContent=e.message;}};
+ document.getElementById('account-bootstrap-plan').onchange=async e=>{const status=document.getElementById('account-bootstrap-status'),apply=document.getElementById('account-bootstrap-apply');try{const file=e.target.files[0];if(!file||file.size>1000000)throw new Error('ไฟล์ต้องมีขนาดไม่เกิน 1 MB');const plan=JSON.parse(await file.text()),rows=[...(plan.existing||[]),...(plan.new||[])];if(!rows.length||rows.length>500||rows.some(r=>!r.display_name||!r.email||!r.primary_department))throw new Error('รูปแบบแผนบัญชีไม่ถูกต้อง');ACCOUNT_BOOTSTRAP_PLAN=plan;apply.disabled=false;status.textContent=`ตรวจพบ ${rows.length} บัญชี · เดิม ${(plan.existing||[]).length} · ใหม่ ${(plan.new||[]).length}`;}catch(error){ACCOUNT_BOOTSTRAP_PLAN=null;apply.disabled=true;status.textContent=error.message;}};
+ document.getElementById('account-bootstrap-apply').onclick=applyAccountBootstrapPlan;
  if(ACCOUNT_CANDIDATES.length)renderAccountCandidates();
  }catch(e){main.textContent=e.message;}
 };
+async function applyAccountBootstrapPlan(){
+ const status=document.getElementById('account-bootstrap-status'),button=document.getElementById('account-bootstrap-apply');let options;try{options=accountInitialPasswordOptions();if(!options.initial_password)throw new Error('กรอกรหัสแรกเข้าก่อนเปิดใช้บัญชี');}catch(error){status.textContent=error.message;return;}
+ const source=[...(ACCOUNT_BOOTSTRAP_PLAN?.existing||[]),...(ACCOUNT_BOOTSTRAP_PLAN?.new||[])],rows=source.map(r=>({profile_id:r.profile_id||'',display_name:r.display_name,personal_name:r.personal_name||r.source_name||r.display_name.replace(/ \([^()]+\)$/,''),contact_email:r.email,primary_department:r.primary_department,department_codes:r.department_codes||[r.primary_department],position_title:(r.position_titles||['พนักงาน']).join(' / '),role:r.role||'staff',source_aliases:(r.source_rows||[]).map(x=>({department_code:x.department_code,name:String(x.name||'').replace(/\s*\(.*/,'').trim()})).filter(x=>x.name&&x.department_code)}));
+ if(!rows.length||!confirm(`เปิดใช้ ${rows.length} บัญชีและออกรหัสแรกเข้าใหม่ทั้งหมด? รหัสเดิมจะใช้ไม่ได้ และ IP Lock จะยังปิดอยู่`))return;
+ button.disabled=true;let done=0,failed=[];try{for(let i=0;i<rows.length;i+=20){const result=await accountCall('bootstrap-roster',{initial_password:options.initial_password,rows:rows.slice(i,i+20)});for(const row of result.results||[]){if(row.ok)done++;else failed.push(row);}status.textContent=`ดำเนินการ ${Math.min(i+20,rows.length)} / ${rows.length} · สำเร็จ ${done} · ต้องตรวจ ${failed.length}`;}status.textContent=failed.length?`สำเร็จ ${done} บัญชี · ต้องตรวจ ${failed.length}: ${failed.slice(0,5).map(r=>r.login_name).join(', ')}`:`เปิดใช้และออกรหัสใหม่สำเร็จ ${done} บัญชี · IP Lock ปิด`;}catch(error){status.textContent=`หยุดหลังสำเร็จ ${done} บัญชี: ${error.message}`;}finally{document.getElementById('account-custom-initial-password').value='';button.disabled=false;}}
 function openAccountDuties(index){
  const row=ACCOUNT_CANDIDATES[index];if(!row||row.created||row.review_status==='review_identity'||ACCOUNT_BATCH_RUNNING)return;
  const chosen=new Set(row.department_codes||[row.department_code]);chosen.add(row.department_code);
