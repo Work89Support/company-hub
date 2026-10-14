@@ -18,7 +18,7 @@ function clearAccountEmailChoice(){
  const email=input.value.includes('@')&&!input.value.trim().endsWith(')');
  pass.value='';pass.hidden=email;button.textContent=email?'ถัดไป':'เข้าสู่ระบบ';
 }
-document.getElementById('sbEmail')?.addEventListener('input',clearAccountEmailChoice);
+// The login modal is rendered after this module loads, so use delegated input\n// handling to keep the email-first flow active every time the dialog opens.\ndocument.addEventListener('input',event=>{if(event.target?.id==='sbEmail')clearAccountEmailChoice();});
 sbLogin=async function(){
  const login=val('sbEmail').trim(),isEmail=login.includes('@')&&!login.endsWith(')');
  const button=document.getElementById('sbLoginBtn'),error=document.getElementById('sbErr');setLoginBusy(true,isEmail&&!ACCOUNT_EMAIL_CHOICE?'กำลังค้นหาบัญชี…':'กำลังเข้าสู่ระบบ…');error.textContent='';
