@@ -1336,8 +1336,8 @@ function activeFilterChips(){
   if(F.prio)add('prio','ความสำคัญ',PRIO[F.prio].t);
   if(F.assignee)add('assignee','ผู้รับผิดชอบ',shortName(F.assignee));
   if(F.period)add('period','ช่วง',{today:'วันนี้',overdue:'เกินกำหนด',active:'ที่ยังไม่เสร็จ'}[F.period]);
-  if(F.dateFrom)add('dateFrom','ตั้งแต่',F.dateFrom);
-  if(F.dateTo)add('dateTo','ถึง',F.dateTo);
+  if(F.dateFrom)add('dateFrom','ตั้งแต่',fmtDate(F.dateFrom));
+  if(F.dateTo)add('dateTo','ถึง',fmtDate(F.dateTo));
   if(!chips.length)return '';
   return `<div class="chips">${chips.join('')}<button class="fchip" style="background:#fde7ea;color:#b01a30" onclick="clearAllFilters()">ล้างทั้งหมด</button></div>`;
 }
@@ -1365,14 +1365,23 @@ function filterBar(lockDept){
     <div class="fsel"><label>ความสำคัญ</label><select onchange="setF('prio',this.value)">${opt(F.prio,'','ทั้งหมด')}${Object.keys(PRIO).map(p=>opt(F.prio,p,PRIO[p].t)).join('')}</select></div>
     <div class="fsel"><label>ผู้รับผิดชอบ</label><select onchange="setF('assignee',this.value)">${opt(F.assignee,'','ทุกคน')}${assignees.map(a=>opt(F.assignee,a,shortName(a))).join('')}</select></div>
     <div class="fsel"><label>ช่วง</label><select onchange="setF('period',this.value)">${opt(F.period,'','ทั้งหมด')}${opt(F.period,'today','วันนี้')}${opt(F.period,'active','ยังไม่เสร็จ')}${opt(F.period,'overdue','เกินกำหนด')}</select></div>
-    <div class="fsel"><label>ตั้งแต่</label><input type="date" class="fdate" value="${F.dateFrom}" onchange="F.dateFrom=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
-    <div class="fsel"><label>ถึง</label><input type="date" class="fdate" value="${F.dateTo}" onchange="F.dateTo=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
+    <div class="fsel fsel-date"><label>วันที่เริ่ม</label><input type="date" class="fdate" value="${F.dateFrom}" onchange="F.dateFrom=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
+    <div class="fsel fsel-date"><label>วันที่สิ้นสุด</label><input type="date" class="fdate" value="${F.dateTo}" onchange="F.dateTo=this.value;RENDER[VIEW](BOARD_DEPT)"></div>
     <button class="tbtn sm" onclick="exportCurrent()">${sic('i-export')} ส่งออก</button>
     <div class="fdiv"></div>
     <div class="fsel"><label>จัดกลุ่ม</label><select onchange="setF('group',this.value)">${opt(F.group,'dept','ตามแผนก')}${opt(F.group,'status','ตามสถานะ')}${opt(F.group,'assignee','ตามผู้รับผิดชอบ')}${opt(F.group,'none','ไม่จัดกลุ่ม')}</select></div>
     <div class="fsel"><label>เรียง</label><select onchange="setF('sort',this.value)">${opt(F.sort,'due','กำหนดส่ง')}${opt(F.sort,'prio','ความสำคัญ')}${opt(F.sort,'status','สถานะ')}${opt(F.sort,'spent','เวลาที่ใช้')}</select></div>
     <button class="tbtn sm" onclick="F.dir*=-1;RENDER[VIEW](BOARD_DEPT)">${F.dir>0?'▲':'▼'}</button>
   </div>`;
+}
+
+function boardDateSummary(list){
+  const iso=v=>{const s=String(v||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';};
+  const dates=list.flatMap(t=>[iso(t.start),iso(t.due)]).filter(Boolean).sort();
+  const from=F.dateFrom||dates[0]||'',to=F.dateTo||dates[dates.length-1]||'';
+  const text=from||to?`${from?fmtDate(from):'วันแรก'} – ${to?fmtDate(to):'วันล่าสุด'}`:'ยังไม่มีวันที่ในรายการ';
+  const mode=F.dateFrom||F.dateTo?'ช่วงวันที่ที่เลือก':'ช่วงวันที่ของรายการที่แสดง';
+  return `<div class="board-date-summary" role="status"><span>${sic('i-calendar')} ${mode}</span><strong>${esc(text)}</strong><small>วันเริ่มและวันส่งแสดงแยกในตารางด้านล่าง</small></div>`;
 }
 
 /* ============================================================
@@ -1625,7 +1634,7 @@ RENDER.board=function(deptFilter){
   <div class="page-h"><div><h1>บอร์ดงาน ${selectedDept?'— '+deptName(selectedDept):''}</h1>
     <p>มุมมองตารางสไตล์ Monday · กรอง จัดกลุ่ม เรียงลำดับ · คลิกงานเพื่อดูรายละเอียด</p></div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('timeline')">${sic('i-calendar')} ไทม์ไลน์</button><button class="tbtn primary" onclick="openCompose()">+ งานใหม่</button></div></div>
-  ${filterBar(!!deptFilter)}${activeFilterChips()}
+  ${filterBar(!!deptFilter)}${boardDateSummary(list)}${activeFilterChips()}
   ${sourceBadge('live','PRODUCTION BOARD',sourceCount||'ยังไม่พบข้อมูลตามสิทธิ์')}
   <div class="resultline">ตรงตัวกรอง ${list.length} จาก ${base.length} รายการ${list.length>shown.length?` · แสดง ${shown.length} รายการในหน้านี้`:''} · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
   ${groupedBoards(shown)}<div class="filterbar"><button class="tbtn" ${BOARD_PAGE<=1?'disabled':''} onclick="BOARD_PAGE--;RENDER.board(BOARD_DEPT)">ก่อนหน้า</button><span>หน้า ${BOARD_PAGE} / ${Math.max(1,Math.ceil(list.length/50))}</span><button class="tbtn" ${BOARD_PAGE*50>=list.length?'disabled':''} onclick="BOARD_PAGE++;RENDER.board(BOARD_DEPT)">ถัดไป</button></div>`;
@@ -1648,14 +1657,15 @@ function boardTableInner(list,showDept=true){
   const th=(k,t)=>`<th onclick="toggleSort('${k}')">${t}${F.sort===k?(F.dir>0?' ▲':' ▼'):''}</th>`;
   const totalSpent=list.reduce((s,t)=>s+t.spent,0);
   return `<table><thead><tr>
-    <th>งาน</th>${showDept?'<th>แผนก</th>':''}<th>ผู้รับผิดชอบ</th>${th('status','สถานะ')}${th('prio','ความสำคัญ')}${th('due','กำหนดส่ง')}${th('spent','เวลาที่ใช้')}</tr></thead>
+    <th>งาน</th>${showDept?'<th>แผนก</th>':''}<th>ผู้รับผิดชอบ</th>${th('status','สถานะ')}${th('prio','ความสำคัญ')}${th('start','วันเริ่ม')}${th('due','วันส่ง')}${th('spent','เวลาที่ใช้')}</tr></thead>
     <tbody>${list.map(t=>`<tr class="${t.prio==='high'?'trow-lead':''}" onclick="openBoardWork('${t._source||'task'}','${t.sourceId||t.id}')">
       <td><b style="font-weight:500">${esc(t.title)}</b><div class="muted" style="font-size:10.5px"><span class="tag">${esc(boardSourceLabel(t))}</span> ${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)} · ${esc(t.creator?'โดย '+shortName(t.creator):'ไม่ระบุผู้สร้าง')}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
       ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
       <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${esc(shortName(assigneesOf(t)[0]))}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
       <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>
-      <td class="nowrap">${fmtDate(t.due)} ${t._deadline!==false&&dashboardIsOverdue(t)?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="${showDept?6:5}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
+      <td class="nowrap">${t.start?fmtDate(t.start):'<span class="date-missing">ยังไม่ระบุ</span>'}</td>
+      <td class="nowrap">${t.due?fmtDate(t.due):'<span class="date-missing">ยังไม่ระบุ</span>'} ${t._deadline!==false&&dashboardIsOverdue(t)?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="${showDept?7:6}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
 }
 
 RENDER.timeline=function(){
