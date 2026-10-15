@@ -16,6 +16,9 @@ jobs:
       - name: Verify critical modules and JavaScript
         run: node scripts/check-prototype-regressions.mjs
 
+      - name: Verify activity loading and retry states
+        run: node scripts/check-activity-loading.mjs
+
       - name: Verify native intake behavior
         run: node scripts/check-native-entry.mjs
 

@@ -21,7 +21,7 @@ assert.doesNotMatch(html,/<title>[^<]*Prototype/i);
 const window=new Window({url:'https://example.test/'}),{document}=window;
 document.body.innerHTML=`<div class="app"><button id="behind">behind</button></div><div id="overlay"></div><button class="talk-fab">talk</button>${markup}`;
 for(const node of document.querySelectorAll('input,select,button,[tabindex]'))node.getClientRects=()=>[{}];
-const source=html.slice(html.indexOf('let LOGIN_PREVIOUS_FOCUS'),html.indexOf('function accessDeviceId'));
+const source=html.slice(html.indexOf('let LOGIN_PREVIOUS_FOCUS'),html.indexOf('async function sbInit'));
 window.eval(`${source};window.loginTestAPI={showLogin,hideLogin,setLoginBusy};`);
 window.loginTestAPI.showLogin();await new Promise(resolve=>window.requestAnimationFrame(resolve));
 assert.equal(document.querySelector('.app').inert,true);

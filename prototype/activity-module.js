@@ -1,9 +1,12 @@
 /* Daily Activity module — loaded after the core application. */
 let ACTIVITY_ROWS=[];
 let ACTIVITY_READY=false;
+let ACTIVITY_LOADING=false;
+let ACTIVITY_ERROR='';
 let ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:'',to:''};
 let ACTIVITY_PAGE=1;
 const ACTIVITY_PAGE_SIZE=100;
+const ACTIVITY_PRODUCTION_URL='https://work89support.github.io/company-hub/prototype/index.html';
 
 NAV.activity={ic:'i-clipboard',t:'บันทึกกิจกรรม'};
 if(!NAVGROUPS[0].items.includes('activity')) NAVGROUPS[0].items.push('activity');
@@ -67,8 +70,36 @@ async function saveActivityTime(id){
   catch(error){if(btn){btn.disabled=false;btn.textContent='ยืนยันเวลา';}toast('บันทึกไม่สำเร็จ · '+(error.message||'กรุณารัน Migration 009'),'info');}
 }
 
+function activityLoadingHTML(){
+  const openedAsFile=typeof location!=='undefined'&&location.protocol==='file:';
+  if(ACTIVITY_ERROR){
+    const action=openedAsFile
+      ?`<a class="tbtn primary" href="${ACTIVITY_PRODUCTION_URL}">เปิดระบบจริง</a>`
+      :'<button class="tbtn primary" onclick="retryActivities()">ลองโหลดอีกครั้ง</button>';
+    return `${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>ไม่สามารถแสดงข้อมูลได้ในขณะนี้</p></div></div><div class="card pad" role="alert"><h3>${openedAsFile?'กรุณาเปิดผ่าน URL ระบบจริง':'โหลดข้อมูลกิจกรรมไม่สำเร็จ'}</h3><p class="muted">${esc(ACTIVITY_ERROR)}</p><div style="margin-top:14px">${action}</div></div>`;
+  }
+  return `${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>กำลังโหลดข้อมูลตามสิทธิ์ของคุณ…</p></div></div><div class="card pad" role="status" aria-live="polite"><b>กำลังเชื่อมต่อฐานข้อมูลกิจกรรม</b><p class="muted" style="margin-bottom:0">กรุณารอสักครู่ ระบบกำลังตรวจสิทธิ์และโหลดรายการล่าสุด</p></div>`;
+}
+
+function retryActivities(){
+  if(ACTIVITY_LOADING)return;
+  ACTIVITY_ERROR='';
+  if(VIEW==='activity')RENDER.activity();
+  void loadActivities();
+}
+
 async function loadActivities(){
-  if(!SB)return;
+  if(ACTIVITY_LOADING)return;
+  if(!SB){
+    ACTIVITY_READY=false;
+    ACTIVITY_ERROR=typeof location!=='undefined'&&location.protocol==='file:'
+      ?'ไฟล์ที่เปิดจากเครื่องไม่ได้เชื่อมต่อฐานข้อมูล กรุณาใช้ลิงก์ Company Hub ระบบจริง'
+      :'ระบบยังไม่ได้เชื่อมต่อฐานข้อมูล กรุณาเข้าสู่ระบบใหม่';
+    if(VIEW==='activity')main.innerHTML=activityLoadingHTML();
+    return;
+  }
+  ACTIVITY_LOADING=true;
+  ACTIVITY_ERROR='';
   try{
     const result=await sbAllRows('daily_activities','activity_date',false);
     if(result.error)throw result.error;
@@ -80,16 +111,19 @@ async function loadActivities(){
     if(VIEW==='timeline')RENDER.timeline();
   }catch(error){
     ACTIVITY_READY=false;
-    if(VIEW==='activity') main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="ai-note" role="alert"><b>โหลดข้อมูลกิจกรรมไม่สำเร็จ</b><br>กรุณาลองโหลดหน้าใหม่ หรือติดต่อผู้ดูแลระบบพร้อมแจ้งเวลาที่พบปัญหา</div>`;
+    ACTIVITY_ERROR=(error&&error.message)||'กรุณาลองใหม่ หรือติดต่อผู้ดูแลระบบพร้อมแจ้งเวลาที่พบปัญหา';
+    if(VIEW==='activity')main.innerHTML=activityLoadingHTML();
     console.error('activity load failed',error);
-    throw error;
+  }finally{
+    ACTIVITY_LOADING=false;
   }
 }
 
 RENDER.activity=function(){
   if(!ACTIVITY_READY){
-    main.innerHTML=`${crumb('หน้าแรก','บันทึกกิจกรรม')}<div class="page-h"><div><h1>บันทึกกิจกรรม</h1><p>กำลังโหลดข้อมูลตามสิทธิ์ของคุณ…</p></div></div>`;
-    loadActivities();return;
+    main.innerHTML=activityLoadingHTML();
+    if(!ACTIVITY_LOADING&&!ACTIVITY_ERROR)void loadActivities();
+    return;
   }
   const rows=activityVisibleRows();
   const departments=[...new Map(ACTIVITY_ROWS.map(r=>[r.department_code,r.department_label||deptName(r.department_code)])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'th'));
