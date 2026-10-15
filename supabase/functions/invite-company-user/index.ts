@@ -10,9 +10,6 @@ export default {
       if (!actorId) return Response.json({ error: "กรุณาเข้าสู่ระบบใหม่" }, { status: 401 });
       const { data: credentialReady, error: credentialError } = await admin.rpc("company_credentials_ready", { p_profile: actorId, p_iat: Number(ctx.jwtClaims?.iat || 0) });
       if (credentialError || !credentialReady) return Response.json({ error: "กรุณาตั้งรหัสผ่านใหม่และเข้าสู่ระบบอีกครั้ง" }, { status: 403 });
-      const forwardedIp = (request.headers.get("x-forwarded-for") || "").split(",")[0].trim().replace(/^::ffff:/, "");
-      const { data: edgeAllowed, error: edgeAccessError } = await admin.rpc("edge_access_allowed", { p_profile_id: actorId, p_ip: forwardedIp });
-      if (edgeAccessError || !edgeAllowed) return Response.json({ error: "เครื่องหรือ IP นี้ไม่มีสิทธิ์เรียกใช้งาน" }, { status: 403 });
       const { data: actor, error: actorError } = await admin.from("profiles")
         .select("id,role,active").eq("id", actorId).single();
       if (actorError || !actor?.active || !["admin", "exec"].includes(actor.role)) {
@@ -28,11 +25,8 @@ export default {
       const trelloMemberId = String(body.trello_member_id || "").trim();
       const requestedVisible = Array.isArray(body.visible_departments) ? body.visible_departments : [department];
       const requestedManaged = role === "lead" && Array.isArray(body.managed_departments) ? body.managed_departments : [];
-      const enforceDevice = body.enforce_device !== false;
-      const requestedIpRules = Array.isArray(body.allowed_ip_cidrs)
-        ? [...new Set<string>(body.allowed_ip_cidrs.map((value: unknown) => String(value).trim()).filter(Boolean))]
-        : [];
-      const enforceIp = body.enforce_ip === true;
+      const enforceDevice = false;
+      const enforceIp = false;
       const { data: departments, error: departmentsError } = await admin.from("departments").select("code");
       if (departmentsError) throw departmentsError;
       const validDepartments = new Set((departments || []).map((row) => row.code));
@@ -45,12 +39,6 @@ export default {
       }
       if (!displayName || !positionTitle) {
         return Response.json({ error: "กรุณาระบุชื่อและตำแหน่งงาน" }, { status: 400 });
-      }
-      if (enforceIp && !requestedIpRules.length) {
-        return Response.json({ error: "ต้องระบุ IP/CIDR อย่างน้อย 1 ค่าเมื่อเปิดล็อก IP" }, { status: 400 });
-      }
-      if (requestedIpRules.some((value) => !/^[0-9a-f:.]+(?:\/\d{1,3})?$/i.test(value))) {
-        return Response.json({ error: "รูปแบบ IP/CIDR ไม่ถูกต้อง" }, { status: 400 });
       }
       const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
         data: { display_name: displayName, position_title: positionTitle },
@@ -82,12 +70,6 @@ export default {
         session_minutes: 5, updated_by: actorId, updated_at: new Date().toISOString(),
       });
       if (policyError) throw policyError;
-      if (requestedIpRules.length) {
-        const { error: ipError } = await admin.from("user_access_ip_rules").insert(requestedIpRules.map((network) => ({
-          profile_id: userId, allowed_network: network, label: "กำหนดตอนสร้างบัญชี", created_by: actorId,
-        })));
-        if (ipError) throw ipError;
-      }
       if (trelloMemberId) {
         const { error: memberError } = await admin.from("graphic_trello_members").update({
           email, linked_profile_id: userId, account_status: "invited", updated_at: new Date().toISOString(),

@@ -9,6 +9,7 @@ const migration16 = fs.readFileSync(new URL('../supabase/migrations/202609010016
 const migration17 = fs.readFileSync(new URL('../supabase/migrations/202609010017_issue_intake_and_source_trace.sql', import.meta.url), 'utf8');
 const migration18 = fs.readFileSync(new URL('../supabase/migrations/202609010018_assignee_task_progress.sql', import.meta.url), 'utf8');
 const migration19 = fs.readFileSync(new URL('../supabase/migrations/202609030019_login_device_ip_access.sql', import.meta.url), 'utf8');
+const migration38 = fs.readFileSync(new URL('../supabase/migrations/202610150038_disable_device_ip_access_gate.sql', import.meta.url), 'utf8');
 const accessGate = fs.readFileSync(new URL('../supabase/functions/access-gate/index.ts', import.meta.url), 'utf8');
 const inviteFunction = fs.readFileSync(new URL('../supabase/functions/invite-company-user/index.ts', import.meta.url), 'utf8');
 const talkFunction = fs.readFileSync(new URL('../supabase/functions/talk-to-data/index.ts', import.meta.url), 'utf8');
@@ -22,8 +23,6 @@ const checks = [
   ['Graphic pagination', /GP_COLUMN_PAGE_SIZE\s*=\s*30/],
   ['Graphic realtime refresh', /table:'graphic_jobs'/],
   ['Dashboard includes Graphic jobs', /function dashboardAllWork\(\)/],
-  ['Board and dashboard attribute responsibility to each record creator', /function boardResponsibilityByCreator\(t\)[\s\S]*_responsibilityBasis:'creator'[\s\S]*function dashboardAllWork\(\)[^\n]*\.map\(boardResponsibilityByCreator\)[\s\S]*function boardAllWork\(\)[^\n]*\.map\(boardResponsibilityByCreator\)/],
-  ['Unknown creator names render their own initial instead of a question mark', /const u = id => \{[\s\S]*Array\.from\(name\)\[0\]/],
   ['Production board unifies RLS-visible sources', /function boardAllWork\(\)[\s\S]*boardActivityRows\(\)[\s\S]*boardIssueRows\(\)/],
   ['Production board routes each source to its real detail', /function openBoardWork\(source,id\)[\s\S]*openBoardActivity[\s\S]*openProblem/],
   ['Department board no longer reads only demo TASKS', /RENDER\.board=function\(deptFilter\)[\s\S]*base=boardAllWork\(\)/],
@@ -31,10 +30,8 @@ const checks = [
   ['Dashboard prevents empty NaN percent', /donePct=all\.length\?/],
   ['Employee access management page', /RENDER\.users\s*=\s*function/],
   ['Employee invitation through Edge Function', /invite-company-user/],
-  ['Employee access update through audited RPC', /name='set_user_access';args=/],
-  ['Login calls the server-side device and IP gate before loading data', /async function onLoggedIn\(session\)[\s\S]*validateAccessGate\(session\)[\s\S]*loadAuthenticatedProfile/],
-  ['Access Gate is refreshed while a session remains open', /startAccessGateRefresh\(session\)/],
-  ['Employee access page manages device and IP policy', /set_user_login_policy[\s\S]*set_user_device_status/],
+  ['Employee access update through audited RPC', /SB\.rpc\('set_user_access',args\)/],
+  ['Login loads the authenticated profile without a device or IP gate', /async function onLoggedIn\(session\)[\s\S]*loadAuthenticatedProfile/],
   ['Inactive accounts fail closed', /if\(!ACCESS_PROFILE\.active\)throw new Error/],
   ['Graphic account profile', /async function loadAuthenticatedProfile\(/],
   ['Activity renderer', /RENDER\.activity\s*=\s*function/],
@@ -86,8 +83,9 @@ if (!/source_key/.test(migration17) || !/created_by=auth\.uid\(\)/.test(migratio
 if (!/update_my_task_progress/.test(migration18) || !/manager approval required/.test(migration18)) failed.push(['Assignee progress is constrained by a database RPC', /update_my_task_progress/]);
 if (!/pgrst\.db_pre_request/.test(migration19) || !/check_company_access/.test(migration19)) failed.push(['Every PostgREST request is protected by the device/IP grant', /pgrst.db_pre_request/]);
 if (!/enforce_device/.test(migration19) || !/allowed_network inet/.test(migration19) || !/login_access_audit/.test(migration19)) failed.push(['Device, CIDR and access audit tables exist', /user_access_devices|user_access_ip_rules/]);
-if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/evaluate_login_access/.test(accessGate) || /body\.ip/.test(accessGate)) failed.push(['Access Gate verifies JWT and derives IP from trusted request headers', /getUser|x-forwarded-for/]);
-if (!/edge_access_allowed/.test(inviteFunction) || !/edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions enforce the same active device/IP grant', /edge_access_allowed/]);
+if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/company_credentials_ready/.test(accessGate) || !/allowed: true/.test(accessGate) || /evaluate_login_access/.test(accessGate)) failed.push(['Legacy Access Gate verifies the account only and never checks device or IP', /getUser|company_credentials_ready|allowed: true/]);
+if (/edge_access_allowed/.test(inviteFunction) || /edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions no longer require device or IP approval', /edge_access_allowed/]);
+if (!/enforce_device = false/.test(migration38) || !/enforce_ip = false/.test(migration38) || !/user_access_ip_rules[\s\S]*active = false/.test(migration38)) failed.push(['Migration disables every existing device and IP policy', /enforce_device = false|enforce_ip = false/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
 if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(html)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);

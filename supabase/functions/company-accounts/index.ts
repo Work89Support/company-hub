@@ -81,13 +81,12 @@ export default {fetch:async(request:Request)=>{
   const password=String(b.password||''),current=String(b.current_password||'');
   if(password.length<12||password.length>128||password===current)return json({error:'ตั้งรหัสใหม่ 12–128 ตัวอักษรและต่างจากรหัสเดิม'},400);
   const auth=await client().auth.signInWithPassword({email:user.email!,password:current});if(auth.error)return json({error:'รหัสปัจจุบันไม่ถูกต้อง'},403);
-  if(!account.must_change_password&&!checked(await admin.rpc('edge_access_allowed',{p_profile_id:user.id,p_ip:ip})))return json({error:'เครื่องหรือ IP ไม่ได้รับอนุญาต'},403);
   const lock=crypto.randomUUID();checked(await admin.rpc('begin_company_credential_change',{p_profile:user.id,p_lock:lock,p_reset:false,p_revision:account.credential_version}));
   const changed=await admin.auth.admin.updateUserById(user.id,{password});if(changed.error)throw new Error('PASSWORD_CHANGE_FAILED');
   checked(await admin.rpc('finish_company_credential_change',{p_profile:user.id,p_lock:lock,p_pending:false}));
   return json({ok:true,sign_in_again:true});
  }
- if(!checked(await admin.rpc('company_credentials_ready',{p_profile:user.id,p_iat:iat}))||!checked(await admin.rpc('edge_access_allowed',{p_profile_id:user.id,p_ip:ip})))return json({error:'เครื่องหรือบัญชียังไม่ได้รับอนุญาต'},403);
+ if(!checked(await admin.rpc('company_credentials_ready',{p_profile:user.id,p_iat:iat})))return json({error:'บัญชียังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสล่าสุด'},403);
  if(!['admin','exec'].includes(actor.role))return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
  if(action==='list')return json({accounts:checked(await admin.from('company_login_accounts').select('profile_id,login_name,contact_email,must_change_password,source_key').order('login_name'))});
  if(action==='bootstrap-roster'){
@@ -112,7 +111,7 @@ export default {fetch:async(request:Request)=>{
      checked(await admin.from('profiles').update({display_name:display,position_title:position,role,department_code:primary}).eq('id',profileId));
      checked(await admin.from('company_login_accounts').update({contact_email:email,personal_name:personal,login_name:display.toLowerCase()}).eq('profile_id',profileId));
      for(const code of departmentCodes)checked(await admin.from('profile_departments').upsert({profile_id:profileId,department_code:code,can_manage:role==='lead'},{onConflict:'profile_id,department_code'}));
-     checked(await admin.from('user_access_policies').upsert({profile_id:profileId,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'profile_id'}));
+     checked(await admin.from('user_access_policies').upsert({profile_id:profileId,enforce_device:false,enforce_ip:false,session_minutes:5,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'profile_id'}));
      const lock=crypto.randomUUID();checked(await admin.rpc('begin_company_credential_change',{p_profile:profileId,p_lock:lock,p_reset:true,p_revision:target.credential_version}));
      const changed=await admin.auth.admin.updateUserById(profileId,{password,app_metadata:{company_role:role,department:primary},user_metadata:{display_name:display,position_title:position}});if(changed.error)throw new Error('RESET_FAILED');
      checked(await admin.rpc('finish_company_credential_change',{p_profile:profileId,p_lock:lock,p_pending:true}));
@@ -125,7 +124,7 @@ export default {fetch:async(request:Request)=>{
        for(const member of members)checked(await admin.from('graphic_job_members').update({profile_id:profileId}).eq('trello_member_id',member.trello_member_id).is('profile_id',null));
       }
      }
-     checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:profileId,old_access:{},new_access:{action:'roster_account_reset',role,department_code:primary,department_codes:departmentCodes,position_title:position,enforce_ip:false}}));
+     checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:profileId,old_access:{},new_access:{action:'roster_account_reset',role,department_code:primary,department_codes:departmentCodes,position_title:position,enforce_device:false,enforce_ip:false}}));
      results.push({ok:true,profile_id:profileId,login_name:display,created:false});continue;
     }
     const login=display.toLowerCase();
@@ -136,7 +135,7 @@ export default {fetch:async(request:Request)=>{
     checked(await admin.from('profiles').upsert({id:createdId,email:internalEmail,display_name:display,position_title:position,role,department_code:primary,active:false}));
     checked(await admin.from('company_login_accounts').insert({profile_id:createdId,login_name:login,source_key:await hash('roster\x1f'+primary+'\x1f'+display),personal_name:personal,contact_email:email,created_by:user.id}));
     for(const code of departmentCodes)checked(await admin.from('profile_departments').upsert({profile_id:createdId,department_code:code,can_manage:role==='lead'},{onConflict:'profile_id,department_code'}));
-    checked(await admin.from('user_access_policies').upsert({profile_id:createdId,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'profile_id'}));
+    checked(await admin.from('user_access_policies').upsert({profile_id:createdId,enforce_device:false,enforce_ip:false,session_minutes:5,updated_by:user.id,updated_at:new Date().toISOString()},{onConflict:'profile_id'}));
     for(const alias of sourceAliases){
      checked(await admin.from('daily_activities').update({employee_id:createdId}).eq('department_code',alias.department_code).eq('employee_name',alias.name).is('employee_id',null));
      if(alias.department_code==='GRAPHIC'){
@@ -146,7 +145,7 @@ export default {fetch:async(request:Request)=>{
       for(const member of members)checked(await admin.from('graphic_job_members').update({profile_id:createdId}).eq('trello_member_id',member.trello_member_id).is('profile_id',null));
      }
     }
-    checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:createdId,old_access:{},new_access:{action:'roster_account_created',role,department_code:primary,department_codes:departmentCodes,position_title:position,enforce_ip:false}}));
+    checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:createdId,old_access:{},new_access:{action:'roster_account_created',role,department_code:primary,department_codes:departmentCodes,position_title:position,enforce_device:false,enforce_ip:false}}));
     checked(await admin.from('profiles').update({active:true}).eq('id',createdId));
     results.push({ok:true,profile_id:createdId,login_name:display,created:true});
    }catch(error){if(createdId)await admin.from('profiles').update({active:false}).eq('id',createdId);results.push({ok:false,login_name:clean(row.display_name),error:error instanceof Error?error.message:'FAILED'});}
@@ -194,7 +193,7 @@ export default {fetch:async(request:Request)=>{
    checked(await admin.from('company_login_accounts').insert({profile_id:id,login_name:login,source_key:sourceKey,personal_name:name,created_by:user.id}));
    checked(await admin.from('profile_departments').delete().eq('profile_id',id).neq('department_code',dept));
    for(const code of departmentCodes)checked(await admin.from('profile_departments').upsert({profile_id:id,department_code:code,can_manage:false},{onConflict:'profile_id,department_code'}));
-   checked(await admin.from('user_access_policies').insert({profile_id:id,enforce_device:true,enforce_ip:false,session_minutes:5,updated_by:user.id}));
+   checked(await admin.from('user_access_policies').insert({profile_id:id,enforce_device:false,enforce_ip:false,session_minutes:5,updated_by:user.id}));
    checked(await admin.rpc('link_company_source_owner',{p_profile:id,p_name:sourceName,p_dept:dept}));
    checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:id,old_access:{},new_access:{action:'username_account_created',role:'staff',department_code:dept,department_codes:departmentCodes,position_title:position}}));
    checked(await admin.from('profiles').update({active:true}).eq('id',id));
