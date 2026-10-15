@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
+const js=fs.readFileSync(new URL('../prototype/company-world.js',import.meta.url),'utf8');
+const css=fs.readFileSync(new URL('../prototype/company-world.css',import.meta.url),'utf8');
+for(const token of ['company-world.css','company-world.js'])assert.ok(html.includes(token),`missing asset ${token}`);
+for(const token of ['RENDER.world','แผนที่บริษัท','GROUPS_WORLD','14 แผนก','companyAvatarSave','ดูแดชบอร์ดเดิม'])assert.ok(js.includes(token),`missing world behavior ${token}`);
+for(const code of ['KPI','FIN','HR','BO','BOM','MKT','GRAPHIC','PROG','CRM','AIAUTO','ADMIN','QC','AUD123','SC'])assert.ok(js.includes(`'${code}'`),`missing department ${code}`);
+for(const token of ['.world-campus','.world-zone','.world-avatar','.avatar-editor','@media(max-width:760px)'])assert.ok(css.includes(token),`missing world style ${token}`);
+console.log('PASS company world: 4 groups, 14 departments, avatar editor and responsive styles');
