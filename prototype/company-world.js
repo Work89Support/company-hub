@@ -76,6 +76,19 @@
   }
   function worldRouteMap(){return `<svg class="world-route-map" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path class="route-main" d="M50 94 L50 57"/><path class="route-ring" d="M29 31 Q50 18 71 31 Q82 49 72 66 Q50 79 28 66 Q18 48 29 31"/><path class="route-01" d="M50 57 L42 52 L29 31"/><path class="route-02" d="M50 57 L58 52 L71 31"/><path class="route-03" d="M50 57 L42 60 L28 66"/><path class="route-04" d="M50 57 L58 60 L72 66"/></svg>`;}
   function worldCanSeeEveryDepartment(){return AUTH_DB_ROLE==='exec'||AUTH_DB_ROLE==='admin';}
+  function worldInterleavePeople(rows,codes){
+    const pending=rows.slice(),ordered=[];
+    while(pending.length){
+      let added=0;
+      for(const code of codes){
+        const index=pending.findIndex(person=>(person.department_codes||[person.department_code]).includes(code));
+        if(index<0)continue;
+        ordered.push(pending.splice(index,1)[0]);added++;
+      }
+      if(!added)break;
+    }
+    return ordered.concat(pending);
+  }
   function worldPeopleRows(){
     const visible=new Set(visibleDepartmentCodes()),scope=worldCanSeeEveryDepartment()?(WORLD_AGENT_SCOPE||'all'):'allowed';
     const allowed=scope==='department'&&WORLD_DEPT?new Set([WORLD_DEPT]):visible;
@@ -83,7 +96,8 @@
     const priority={blocked:0,waiting:1,working:2,done:3};
     rows.sort((a,b)=>(priority[worldStatusFor(a.id)]??9)-(priority[worldStatusFor(b.id)]??9)||String(a.display_name||'').localeCompare(String(b.display_name||''),'th'));
     if(ACCESS_PROFILE&&allowed.has(currentDept())&&!rows.some(person=>person.id===ACCESS_PROFILE.id))rows.unshift(ACCESS_PROFILE);
-    return {rows,total:rows.length,shown:Math.min(rows.length,WORLD_AGENT_LIMIT),scope};
+    const ordered=allowed.size>1?worldInterleavePeople(rows,[...allowed]):rows;
+    return {rows:ordered,total:ordered.length,shown:Math.min(ordered.length,WORLD_AGENT_LIMIT),scope};
   }
   function worldAgentScopeBar(){
     const info=worldPeopleRows(),canAll=worldCanSeeEveryDepartment(),scope=canAll?(WORLD_AGENT_SCOPE||'all'):'allowed';
