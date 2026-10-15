@@ -18,8 +18,8 @@
     scene:['แคมปัส','ซากุระ','ซันเซ็ต','มินต์','ไนท์'],
   };
   const AVATAR_GENDERS={male:[1,3,5,7,8,9],female:[2,4,6,10,11,12]};
-  const WORLD_AGENT_LIMIT=18;
-  let WORLD_DEPT='',WORLD_AGENT_SCOPE='',AVATAR_DRAFT=null,AVATAR_GENDER_FILTER='';
+  const WORLD_AGENT_LIMIT=14;
+  let WORLD_DEPT='',WORLD_AGENT_SCOPE='',WORLD_PANEL_OPEN=false,AVATAR_DRAFT=null,AVATAR_GENDER_FILTER='';
   const worldAvatarKey=()=>`companyhub_avatar_${ACCESS_PROFILE?.id||'preview'}`;
   function defaultAvatar(){const dept=DEPTS.find(d=>d.code===currentDept());return {preset:1,skin:'#f6d2b8',hair:'#2f2928',shirt:dept?.color||'#2563eb',hairStyle:'แสกข้าง',accessory:'ไม่มี',pose:'ทำงาน',pattern:'เรียบ',scene:'แคมปัส'};}
   function companyAvatar(){try{return {...defaultAvatar(),...JSON.parse(localStorage.getItem(worldAvatarKey())||'{}')}}catch(_e){return defaultAvatar();}}
@@ -60,21 +60,21 @@
     return rows.slice(0,4).map(worldPersonMini).join('');
   }
   const WORLD_DEPT_ROUTES={
-    '01':{turnLeft:43,turnTop:50,destLeft:36,destTop:35},
-    '02':{turnLeft:57,turnTop:50,destLeft:64,destTop:35},
-    '03':{turnLeft:43,turnTop:56,destLeft:35,destTop:61},
-    '04':{turnLeft:57,turnTop:56,destLeft:65,destTop:61},
+    '01':{turnLeft:42,turnTop:52,destLeft:29,destTop:31},
+    '02':{turnLeft:58,turnTop:52,destLeft:71,destTop:31},
+    '03':{turnLeft:42,turnTop:60,destLeft:28,destTop:66},
+    '04':{turnLeft:58,turnTop:60,destLeft:72,destTop:66},
   };
-  const WORLD_ROUTE_OFFSETS=[{x:-1.4,y:0},{x:1.2,y:1.2},{x:0,y:-1},{x:2,y:-.6}];
+  const WORLD_ROUTE_OFFSETS=[{x:-4,y:-2},{x:0,y:2},{x:4,y:-1},{x:-2,y:4},{x:3,y:4},{x:6,y:1}];
   function worldPersonDepartment(person){
     const codes=person.department_codes||[person.department_code];
     return codes.find(code=>canViewDept(code))||codes[0]||currentDept();
   }
   function worldDepartmentRoute(dept,index){
     const group=GROUPS_WORLD.find(item=>item.depts.includes(dept))?.code||'03',base=WORLD_DEPT_ROUTES[group],offset=WORLD_ROUTE_OFFSETS[index%WORLD_ROUTE_OFFSETS.length];
-    return {startLeft:49+(index%3-1)*1.2,startTop:86+(index%2)*1.2,centerLeft:50,centerTop:55,turnLeft:base.turnLeft,turnTop:base.turnTop,destLeft:base.destLeft+offset.x,destTop:base.destTop+offset.y,duration:12+(index%4)*1.4,delay:-(index*2.1)};
+    return {startLeft:47+(index%5)*1.5,startTop:91+(index%2)*1.1,centerLeft:50+(index%3-1)*1.6,centerTop:57+(index%2)*1.2,turnLeft:base.turnLeft+offset.x*.35,turnTop:base.turnTop+offset.y*.35,destLeft:base.destLeft+offset.x,destTop:base.destTop+offset.y,duration:13+(index%5)*1.6,delay:-(index*2.7)};
   }
-  function worldRouteMap(){return `<svg class="world-route-map" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path class="route-main" d="M50 88 L50 55"/><path class="route-01" d="M50 55 L43 50 L36 35"/><path class="route-02" d="M50 55 L57 50 L64 35"/><path class="route-03" d="M50 55 L43 56 L35 61"/><path class="route-04" d="M50 55 L57 56 L65 61"/></svg>`;}
+  function worldRouteMap(){return `<svg class="world-route-map" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path class="route-main" d="M50 94 L50 57"/><path class="route-ring" d="M29 31 Q50 18 71 31 Q82 49 72 66 Q50 79 28 66 Q18 48 29 31"/><path class="route-01" d="M50 57 L42 52 L29 31"/><path class="route-02" d="M50 57 L58 52 L71 31"/><path class="route-03" d="M50 57 L42 60 L28 66"/><path class="route-04" d="M50 57 L58 60 L72 66"/></svg>`;}
   function worldCanSeeEveryDepartment(){return AUTH_DB_ROLE==='exec'||AUTH_DB_ROLE==='admin';}
   function worldPeopleRows(){
     const visible=new Set(visibleDepartmentCodes()),scope=worldCanSeeEveryDepartment()?(WORLD_AGENT_SCOPE||'all'):'allowed';
@@ -94,11 +94,11 @@
   function worldMovingPeople(){
     const people=worldPeopleRows(),rows=people.rows.slice(0,WORLD_AGENT_LIMIT);
     return `<div class="world-people-live" aria-label="สมาชิกทีมบนแผนที่">${rows.map((person,index)=>{
-      const status=worldStatusFor(person.id),task=worldCurrentTask(person.id),dept=worldPersonDepartment(person),route=worldDepartmentRoute(dept,index),preset=person.id===ACCESS_PROFILE?.id?(Number(companyAvatar().preset)||1):(index%6)+1;
+      const status=worldStatusFor(person.id),motion=status==='done'?'roaming':status,task=worldCurrentTask(person.id),dept=worldPersonDepartment(person),route=worldDepartmentRoute(dept,index),preset=person.id===ACCESS_PROFILE?.id?(Number(companyAvatar().preset)||1):(index%12)+1;
       const statusText=status==='blocked'?'ติดปัญหา':status==='waiting'?'รอตรวจ':status==='working'?'กำลังทำงาน':'พร้อมรับงาน';
-      const motionText=status==='working'?`กำลังเดินไป ${deptName(dept)}`:`${deptName(dept)} · ${statusText}`;
-      const showLabel=person.id===ACCESS_PROFILE?.id||index<6||status==='blocked';
-      return `<button type="button" class="world-walker ${status} ${showLabel?'show-label':''}" style="--start-left:${route.startLeft}%;--start-top:${route.startTop}%;--center-left:${route.centerLeft}%;--center-top:${route.centerTop}%;--turn-left:${route.turnLeft}%;--turn-top:${route.turnTop}%;--dest-left:${route.destLeft}%;--dest-top:${route.destTop}%;--motion-duration:${route.duration}s;--motion-delay:${route.delay}s" onclick="companyWorldSelect('${esc(dept)}')" aria-label="${esc(person.display_name||'สมาชิกทีม')} · ${esc(motionText)}"><img src="assets/avatars/avatar-${preset}.png" alt=""><span>${esc(person.display_name||'สมาชิกทีม')}<small>${esc(task?.title||statusText)}</small><em>${esc(motionText)}</em></span><i aria-hidden="true"></i></button>`;
+      const motionText=status==='working'?`กำลังเดินไป ${deptName(dept)}`:status==='done'?`กำลังเดินในพื้นที่ ${deptName(dept)}`:`${deptName(dept)} · ${statusText}`;
+      const showLabel=person.id===ACCESS_PROFILE?.id||status==='blocked';
+      return `<button type="button" class="world-walker ${motion} status-${status} ${showLabel?'show-label':''}" style="--start-left:${route.startLeft}%;--start-top:${route.startTop}%;--center-left:${route.centerLeft}%;--center-top:${route.centerTop}%;--turn-left:${route.turnLeft}%;--turn-top:${route.turnTop}%;--dest-left:${route.destLeft}%;--dest-top:${route.destTop}%;--motion-duration:${route.duration}s;--motion-delay:${route.delay}s" onclick="companyWorldSelect('${esc(dept)}')" aria-label="${esc(person.display_name||'สมาชิกทีม')} · ${esc(motionText)}"><img src="assets/avatars/avatar-${preset}.png" alt=""><span>${esc(person.display_name||'สมาชิกทีม')}<small>${esc(task?.title||statusText)}</small><em>${esc(motionText)}</em></span><i aria-hidden="true"></i></button>`;
     }).join('')}</div>`;
   }
   function worldTaskRows(){return dashboardAllWork().filter(t=>canViewDept(t.dept));}
@@ -116,10 +116,12 @@
   window.companyWorldSelect=companyWorldSelect;
   function openWorldDepartment(){if(!WORLD_DEPT)WORLD_DEPT=currentDept()||visibleDepartmentCodes()[0];goBoardFiltered({dept:WORLD_DEPT});}
   window.openWorldDepartment=openWorldDepartment;
+  function companyWorldTogglePanel(){WORLD_PANEL_OPEN=!WORLD_PANEL_OPEN;RENDER.world();}
+  window.companyWorldTogglePanel=companyWorldTogglePanel;
   function worldProfile(){
     const cfg=companyAvatar(),own=worldOwnRows(),active=own.filter(t=>t.status!=='done'),blocked=active.filter(t=>t.status==='block'),selected=WORLD_DEPT||currentDept(),summary=worldDeptSummary(selected),current=blocked[0]||active.find(t=>t.status==='doing')||active[0];
     const name=ACCESS_PROFILE?.display_name||'บัญชีของฉัน',position=ACCESS_PROFILE?.position_title||(AUTH_DB_ROLE==='lead'?'หัวหน้าแผนก':AUTH_DB_ROLE==='exec'?'ผู้บริหาร':AUTH_DB_ROLE==='admin'?'ผู้ดูแลระบบ':'พนักงาน');
-    return `<aside class="world-panel"><section class="world-profile"><div class="world-profile-top">${avatarMarkup(cfg)}<div><h3>${esc(name)}</h3><p>${esc(deptName(currentDept()))} · ${esc(position)}</p><span class="world-state">${current?(current.status==='block'?'ติดปัญหา':'กำลังทำงาน'):'พร้อมรับงาน'}</span></div></div><div class="world-now"><b>${current?'งานที่กำลังทำ':'ยังไม่มีงานที่กำลังทำ'}</b><p>${current?esc(current.title):'เมื่อได้รับมอบหมาย ตัวละครจะแสดงสถานะบนแผนที่อัตโนมัติ'}</p>${current?`<div class="world-progress"><i style="width:${current.status==='review'?'80':current.status==='doing'?'55':current.status==='block'?'35':'20'}%"></i></div>`:''}</div><div class="world-view-actions" style="margin-top:12px"><button class="tbtn primary" onclick="go('myTasks')">งานของฉัน</button><button class="tbtn" onclick="go('account')">ปรับตัวละคร</button></div></section><section class="world-summary"><h3 style="margin:0 0 10px">${esc(deptName(selected))}</h3><div class="world-mini-stats"><div class="world-mini-stat"><strong>${summary.open}</strong><span>งานที่ยังไม่เสร็จ</span></div><div class="world-mini-stat"><strong>${summary.doing}</strong><span>กำลังดำเนินการ</span></div><div class="world-mini-stat"><strong>${summary.blocked}</strong><span>ติดปัญหา</span></div><div class="world-mini-stat"><strong>${summary.issues}</strong><span>ปัญหาที่ยังไม่ปิด</span></div></div><button class="tbtn" style="width:100%;margin-top:12px" onclick="openWorldDepartment()">เปิดพื้นที่แผนก →</button></section><div class="world-legend"><span><i class="working"></i>กำลังทำงาน</span><span><i class="waiting"></i>รอตรวจ</span><span><i class="blocked"></i>ติดปัญหา</span></div></aside>`;
+    return `<aside class="world-panel ${WORLD_PANEL_OPEN?'open':'collapsed'}"><section class="world-profile"><div class="world-profile-top">${avatarMarkup(cfg)}<div class="world-profile-identity"><h3>${esc(name)}</h3><p>${esc(deptName(currentDept()))} · ${esc(position)}</p><span class="world-state">${current?(current.status==='block'?'ติดปัญหา':'กำลังทำงาน'):'พร้อมรับงาน'}</span></div><button type="button" class="world-panel-toggle" onclick="companyWorldTogglePanel()" aria-expanded="${WORLD_PANEL_OPEN}">${WORLD_PANEL_OPEN?'ย่อ':'ดูข้อมูล'} <span>${WORLD_PANEL_OPEN?'×':'›'}</span></button></div><div class="world-panel-body"><div class="world-now"><b>${current?'งานที่กำลังทำ':'ยังไม่มีงานที่กำลังทำ'}</b><p>${current?esc(current.title):'เมื่อได้รับมอบหมาย ตัวละครจะแสดงสถานะบนแผนที่อัตโนมัติ'}</p>${current?`<div class="world-progress"><i style="width:${current.status==='review'?'80':current.status==='doing'?'55':current.status==='block'?'35':'20'}%"></i></div>`:''}</div><div class="world-view-actions" style="margin-top:12px"><button class="tbtn primary" onclick="go('myTasks')">งานของฉัน</button><button class="tbtn" onclick="go('account')">ปรับตัวละคร</button></div></div></section><div class="world-panel-body"><section class="world-summary"><h3 style="margin:0 0 10px">${esc(deptName(selected))}</h3><div class="world-mini-stats"><div class="world-mini-stat"><strong>${summary.open}</strong><span>งานที่ยังไม่เสร็จ</span></div><div class="world-mini-stat"><strong>${summary.doing}</strong><span>กำลังดำเนินการ</span></div><div class="world-mini-stat"><strong>${summary.blocked}</strong><span>ติดปัญหา</span></div><div class="world-mini-stat"><strong>${summary.issues}</strong><span>ปัญหาที่ยังไม่ปิด</span></div></div><button class="tbtn" style="width:100%;margin-top:12px" onclick="openWorldDepartment()">เปิดพื้นที่แผนก →</button></section><div class="world-legend"><span><i class="working"></i>กำลังทำงาน</span><span><i class="waiting"></i>รอตรวจ</span><span><i class="blocked"></i>ติดปัญหา</span></div></div></aside>`;
   }
   function worldQuickCards(){
     const own=worldOwnRows(),open=own.filter(t=>t.status!=='done'),waiting=open.filter(t=>t.status==='review'),blocked=open.filter(t=>t.status==='block');
@@ -154,7 +156,7 @@
   for(const role of Object.keys(ROLE_ALLOW))ROLE_ALLOW[role].unshift('world');
   for(const role of Object.keys(SIMPLE_ALLOW))SIMPLE_ALLOW[role].unshift('world');
   Object.values(ROLE_META).forEach(meta=>meta.home='world');
-  MANUAL.splice(1,0,{id:'world',ic:'i-org',tt:'แผนที่บริษัทและตัวละคร',img:null,html:'<p>หน้าแรกแบบแผนที่บริษัท 3D แบ่งเป็น 4 กลุ่มงาน 14 แผนก โดยป้าย ตัวเลข และสถานะตัวละครมาจากข้อมูลระบบ</p><ol><li>ตัวละครที่กำลังทำงานจะเดินจากทางเข้า ผ่านลานกลาง ไปยังแผนกตามงานจริง ส่วนสถานะรอตรวจ ติดปัญหา และพร้อมรับงานจะแสดงท่าทางและสีแตกต่างกัน</li><li>พนักงานและหัวหน้าเห็นเฉพาะสมาชิกในแผนกตามสิทธิ์ ผู้บริหารและผู้ดูแลระบบเลือกดูทุกแผนกหรือแผนกเดียวได้</li><li>แผนที่แสดงพร้อมกันสูงสุด 18 คน โดยเรียงผู้ติดปัญหา รอตรวจ และกำลังทำงานก่อน เพื่อไม่ให้หน้าจอแน่น</li><li>ป้ายเหนือตัวละครแสดงชื่อ งานปัจจุบัน และปลายทาง โดยจำกัดตามสิทธิ์ที่บัญชีมองเห็น</li><li>แตะตัวละครเพื่อเปิดข้อมูลสรุปของแผนกตามสิทธิ์</li><li>เปิด <b>บัญชีของฉัน</b> เพื่อเลือกตัวละคร 3D สีเสื้อ 14 สีหรือสีที่กำหนดเอง ลายเสื้อ เครื่องประดับ ท่าทาง และฉาก แล้วกดบันทึกลุคนี้</li></ol>'});
+  MANUAL.splice(1,0,{id:'world',ic:'i-org',tt:'แผนที่บริษัทและตัวละคร',img:null,html:'<p>หน้าแรกแบบแผนที่บริษัท 3D แบ่งเป็น 4 กลุ่มงาน 14 แผนก โดยป้าย ตัวเลข และสถานะตัวละครมาจากข้อมูลระบบ</p><ol><li>ตัวละครที่กำลังทำงานจะเดินจากทางเข้า ผ่านลานกลาง ไปยังแผนกตามงานจริง ส่วนสมาชิกที่พร้อมรับงานจะเดินภายในพื้นที่เพื่อให้เห็นบรรยากาศการทำงาน</li><li>พนักงานและหัวหน้าเห็นเฉพาะสมาชิกในแผนกตามสิทธิ์ ผู้บริหารและผู้ดูแลระบบเลือกดูทุกแผนกหรือแผนกเดียวได้</li><li>แผนที่แสดงพร้อมกันสูงสุด 14 คน โดยกระจายเส้นทางและเรียงผู้ติดปัญหา รอตรวจ และกำลังทำงานก่อน เพื่อไม่ให้หน้าจอแน่น</li><li>ป้ายชื่อแสดงค้างเฉพาะบัญชีของคุณหรือเคสติดปัญหา รายการอื่นเปิดดูได้เมื่อชี้หรือแตะตัวละคร</li><li>แผงบัญชีด้านขวาเริ่มต้นแบบย่อ กด <b>ดูข้อมูล</b> เพื่อเปิดงาน สถิติ และทางลัดของแผนก</li><li>เปิด <b>บัญชีของฉัน</b> เพื่อเลือกตัวละครสำเร็จรูป โดยแบ่งเป็นชายและหญิง แล้วกดบันทึกตัวละคร</li></ol>'});
   const originalLoggedIn=onLoggedIn;
   onLoggedIn=async function(session){const ok=await originalLoggedIn(session);if(ok)go('world');return ok;};
 })();
