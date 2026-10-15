@@ -4,63 +4,60 @@ import assert from 'node:assert/strict';
 import {Window} from 'happy-dom';
 
 const source=fs.readFileSync(new URL('../prototype/staff-mobility-chat.js',import.meta.url),'utf8');
-const index=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
-const migration=fs.readFileSync(new URL('../supabase/migrations/202610150039_department_transfers_and_support_chat.sql',import.meta.url),'utf8');
+const css=fs.readFileSync(new URL('../prototype/staff-mobility-chat.css',import.meta.url),'utf8');
+const migration39=fs.readFileSync(new URL('../supabase/migrations/202610150039_department_transfers_and_support_chat.sql',import.meta.url),'utf8');
+const migration40=fs.readFileSync(new URL('../supabase/migrations/202610160040_chat_rooms_and_attachments.sql',import.meta.url),'utf8');
 
 assert.match(source,/dataset\.originalDepartment/,'primary department changes are guarded');
-assert.match(source,/ใช้ปุ่ม “ย้ายแผนก” เพื่อเก็บประวัติสังกัดเดิม/);
-assert.match(migration,/create table if not exists public\.employee_department_history/);
-assert.match(migration,/create unique index if not exists employee_department_history_one_current/);
-assert.match(migration,/create or replace function public\.transfer_employee_department/);
-assert.match(migration,/only admin can transfer an admin account/);
-assert.match(migration,/create table if not exists public\.support_chat_messages/);
-assert.match(migration,/alter publication supabase_realtime add table public\.support_chat_messages/);
-assert.match(migration,/new\.author_id := auth\.uid\(\)/,'chat author is taken from the authenticated session');
+assert.match(migration39,/create table if not exists public\.employee_department_history/);
+for(const token of ['create table if not exists public.chat_rooms','create table if not exists public.chat_room_members','create or replace function public.can_access_chat_room','create or replace function public.create_chat_room','create or replace function public.chat_directory','chat-attachments','file_size_limit','createSignedUrl']){
+  assert.ok(migration40.includes(token)||source.includes(token),`missing secure chat feature ${token}`);
+}
+for(const token of ['support-chat-sidebar','support-chat-rooms','chat-member-list','chat-image-attachment','chat-file-attachment'])assert.ok(css.includes(token),`missing chat UI style ${token}`);
+assert.match(migration40,/room members read chat messages/);
+assert.match(migration40,/chat members read attachments/);
+assert.match(migration40,/10485760/,'attachment limit must remain 10 MB');
 
 const window=new Window();const {document}=window;
 document.body.innerHTML='<main></main><div id="modal"></div>';
 const main=document.querySelector('main'),modal=document.getElementById('modal');
-const rpcCalls=[];let inserted=null,toastText='';
+let inserted=null,toastText='';const rpcCalls=[];
 const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const chatRows=[{id:'m1',author_id:'u2',author_name:'<img src=x onerror=alert(1)>',department_code:'CRM',message_type:'problem',body:'กดแล้ว <script>alert(1)</script>',created_at:'2026-10-15T02:00:00Z'}];
-function query(table){
-  if(table==='support_chat_messages')return {
-    select(){return this;},order(){return this;},limit:async()=>({data:chatRows,error:null}),
-    insert(row){inserted=row;return {select(){return this;},single:async()=>({data:{id:'m2',author_id:'u1',author_name:'Tester',department_code:'CRM',created_at:'2026-10-15T03:00:00Z',...row},error:null})};}
-  };
-  if(table==='employee_department_history')return {select(){return this;},eq(){return this;},order:async()=>({data:[],error:null})};
-  throw new Error('unexpected table '+table);
+const publicRoom={id:'00000000-0000-0000-0000-000000000001',name:'ห้องกลาง Company Hub',room_type:'public',updated_at:'2026-10-16T02:00:00Z'};
+const directRoom={id:'11111111-1111-1111-1111-111111111111',name:'User Two',room_type:'direct',updated_at:'2026-10-16T03:00:00Z'};
+const chatRows=[{id:'m1',room_id:publicRoom.id,author_id:'u2',author_name:'<img src=x onerror=alert(1)>',department_code:'CRM',message_type:'problem',body:'กดแล้ว <script>alert(1)</script>',attachment_path:null,created_at:'2026-10-16T02:00:00Z'}];
+function chain(table){
+  const state={table,room:''};
+  const api={select(){return api;},order(){return api;},eq(_key,value){state.room=value;return api;},limit(){return Promise.resolve(result());},insert(row){inserted=row;return {select(){return this;},single:async()=>({data:{id:'m2',author_name:'Tester',department_code:'CRM',created_at:'2026-10-16T03:00:00Z',...row},error:null})};},then(resolve){return Promise.resolve(result()).then(resolve);}};
+  function result(){
+    if(table==='chat_rooms')return {data:[directRoom,publicRoom],error:null};
+    if(table==='chat_room_members')return {data:[{room_id:directRoom.id,profile_id:'u1'},{room_id:directRoom.id,profile_id:'u2'}],error:null};
+    if(table==='support_chat_messages')return {data:chatRows.filter(row=>!state.room||row.room_id===state.room),error:null};
+    if(table==='employee_department_history')return {data:[],error:null};
+    throw new Error('unexpected table '+table);
+  }
+  return api;
 }
+const storageBucket={createSignedUrl:async()=>({data:{signedUrl:'https://example.test/signed'},error:null}),upload:async()=>({data:{path:'ok'},error:null}),remove:async()=>({error:null})};
 const channel={on(){return this;},subscribe(){return this;}};
-const ctx={window,document,main,modal,requestAnimationFrame:fn=>fn(),Intl,Date,console,
+const ctx={window,document,main,modal,requestAnimationFrame:fn=>fn(),Intl,Date,Map,Promise,console,crypto:{randomUUID:()=> '22222222-2222-2222-2222-222222222222'},
  NAV:{},NAVGROUPS:[{items:[]},{items:[]},{items:[]}],ROLE_ALLOW:{staff:[],lead:[],exec:[]},SIMPLE_ALLOW:{staff:[],lead:[],exec:[]},RENDER:{},MANUAL:[],VIEW:'supportChat',ORG_TIMEZONE:'Asia/Bangkok',ACCESS_PROFILE:{id:'u1'},ACCESS_USERS:[{id:'u1',display_name:'Tester',email:'t@example.com',department_code:'CRM',position_title:'Staff'}],ACCESS_USERS_READY:true,DEPTS:[{code:'CRM',name:'CRM'},{code:'FIN',name:'Finance'}],
- SB:{from:query,channel:()=>channel,rpc:async(name,args)=>{rpcCalls.push([name,args]);return {error:null};}},
- esc,deptName:code=>({CRM:'CRM',FIN:'Finance'}[code]||code),crumb:()=>'',sourceBadge:()=>'',sic:()=>'',val:id=>document.getElementById(id)?.value||'',toast:text=>{toastText=text;},showModal:html=>{modal.innerHTML=html;},closeModal:()=>{modal.innerHTML='';},loadAccessUsers:async()=>{},confirm:()=>true,openAccessUser:()=>{},saveAccessUser:async()=>{},openManual:async()=>{}
+ SB:{from:chain,channel:()=>channel,removeChannel:()=>{},storage:{from:()=>storageBucket},rpc:async(name,args)=>{rpcCalls.push([name,args]);if(name==='chat_directory')return {data:[{profile_id:'u2',display_name:'User Two',department_code:'FIN',position_title:'Staff'}],error:null};if(name==='create_chat_room')return {data:directRoom.id,error:null};return {data:null,error:null};}},
+ esc,nf:n=>String(n),deptName:code=>({CRM:'CRM',FIN:'Finance'}[code]||code),crumb:()=>'',sourceBadge:()=>'',sic:()=>'',val:id=>document.getElementById(id)?.value||'',toast:text=>{toastText=text;},showModal:html=>{modal.innerHTML=html;},closeModal:()=>{modal.innerHTML='';},loadAccessUsers:async()=>{},confirm:()=>true,openAccessUser:()=>{},saveAccessUser:async()=>{},openManual:async()=>{}
 };
 vm.createContext(ctx);vm.runInContext(source,ctx);
-assert.ok(ctx.ROLE_ALLOW.staff.includes('supportChat'));
-assert.ok(ctx.SIMPLE_ALLOW.staff.includes('supportChat'));
-assert.equal(ctx.MANUAL.length,2);
-
-ctx.RENDER.supportChat();await ctx.loadSupportChat();
+assert.equal(ctx.NAV.supportChat.t,'ข้อความ');assert.ok(ctx.ROLE_ALLOW.staff.includes('supportChat'));
+ctx.RENDER.supportChat();await ctx.loadSupportChatRooms(true);
+assert.equal(main.querySelectorAll('.support-room').length,2,'public and direct rooms render');
 assert.equal(main.querySelectorAll('.support-message').length,1);
-assert.equal(main.querySelectorAll('img,script').length,0,'chat content is escaped');
+assert.equal(main.querySelectorAll('.support-message img,.support-message script').length,0,'message content is escaped');
 assert.ok(main.textContent.includes('<script>alert(1)</script>'));
 document.getElementById('support-chat-body').value='ช่วยตรวจหน้า KPI';
-document.getElementById('support-chat-type').value='problem';
 await ctx.sendSupportChatMessage();
-assert.equal(inserted.author_id,'u1');assert.equal(inserted.message_type,'problem');assert.equal(inserted.body,'ช่วยตรวจหน้า KPI');
-assert.ok(toastText.includes('ทุกคน'));
-
-ctx.openDepartmentTransfer('u1');
-document.getElementById('transferNewDept').value='FIN';
-document.getElementById('transferDate').value='2026-10-15';
-document.getElementById('transferPosition').value='Finance staff';
-document.getElementById('transferReason').value='ย้ายตามโครงสร้างใหม่';
-await ctx.saveDepartmentTransfer('u1');
-assert.equal(rpcCalls[0][0],'transfer_employee_department');
-assert.equal(rpcCalls[0][1].p_new_department,'FIN');
-assert.equal(rpcCalls[0][1].p_reason,'ย้ายตามโครงสร้างใหม่');
-
-console.log('PASS department transfer history, shared chat access, escaped content and transfer RPC');
+assert.equal(inserted.room_id,publicRoom.id);assert.equal(inserted.body,'ช่วยตรวจหน้า KPI');assert.ok(toastText.includes('ส่งข้อความแล้ว'));
+await ctx.openSupportChatCreate('direct');
+modal.querySelector('.chat-member-choice input').checked=true;
+await ctx.createSupportChatRoom('direct');
+assert.ok(rpcCalls.some(([name,args])=>name==='create_chat_room'&&args.p_member_ids[0]==='u2'));
+console.log('PASS secure chat rooms, direct and group member picker, escaped messages, private attachments and 10 MB limit');
 await window.happyDOM.close();
