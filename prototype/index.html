@@ -1376,10 +1376,10 @@ function filterBar(lockDept){
 }
 
 function boardDateSummary(list){
-  const iso=v=>{const s=String(v||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';};
+  const iso=v=>{const s=String(v||'').slice(0,10),y=String(TODAY_ISO||'').slice(0,4)||String(new Date().getFullYear());return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:/^\d{2}-\d{2}$/.test(s)?`${y}-${s}`:'';};
   const dates=list.flatMap(t=>[iso(t.start),iso(t.due)]).filter(Boolean).sort();
   const from=F.dateFrom||dates[0]||'',to=F.dateTo||dates[dates.length-1]||'';
-  const text=from||to?`${from?fmtDate(from):'วันแรก'} – ${to?fmtDate(to):'วันล่าสุด'}`:'ยังไม่มีวันที่ในรายการ';
+  const text=from||to?`${from?fmtDate(from,true):'วันแรก'} – ${to?fmtDate(to,true):'วันล่าสุด'}`:'ยังไม่มีวันที่ในรายการ';
   const mode=F.dateFrom||F.dateTo?'ช่วงวันที่ที่เลือก':'ช่วงวันที่ของรายการที่แสดง';
   return `<div class="board-date-summary" role="status"><span>${sic('i-calendar')} ${mode}</span><strong>${esc(text)}</strong><small>วันเริ่มและวันส่งแสดงแยกในตารางด้านล่าง</small></div>`;
 }
@@ -1663,8 +1663,8 @@ function boardTableInner(list,showDept=true){
       ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
       <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${esc(shortName(assigneesOf(t)[0]))}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
       <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>
-      <td class="nowrap">${t.start?fmtDate(t.start):'<span class="date-missing">ยังไม่ระบุ</span>'}</td>
-      <td class="nowrap">${t.due?fmtDate(t.due):'<span class="date-missing">ยังไม่ระบุ</span>'} ${t._deadline!==false&&dashboardIsOverdue(t)?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
+      <td class="nowrap">${t.start?fmtDate(t.start,true):'<span class="date-missing">ยังไม่ระบุ</span>'}</td>
+      <td class="nowrap">${t.due?fmtDate(t.due,true):'<span class="date-missing">ยังไม่ระบุ</span>'} ${t._deadline!==false&&dashboardIsOverdue(t)?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="${showDept?7:6}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
 }
 
