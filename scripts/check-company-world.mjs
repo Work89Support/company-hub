@@ -6,7 +6,8 @@ const css=fs.readFileSync(new URL('../prototype/company-world.css',import.meta.u
 const campus=new URL('../prototype/assets/company-campus-world.jpg',import.meta.url);
 for(const token of ['company-world.css','company-world.js'])assert.ok(html.includes(token),`missing asset ${token}`);
 assert.ok(fs.existsSync(campus),'missing 3D campus background');
-for(const token of ['RENDER.world','แผนที่บริษัท','GROUPS_WORLD','14 แผนก','companyAvatarSave','ดูแดชบอร์ดเดิม','worldQuickCards','completeness','problems'])assert.ok(js.includes(token),`missing world behavior ${token}`);
+for(let i=1;i<=6;i++)assert.ok(fs.existsSync(new URL(`../prototype/assets/avatars/avatar-${i}.png`,import.meta.url)),`missing 3D avatar ${i}`);
+for(const token of ['RENDER.world','แผนที่บริษัท','GROUPS_WORLD','14 แผนก','companyAvatarSave','companyAvatarRandom','avatarPresetChoice','ดูแดชบอร์ดเดิม','worldQuickCards','completeness','problems'])assert.ok(js.includes(token),`missing world behavior ${token}`);
 for(const code of ['KPI','FIN','HR','BO','BOM','MKT','GRAPHIC','PROG','CRM','AIAUTO','ADMIN','QC','AUD123','SC'])assert.ok(js.includes(`'${code}'`),`missing department ${code}`);
-for(const token of ['.world-campus','.world-zone','.world-avatar','.avatar-editor','.world-quick-cards','company-campus-world.jpg','@media(max-width:620px)'])assert.ok(css.includes(token),`missing world style ${token}`);
-console.log('PASS company world: 3D campus, 4 groups, 14 departments, live shortcuts, avatar editor and responsive styles');
+for(const token of ['.world-campus','.world-zone','.world-avatar','.avatar-editor','.avatar-preset-grid','.avatar-preset-choice','company-campus-world.jpg','@media(max-width:620px)'])assert.ok(css.includes(token),`missing world style ${token}`);
+console.log('PASS company world: 3D campus, 4 groups, 14 departments, 6 avatar presets, live shortcuts and responsive styles');
