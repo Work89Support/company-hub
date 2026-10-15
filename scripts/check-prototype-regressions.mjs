@@ -43,6 +43,7 @@ const checks = [
   ['Talk to Data floating button is available on every page', /class="talk-fab"[\s\S]*onclick="openTalkPopup\(\)"/],
   ['Talk to Data popup keeps current page context', /function talkContextQuestions\(\)[\s\S]*VIEW==='problems'/],
   ['Talk to Data calls the production Edge Function', /SB\.functions\.invoke\('talk-to-data'/],
+  ['Talk to Data surfaces the Edge Function error detail', /result\.error\.context\.clone\(\)\.json\(\)/],
   ['Problem Center shows solution coverage', /มีวิธีแก้แล้ว[\s\S]*ยังไม่มีวิธีแก้/],
   ['Problem Center solution filter', /PF\.solution==='yes'\?hasIssueSolution/],
   ['Problem Center data-quality filter', /PF\.quality==='review'\?\(p\.qualityFlags\|\|\[\]\)\.length/],
@@ -85,6 +86,7 @@ if (!/pgrst\.db_pre_request/.test(migration19) || !/check_company_access/.test(m
 if (!/enforce_device/.test(migration19) || !/allowed_network inet/.test(migration19) || !/login_access_audit/.test(migration19)) failed.push(['Device, CIDR and access audit tables exist', /user_access_devices|user_access_ip_rules/]);
 if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/company_credentials_ready/.test(accessGate) || !/allowed: true/.test(accessGate) || /evaluate_login_access/.test(accessGate)) failed.push(['Legacy Access Gate verifies the account only and never checks device or IP', /getUser|company_credentials_ready|allowed: true/]);
 if (/edge_access_allowed/.test(inviteFunction) || /edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions no longer require device or IP approval', /edge_access_allowed/]);
+if (!/company-data-rules-v1/.test(talkFunction) || /api\.openai\.com/.test(talkFunction) || /OPENAI_API_KEY/.test(talkFunction)) failed.push(['Talk to Data uses the no-cost Company Data rules engine', /company-data-rules-v1/]);
 if (!/enforce_device = false/.test(migration38) || !/enforce_ip = false/.test(migration38) || !/user_access_ip_rules[\s\S]*active = false/.test(migration38)) failed.push(['Migration disables every existing device and IP policy', /enforce_device = false|enforce_ip = false/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
