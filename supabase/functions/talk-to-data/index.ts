@@ -3,7 +3,6 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type Row = Record<string, unknown>;
 
-const MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5.4-mini";
 const MAX_HISTORY = 8;
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -53,28 +52,65 @@ async function pageRows(fetchPage: (from: number, to: number) => PromiseLike<{ d
   return all;
 }
 
-function responseText(payload: Row) {
-  if (typeof payload.output_text === "string") return payload.output_text;
-  const output = Array.isArray(payload.output) ? payload.output : [];
-  for (const item of output as Row[]) {
-    const content = Array.isArray(item.content) ? item.content : [];
-    for (const part of content as Row[]) if (part.type === "output_text" && typeof part.text === "string") return part.text;
-  }
-  return "";
+function topLabel(rows: unknown, empty = "ยังไม่มีข้อมูล") {
+  if (!Array.isArray(rows) || !rows.length) return empty;
+  return rows.slice(0, 3).map((item) => Array.isArray(item) ? `${item[0]} ${item[1]} รายการ` : "").filter(Boolean).join(" · ") || empty;
 }
 
-async function safetyId(userId: string) {
-  const bytes = new TextEncoder().encode(userId);
-  const hash = await crypto.subtle.digest("SHA-256", bytes);
-  return [...new Uint8Array(hash)].slice(0, 16).map((value) => value.toString(16).padStart(2, "0")).join("");
+function numberValue(value: unknown) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function ruleAnswer(context: Row, question: string) {
+  const q = question.toLowerCase();
+  const activities = context.employee_activities as Row;
+  const issues = context.operational_issues as Row | null;
+  const graphic = context.graphic as Row | null;
+  const kpis = context.kpis as Row;
+  const knowledge = context.knowledge as Row;
+  const sops = context.sops as Row;
+  const answer = {
+    answer: "", insights: [] as string[], recommendations: [] as string[],
+    caveats: ["คำตอบนี้คำนวณด้วยกฎจากข้อมูล Company Hub ตามสิทธิ์ของผู้ใช้ โดยไม่ส่งข้อมูลไปยัง AI ภายนอก"],
+    follow_up_questions: ["สรุปกิจกรรมและชั่วโมงที่นับได้", "มีปัญหาอะไรที่ต้องติดตาม", "สรุป KPI ตามแผนก"],
+    sources: [] as string[], confidence: "high" as "high" | "medium" | "low",
+  };
+  if (/กิจกรรม|ชั่วโมง|พนักงาน.*ทำ|ใครทำ|activity|บันทึกงาน/.test(q)) {
+    answer.answer = `พบกิจกรรม ${numberValue(activities.total).toLocaleString("th-TH")} รายการ รวมเวลาที่นับได้ ${numberValue(activities.counted_hours).toLocaleString("th-TH")} ชั่วโมง`;
+    answer.insights.push(`แผนกที่มีรายการมาก: ${topLabel(activities.department_counts)}`, `ผู้บันทึกที่มีรายการมาก: ${topLabel(activities.employee_counts)}`, `สถานะการตรวจเวลา: ${topLabel(activities.time_flag_counts, "ไม่พบรายการเวลาผิดปกติ")}`);
+    answer.recommendations.push("ตรวจรายการเวลาที่ผิดปกติหรือข้อมูลไม่ครบก่อนนำไปคิด KPI"); answer.sources = ["daily_activities"]; return answer;
+  }
+  if (/ปัญหา|problem|เคส|incident|วิธีแก้|สาเหตุ/.test(q)) {
+    if (!issues) { answer.answer = "บัญชีนี้ไม่มีสิทธิ์ดูข้อมูลปัญหาของแผนก ADMIN"; answer.sources = ["profile_departments"]; return answer; }
+    answer.answer = `พบปัญหา ${numberValue(issues.total).toLocaleString("th-TH")} รายการ เปิดอยู่ ${numberValue(issues.open).toLocaleString("th-TH")} รายการ และแก้แล้ว ${numberValue(issues.resolved).toLocaleString("th-TH")} รายการ`;
+    answer.insights.push(`หมวดปัญหาหลัก: ${topLabel(issues.category_counts)}`, `โครงการที่พบปัญหามาก: ${topLabel(issues.project_counts)}`);
+    answer.recommendations.push("เริ่มติดตามจากเคสที่ยังเปิดและมีความสำคัญสูง แล้วบันทึกวิธีแก้เมื่อปิดเคส"); answer.sources = ["operational_issues"]; return answer;
+  }
+  if (/กราฟิก|graphic|trello|งานออกแบบ|ภาระงาน|เกินกำหนด/.test(q)) {
+    if (!graphic) { answer.answer = "บัญชีนี้ไม่มีสิทธิ์ดูข้อมูล Graphic Production"; answer.sources = ["profile_departments"]; return answer; }
+    answer.answer = `งานกราฟิกทั้งหมด ${numberValue(graphic.total).toLocaleString("th-TH")} งาน กำลังดำเนินการ ${numberValue(graphic.active).toLocaleString("th-TH")} งาน และเกินกำหนด ${numberValue(graphic.overdue).toLocaleString("th-TH")} งาน`;
+    answer.insights.push(`สถานะงาน: ${topLabel(graphic.status_counts)}`, `ผู้รับผิดชอบงานคงค้าง: ${topLabel(graphic.assignee_counts)}`);
+    answer.recommendations.push("จัดลำดับงานเกินกำหนดก่อน และตรวจงานที่ยังไม่ระบุผู้รับผิดชอบ"); answer.sources = ["graphic_jobs", "graphic_projects", "graphic_job_members"]; return answer;
+  }
+  if (/kpi|คะแนน|ตัวชี้วัด|ประเมิน/.test(q)) {
+    answer.answer = `พบตัวชี้วัดที่ใช้งาน ${numberValue(kpis.definitions).toLocaleString("th-TH")} ตัว และผลประเมิน ${numberValue(kpis.results).toLocaleString("th-TH")} รายการ`;
+    answer.insights.push(`ตัวชี้วัดแยกตามแผนก: ${topLabel(kpis.by_department)}`); answer.recommendations.push("ตรวจรอบประเมิน สถานะการรับรอง และหลักฐานของ KPI ก่อนสรุปผล"); answer.sources = ["kpi_definitions", "kpi_results"]; return answer;
+  }
+  if (/sop|คู่มือ|ความรู้|บทความ/.test(q)) {
+    answer.answer = `มี SOP ที่มองเห็นได้ ${numberValue(sops.total).toLocaleString("th-TH")} รายการ และบทความความรู้ ${numberValue(knowledge.total).toLocaleString("th-TH")} รายการ`;
+    answer.recommendations.push("นำปัญหาที่เกิดซ้ำและมีวิธีแก้แล้วมาจัดทำ SOP เพื่อให้ทีมใช้มาตรฐานเดียวกัน"); answer.sources = ["sops", "sop_versions", "knowledge_articles"]; return answer;
+  }
+  const parts = [`กิจกรรม ${numberValue(activities.total).toLocaleString("th-TH")} รายการ`, `KPI ${numberValue(kpis.definitions).toLocaleString("th-TH")} ตัว`];
+  if (issues) parts.push(`ปัญหาเปิด ${numberValue(issues.open).toLocaleString("th-TH")} รายการ`); if (graphic) parts.push(`งานกราฟิกคงค้าง ${numberValue(graphic.active).toLocaleString("th-TH")} งาน`);
+  answer.answer = `สรุปข้อมูลในขอบเขตสิทธิ์ของคุณ: ${parts.join(" · ")}`; answer.insights.push(`กิจกรรมตามแผนก: ${topLabel(activities.department_counts)}`);
+  answer.recommendations.push("เลือกถามเจาะจงเรื่องกิจกรรม ปัญหา กราฟิก KPI หรือ SOP เพื่อดูรายละเอียดที่เกี่ยวข้อง"); answer.sources = ["daily_activities", "kpi_definitions", ...(issues ? ["operational_issues"] : []), ...(graphic ? ["graphic_jobs"] : [])]; return answer;
 }
 
 export default {
   fetch: async (request: Request) => {
     if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
     try {
-      const apiKey = Deno.env.get("OPENAI_API_KEY");
-      if (!apiKey) return json({ error: "AI backend ยังไม่ได้ตั้งค่า OPENAI_API_KEY" }, 503);
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
       const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -246,52 +282,8 @@ export default {
         },
       };
 
-      const instructions = `คุณคือ Company Hub Data Analyst ตอบภาษาไทยแบบผู้ช่วยผู้บริหารและหัวหน้างาน
-กติกาสำคัญ:
-1. ใช้เฉพาะ COMPANY_DATA ที่ให้มา ห้ามสร้างตัวเลข ชื่อบุคคล เหตุการณ์ หรือข้อสรุปที่ไม่มีหลักฐาน
-2. แยกให้ชัดระหว่าง “ข้อเท็จจริงจากข้อมูล” กับ “ข้อเสนอแนะ/ข้อสันนิษฐาน”
-3. ตอบคำถามให้ตรงก่อน แล้วจึงให้ insight ความเสี่ยง แนวโน้ม สาเหตุที่เป็นไปได้ และข้อเสนอแนะที่ลงมือทำได้
-4. หากข้อมูลไม่พอ ให้บอกว่าขาดฟิลด์ใดและควรเก็บอะไรเพิ่ม ห้ามเดา
-5. เคารพ user_scope ซึ่งผ่านการจำกัดสิทธิ์มาแล้ว และห้ามกล่าวถึงข้อมูลนอก scope
-6. เมื่อผู้ใช้ถามต่อ ให้ใช้บทสนทนาก่อนหน้าเพื่อเข้าใจคำอ้างอิง เช่น “คนนั้น”, “โปรเจกต์นี้”, “แล้วเดือนก่อน”
-7. sources ต้องระบุชื่อตาราง/ชุดข้อมูลที่ใช้จริง เช่น graphic_jobs, graphic_job_files, graphic_job_comments, operational_issues, daily_activities, knowledge_articles, sops, sop_versions, kpi_definitions, kpi_results
-8. recommendations ต้องเฉพาะเจาะจง มีผู้รับผิดชอบหรือขั้นตอนถ้าสามารถอนุมานอย่างปลอดภัย และติดป้ายว่าเป็นข้อเสนอแนะ
-9. current_filters คือบริบทตัวกรองบนหน้าจอ ส่วนยอดสรุปเป็นยอดในขอบเขตสิทธิ์ทั้งหมด หากคำนวณยอดตามตัวกรองจากรายการที่ให้มาไม่ได้ ต้องบอกข้อจำกัด ห้ามนำยอดรวมมาอ้างว่าเป็นยอดหลังกรอง
-10. ถ้าคำถามขอสิ่งที่ฐานข้อมูลนี้ตอบไม่ได้ ให้ตอบตรง ๆ พร้อมเสนอคำถามที่ตอบได้ใกล้เคียงที่สุด`;
-      const input = [
-        ...history.map((item: Row) => ({ role: item.role, content: item.content })),
-        { role: "user", content: `คำถาม: ${question}\n\nCOMPANY_DATA:\n${JSON.stringify(context)}` },
-      ];
-      const aiResponse = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: MODEL, store: false, instructions, input, max_output_tokens: 2200,
-          reasoning: { effort: "low" }, safety_identifier: await safetyId(actorId),
-          text: { format: { type: "json_schema", name: "company_hub_answer", strict: true, schema: {
-            type: "object", additionalProperties: false,
-            properties: {
-              answer: { type: "string" },
-              insights: { type: "array", items: { type: "string" }, maxItems: 6 },
-              recommendations: { type: "array", items: { type: "string" }, maxItems: 6 },
-              caveats: { type: "array", items: { type: "string" }, maxItems: 4 },
-              follow_up_questions: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
-              sources: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 8 },
-              confidence: { type: "string", enum: ["high", "medium", "low"] },
-            },
-            required: ["answer", "insights", "recommendations", "caveats", "follow_up_questions", "sources", "confidence"],
-          } } },
-        }),
-      });
-      const aiPayload = await aiResponse.json();
-      if (!aiResponse.ok) {
-        console.error("OpenAI error", aiResponse.status, aiPayload?.error?.code || "unknown");
-        return json({ error: "AI ประมวลผลไม่สำเร็จ กรุณาลองใหม่" }, 502);
-      }
-      const text = responseText(aiPayload);
-      if (!text) return json({ error: "AI ไม่ได้ส่งคำตอบกลับมา" }, 502);
-      const answer = JSON.parse(text);
-      return json({ ok: true, answer, model: MODEL, generated_at: context.generated_at, scope: context.user_scope });
+      const answer = ruleAnswer(context, question);
+      return json({ ok: true, answer, model: "company-data-rules-v1", generated_at: context.generated_at, scope: context.user_scope });
     } catch (error) {
       console.error(error);
       return json({ error: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" }, 400);
