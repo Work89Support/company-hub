@@ -58,11 +58,13 @@ body.dark .support-chat-floating,body.dark .support-chat-float-header,body.dark 
 }
 
 /* The page already contains the full chat, so the floating launcher is redundant here. */
-body:has(.support-chat-app) .support-chat-dock{display:none}
+body:has(.support-chat-app) .support-chat-dock,
+body:has(.support-chat-app) .talk-fab{display:none}
 
 @media(max-width:700px){
   .support-chat-app{height:auto;min-height:0}
   .support-chat-main{display:grid;grid-template-rows:auto minmax(320px,1fr) auto auto auto;min-height:520px;overflow:hidden}
   .support-chat-list{overflow-y:auto}
-  body:has(.support-chat-app) .support-chat-dock{display:none}
+  body:has(.support-chat-app) .support-chat-dock,
+  body:has(.support-chat-app) .talk-fab{display:none}
 }
