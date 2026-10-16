@@ -203,8 +203,8 @@ const trackerDashboardBase=RENDER.dash;RENDER.dash=function(...args){trackerDash
 if(!document.querySelector('script[data-company-ux]')){const script=document.createElement('script');script.src='ux-system.js?v=20261015-board-date-clarity';script.dataset.companyUx='1';document.head.append(script);}
 
 // Department history and shared support room release (15 Oct 2026).
-if(!document.querySelector('link[data-staff-mobility]')){const link=document.createElement('link');link.rel='stylesheet';link.href='staff-mobility-chat.css?v=20261016-chat-layout-1';link.dataset.staffMobility='1';document.head.append(link);}
-if(!document.querySelector('script[data-staff-mobility]')){const script=document.createElement('script');script.src='staff-mobility-chat.js?v=20261016-chat-layout-1';script.dataset.staffMobility='1';document.head.append(script);}
+if(!document.querySelector('link[data-staff-mobility]')){const link=document.createElement('link');link.rel='stylesheet';link.href='staff-mobility-chat.css?v=20261016-chat-layout-2';link.dataset.staffMobility='1';document.head.append(link);}
+if(!document.querySelector('script[data-staff-mobility]')){const script=document.createElement('script');script.src='staff-mobility-chat.js?v=20261016-chat-layout-2';script.dataset.staffMobility='1';document.head.append(script);}
 
 // KPI department navigation and centralised Graphic account administration.
 if(!document.querySelector('script[data-access-consolidation]')){const script=document.createElement('script');script.src='access-consolidation.js?v=20261016-readiness-4';script.dataset.accessConsolidation='1';document.head.append(script);}
