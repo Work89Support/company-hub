@@ -8,6 +8,9 @@ const css=fs.readFileSync(new URL('../prototype/staff-mobility-chat.css',import.
 const migration39=fs.readFileSync(new URL('../supabase/migrations/202610150039_department_transfers_and_support_chat.sql',import.meta.url),'utf8');
 const migration40=fs.readFileSync(new URL('../supabase/migrations/202610160040_chat_rooms_and_attachments.sql',import.meta.url),'utf8');
 const migration41=fs.readFileSync(new URL('../supabase/migrations/202610160041_chat_stickers.sql',import.meta.url),'utf8');
+const migration42=fs.readFileSync(new URL('../supabase/migrations/202610160042_chat_web_push.sql',import.meta.url),'utf8');
+const pushWorker=fs.readFileSync(new URL('../prototype/chat-push-sw.js',import.meta.url),'utf8');
+const pushFunction=fs.readFileSync(new URL('../supabase/functions/chat-push/index.ts',import.meta.url),'utf8');
 
 assert.match(source,/dataset\.originalDepartment/,'primary department changes are guarded');
 assert.match(migration39,/create table if not exists public\.employee_department_history/);
@@ -21,6 +24,12 @@ assert.match(migration40,/chat members read attachments/);
 assert.match(migration40,/10485760/,'attachment limit must remain 10 MB');
 assert.match(migration41,/message_type in \('message','problem','update','sticker'\)/);
 assert.match(migration41,/support_chat_messages_sticker_key_check/);
+for(const token of ['create table if not exists public.chat_push_subscriptions','set_chat_push_subscription_owner','users register own push subscriptions'])assert.ok(migration42.includes(token),`missing Web Push schema ${token}`);
+for(const token of ['serviceWorker.register','pushManager.subscribe','chat_push_subscriptions','supportChatDispatchPush'])assert.ok(source.includes(token),`missing Web Push client ${token}`);
+assert.match(pushWorker,/self\.addEventListener\('push'/);
+assert.match(pushWorker,/notificationclick/);
+assert.match(pushFunction,/message\.author_id!==user\.id/,'sender identity must be verified server-side');
+assert.match(pushFunction,/chat_room_members/,'private room membership must scope push recipients');
 
 const window=new Window();const {document}=window;
 document.body.innerHTML='<main></main><div id="modal"></div>';
@@ -46,7 +55,7 @@ const storageBucket={createSignedUrl:async()=>({data:{signedUrl:'https://example
 const channel={on(){return this;},subscribe(){return this;}};
 const ctx={window,document,main,modal,requestAnimationFrame:fn=>fn(),setTimeout:()=>0,Intl,Date,Map,Promise,console,crypto:{randomUUID:()=> '22222222-2222-2222-2222-222222222222'},
  NAV:{},NAVGROUPS:[{items:[]},{items:[]},{items:[]}],ROLE_ALLOW:{staff:[],lead:[],exec:[]},SIMPLE_ALLOW:{staff:[],lead:[],exec:[]},RENDER:{},MANUAL:[],VIEW:'supportChat',ORG_TIMEZONE:'Asia/Bangkok',ACCESS_PROFILE:{id:'u1'},ACCESS_USERS:[{id:'u1',display_name:'Tester',email:'t@example.com',department_code:'CRM',position_title:'Staff'}],ACCESS_USERS_READY:true,DEPTS:[{code:'CRM',name:'CRM'},{code:'FIN',name:'Finance'}],
- SB:{from:chain,channel:()=>channel,removeChannel:()=>{},storage:{from:()=>storageBucket},rpc:async(name,args)=>{rpcCalls.push([name,args]);if(name==='chat_directory')return {data:[{profile_id:'u2',display_name:'User Two',department_code:'FIN',position_title:'Staff'}],error:null};if(name==='create_chat_room')return {data:directRoom.id,error:null};return {data:null,error:null};}},
+ SB:{from:chain,channel:()=>channel,removeChannel:()=>{},functions:{invoke:async()=>({data:{ok:true},error:null})},storage:{from:()=>storageBucket},rpc:async(name,args)=>{rpcCalls.push([name,args]);if(name==='chat_directory')return {data:[{profile_id:'u2',display_name:'User Two',department_code:'FIN',position_title:'Staff'}],error:null};if(name==='create_chat_room')return {data:directRoom.id,error:null};return {data:null,error:null};}},
  esc,nf:n=>String(n),deptName:code=>({CRM:'CRM',FIN:'Finance'}[code]||code),crumb:()=>'',sourceBadge:()=>'',sic:()=>'',val:id=>document.getElementById(id)?.value||'',toast:text=>{toastText=text;},showModal:html=>{modal.innerHTML=html;},closeModal:()=>{modal.innerHTML='';},loadAccessUsers:async()=>{},confirm:()=>true,openAccessUser:()=>{},saveAccessUser:async()=>{},openManual:async()=>{},onLoggedIn:async()=>{},sbLogout:async()=>{},go:view=>{ctx.VIEW=view;ctx.RENDER[view]?.();}
 };
 vm.createContext(ctx);vm.runInContext(source,ctx);

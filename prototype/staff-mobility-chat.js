@@ -55,6 +55,8 @@ let SUPPORT_CHAT_AUDIO=null;
 let SUPPORT_CHAT_AUDIO_READY=false;
 const SUPPORT_CHAT_PUBLIC_ROOM='00000000-0000-0000-0000-000000000001';
 const SUPPORT_CHAT_MAX_FILE=10*1024*1024;
+const SUPPORT_CHAT_VAPID_PUBLIC='BD0nR5JaqReuXa4vBgceOMeK5OpVyjp8S1tMHWRUFLApT_S3E4bJ_EXlNMqOPSPDegt4BrDWxy-zfn6g_Nw8gYg';
+let SUPPORT_CHAT_PUSH_SUBSCRIPTION=null;
 const SUPPORT_CHAT_STICKERS=[
   {key:'like',emoji:'👍',label:'ถูกใจ'},{key:'love',emoji:'😍',label:'ชอบมาก'},
   {key:'thanks',emoji:'🙏',label:'ขอบคุณ'},{key:'great',emoji:'🎉',label:'ยอดเยี่ยม'},
@@ -191,13 +193,44 @@ function supportChatSystemNotification(row,room){
   if(typeof Notification==='undefined'||Notification.permission!=='granted'||document.visibilityState==='visible')return;
   try{const notification=new Notification(supportChatRoomTitle(room),{body:`${row.author_name||'ผู้ใช้งาน'}: ${supportChatPreview(row)}`,tag:'company-hub-chat-'+row.room_id,renotify:true,icon:'favicon.svg'});notification.onclick=()=>{window.focus();supportChatOpenRoom(row.room_id);notification.close();};}catch(_error){}
 }
+function supportChatBase64Bytes(value){
+  const padding='='.repeat((4-value.length%4)%4),raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...raw].map(ch=>ch.charCodeAt(0)));
+}
+function supportChatSubscriptionRow(subscription){
+  const json=subscription.toJSON();return {profile_id:ACCESS_PROFILE.id,endpoint:json.endpoint,p256dh:json.keys?.p256dh||'',auth:json.keys?.auth||'',user_agent:navigator.userAgent.slice(0,500),enabled:true};
+}
+async function supportChatServiceWorker(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('เบราว์เซอร์นี้ยังไม่รองรับ Web Push');
+  if(!document.querySelector('link[rel="manifest"][data-company-hub-pwa]')){const link=document.createElement('link');link.rel='manifest';link.href='company-hub.webmanifest?v=20261016';link.dataset.companyHubPwa='1';document.head.append(link);}
+  const registration=await navigator.serviceWorker.register('chat-push-sw.js?v=20261016',{scope:'./'});return navigator.serviceWorker.ready||registration;
+}
+async function supportChatRefreshPushState(){
+  try{const registration=await supportChatServiceWorker();SUPPORT_CHAT_PUSH_SUBSCRIPTION=await registration.pushManager.getSubscription();}catch(_error){SUPPORT_CHAT_PUSH_SUBSCRIPTION=null;}
+  renderSupportChatNotificationButton();return SUPPORT_CHAT_PUSH_SUBSCRIPTION;
+}
 async function enableSupportChatNotifications(){
-  if(typeof Notification==='undefined'){toast('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือนบนเครื่อง','info');return;}
-  const permission=await Notification.requestPermission();renderSupportChatNotificationButton();toast(permission==='granted'?'เปิดแจ้งเตือนบนเครื่องแล้ว':'ยังไม่ได้อนุญาตการแจ้งเตือน','info');
+  const button=document.getElementById('support-chat-notification-button');if(button)button.disabled=true;
+  try{
+    const registration=await supportChatServiceWorker(),current=await registration.pushManager.getSubscription();
+    if(current){
+      if(!confirm('ปิดการแจ้งเตือนข้อความบนอุปกรณ์นี้หรือไม่?'))return;
+      await SB.from('chat_push_subscriptions').delete().eq('endpoint',current.endpoint);await current.unsubscribe();SUPPORT_CHAT_PUSH_SUBSCRIPTION=null;toast('ปิดการแจ้งเตือนบนอุปกรณ์นี้แล้ว','info');return;
+    }
+    if(typeof Notification==='undefined')throw new Error('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน');
+    const permission=await Notification.requestPermission();if(permission!=='granted')throw new Error('ยังไม่ได้อนุญาตการแจ้งเตือนในเบราว์เซอร์');
+    const subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:supportChatBase64Bytes(SUPPORT_CHAT_VAPID_PUBLIC)});
+    const result=await SB.from('chat_push_subscriptions').upsert(supportChatSubscriptionRow(subscription),{onConflict:'endpoint'});if(result.error){await subscription.unsubscribe();throw result.error;}
+    SUPPORT_CHAT_PUSH_SUBSCRIPTION=subscription;toast('เปิดแจ้งเตือนข้อความแล้ว แม้ปิดหน้า Company Hub','success');
+  }catch(error){toast('เปิดการแจ้งเตือนไม่สำเร็จ · '+(error.message||error),'info');}
+  finally{if(button)button.disabled=false;renderSupportChatNotificationButton();}
 }
 function renderSupportChatNotificationButton(){
   const button=document.getElementById('support-chat-notification-button');if(!button)return;
-  const granted=typeof Notification!=='undefined'&&Notification.permission==='granted';button.textContent=granted?'🔔 แจ้งเตือนแล้ว':'🔔 เปิดแจ้งเตือนบนเครื่อง';button.classList.toggle('enabled',granted);
+  const denied=typeof Notification!=='undefined'&&Notification.permission==='denied';
+  button.textContent=SUPPORT_CHAT_PUSH_SUBSCRIPTION?'🔔 แจ้งเตือนทุกเวลา':denied?'🔕 เบราว์เซอร์ปิดกั้น':'🔔 เปิดแจ้งเตือนทุกเวลา';button.classList.toggle('enabled',!!SUPPORT_CHAT_PUSH_SUBSCRIPTION);button.title=SUPPORT_CHAT_PUSH_SUBSCRIPTION?'กดเพื่อปิดแจ้งเตือนบนอุปกรณ์นี้':'รับแจ้งเตือนแม้ปิดหน้า Company Hub';
+}
+async function supportChatDispatchPush(messageId){
+  if(!messageId)return;try{const result=await SB.functions.invoke('chat-push',{body:{message_id:messageId}});if(result.error)console.warn('chat push unavailable',result.error);}catch(error){console.warn('chat push unavailable',error);}
 }
 function supportChatReceive(row){
   if(!row||row.author_id===ACCESS_PROFILE?.id)return;
@@ -219,8 +252,10 @@ function renderSupportChatDock(){
   const title=document.title.replace(/^\(\d+\)\s*/, '');document.title=total?`(${total}) ${title}`:title;
 }
 async function initializeSupportChatNotifications(){
-  if(!ACCESS_PROFILE)return;document.addEventListener('pointerdown',supportChatPrepareAudio,{once:true});renderSupportChatDock();await loadSupportChatRooms(true);
+  if(!ACCESS_PROFILE)return;document.addEventListener('pointerdown',supportChatPrepareAudio,{once:true});renderSupportChatDock();await Promise.allSettled([loadSupportChatRooms(true),supportChatRefreshPushState()]);
+  const requestedRoom=new URLSearchParams(location.search).get('chatRoom');if(requestedRoom&&SUPPORT_CHAT_ROOMS.some(room=>room.id===requestedRoom))supportChatOpenRoom(requestedRoom);
 }
+
 async function selectSupportChatRoom(roomId){
   if(roomId===SUPPORT_CHAT_ROOM_ID&&SUPPORT_CHAT_ROWS.length){supportChatMarkRead(roomId);return;}SUPPORT_CHAT_ROOM_ID=roomId;SUPPORT_CHAT_ROWS=[];SUPPORT_CHAT_PENDING_FILE=null;supportChatMarkRead(roomId);
   renderSupportChatRooms();renderSupportChatHeader();renderSupportChatPendingFile();
@@ -253,6 +288,7 @@ async function sendSupportChatSticker(key){
     const payload={room_id:SUPPORT_CHAT_ROOM_ID,author_id:ACCESS_PROFILE.id,message_type:'sticker',body:key};
     const result=await SB.from('support_chat_messages').insert(payload).select().single();if(result.error)throw result.error;
     if(result.data&&!SUPPORT_CHAT_ROWS.some(row=>row.id===result.data.id))SUPPORT_CHAT_ROWS.push(result.data);
+    supportChatDispatchPush(result.data?.id);
     toggleSupportChatStickers(false);renderSupportChatMessages();renderSupportChatRooms();
   }catch(error){toast('ส่งสติ๊กเกอร์ไม่สำเร็จ · '+(error.message||error),'info');}finally{if(button)button.disabled=false;}
 }
@@ -274,6 +310,7 @@ async function sendSupportChatMessage(){
     if(file)Object.assign(payload,{attachment_path:uploadedPath,attachment_name:file.name,attachment_mime:file.type,attachment_size:file.size});
     const result=await SB.from('support_chat_messages').insert(payload).select().single();if(result.error)throw result.error;
     if(result.data&&!SUPPORT_CHAT_ROWS.some(x=>x.id===result.data.id))SUPPORT_CHAT_ROWS.push(result.data);
+    supportChatDispatchPush(result.data?.id);
     input.value='';SUPPORT_CHAT_PENDING_FILE=null;renderSupportChatPendingFile();renderSupportChatMessages();renderSupportChatRooms();toast('ส่งข้อความแล้ว');
   }catch(error){
     if(uploadedPath)await SB.storage.from('chat-attachments').remove([uploadedPath]);
@@ -310,7 +347,7 @@ async function createSupportChatRoom(mode){
 }
 RENDER.supportChat=function(){
   main.innerHTML=`${crumb('หน้าแรก','ข้อความ')}
-    <div class="page-h"><div><h1>ข้อความ</h1><p>คุยส่วนตัว สร้างกลุ่ม ส่งสติ๊กเกอร์ และส่งไฟล์ตามสิทธิ์ของสมาชิก</p>${sourceBadge('live','SUPABASE REALTIME','ข้อความใหม่แสดงอัตโนมัติ')}</div><div class="support-chat-actions"><button id="support-chat-notification-button" class="tbtn sm" onclick="enableSupportChatNotifications()">🔔 เปิดแจ้งเตือนบนเครื่อง</button><button class="tbtn sm" onclick="loadSupportChatRooms(true)">↻ โหลดใหม่</button></div></div>
+    <div class="page-h"><div><h1>ข้อความ</h1><p>คุยส่วนตัว สร้างกลุ่ม ส่งสติ๊กเกอร์ และส่งไฟล์ตามสิทธิ์ของสมาชิก</p>${sourceBadge('live','SUPABASE REALTIME','ข้อความใหม่แสดงอัตโนมัติ')}</div><div class="support-chat-actions"><button id="support-chat-notification-button" class="tbtn sm" onclick="enableSupportChatNotifications()">🔔 เปิดแจ้งเตือนทุกเวลา</button><button class="tbtn sm" onclick="loadSupportChatRooms(true)">↻ โหลดใหม่</button></div></div>
     <div class="support-chat-notice"><b>พื้นที่สื่อสารภายใน</b><span>รูปและไฟล์เปิดได้เฉพาะสมาชิกในห้อง ห้ามส่งรหัสผ่านหรือข้อมูลลับที่ไม่เกี่ยวข้องกับงาน</span></div>
     <section class="card support-chat-app">
       <aside class="support-chat-sidebar"><div class="support-chat-sidebar-head"><div><b>แชท</b><small>Company Hub</small></div><button title="สร้างกลุ่ม" onclick="openSupportChatCreate('group')">＋</button></div>
@@ -326,7 +363,7 @@ RENDER.supportChat=function(){
           <select id="support-chat-type" class="fin" aria-label="ประเภทข้อความ"><option value="message">ข้อความ</option><option value="problem">แจ้งปัญหา</option><option value="update">อัปเดตผล</option></select>
           <textarea id="support-chat-body" class="fin" maxlength="2000" rows="2" placeholder="เขียนข้อความ…" onkeydown="supportChatKeydown(event)"></textarea>
           <button id="support-chat-send" class="tbtn primary" onclick="sendSupportChatMessage()">ส่ง</button>
-        </div><div class="support-chat-hint">สติ๊กเกอร์และแจ้งเตือนแบบ Realtime · ไฟล์ไม่เกิน 10 MB · Enter เพื่อส่ง</div>
+        </div><div class="support-chat-hint">สติ๊กเกอร์ · Web Push แม้ปิดหน้าเว็บ · ไฟล์ไม่เกิน 10 MB · Enter เพื่อส่ง</div>
       </div>
     </section>`;
   renderSupportChatRooms();renderSupportChatHeader();renderSupportChatMessages(false);renderSupportChatNotificationButton();loadSupportChatRooms();
@@ -377,10 +414,10 @@ const supportChatOnLoggedInBase=onLoggedIn;
 onLoggedIn=async function(...args){const result=await supportChatOnLoggedInBase(...args);if(ACCESS_PROFILE)initializeSupportChatNotifications();return result;};
 const supportChatLogoutBase=sbLogout;
 sbLogout=async function(...args){
-  if(SUPPORT_CHAT_GLOBAL_CHANNEL&&SB.removeChannel)SB.removeChannel(SUPPORT_CHAT_GLOBAL_CHANNEL);SUPPORT_CHAT_GLOBAL_CHANNEL=null;SUPPORT_CHAT_UNREAD.clear();SUPPORT_CHAT_PEEKS=[];document.getElementById('support-chat-dock')?.remove();
+  if(SUPPORT_CHAT_GLOBAL_CHANNEL&&SB.removeChannel)SB.removeChannel(SUPPORT_CHAT_GLOBAL_CHANNEL);SUPPORT_CHAT_GLOBAL_CHANNEL=null;SUPPORT_CHAT_UNREAD.clear();SUPPORT_CHAT_PEEKS=[];SUPPORT_CHAT_PUSH_SUBSCRIPTION=null;document.getElementById('support-chat-dock')?.remove();
   return supportChatLogoutBase(...args);
 };
 if(ACCESS_PROFILE)setTimeout(initializeSupportChatNotifications,0);
 
-MANUAL.push({id:'support-chat',ic:'i-chat',tt:'ข้อความ สติ๊กเกอร์ และการแจ้งเตือน',img:null,html:`<p>ระบบสนทนาภายใน Company Hub รองรับห้องกลาง กลุ่ม และแชทส่วนตัวแบบ Realtime</p><ol><li>กด <b>ข้อความใหม่</b> แล้วเลือกคน 1 คน หรือกด <b>สร้างกลุ่ม</b> เพื่อเลือกสมาชิกหลายคน</li><li>กด 😊 เพื่อเลือกสติ๊กเกอร์ หรือกด 📎 เพื่อแนบรูปและไฟล์ขนาดไม่เกิน 10 MB</li><li>เมื่อมีข้อความใหม่ ระบบจะแสดงการ์ดที่แถบล่าง พร้อมตัวเลขข้อความที่ยังไม่ได้เปิดและเสียงแจ้งเตือน</li><li>กด <b>เปิดแจ้งเตือนบนเครื่อง</b> เพื่อรับ Browser Notification เมื่อสลับไปแท็บอื่น โดยต้องอนุญาตผ่านเบราว์เซอร์ก่อน</li><li>ข้อความ กลุ่ม และไฟล์เปิดได้เฉพาะผู้ที่มีสิทธิ์ในห้องนั้น</li></ol>`});
+MANUAL.push({id:'support-chat',ic:'i-chat',tt:'ข้อความ สติ๊กเกอร์ และการแจ้งเตือน',img:null,html:`<p>ระบบสนทนาภายใน Company Hub รองรับห้องกลาง กลุ่ม และแชทส่วนตัวแบบ Realtime</p><ol><li>กด <b>ข้อความใหม่</b> แล้วเลือกคน 1 คน หรือกด <b>สร้างกลุ่ม</b> เพื่อเลือกสมาชิกหลายคน</li><li>กด 😊 เพื่อเลือกสติ๊กเกอร์ หรือกด 📎 เพื่อแนบรูปและไฟล์ขนาดไม่เกิน 10 MB</li><li>เมื่อมีข้อความใหม่ ระบบจะแสดงการ์ดที่แถบล่าง พร้อมตัวเลขข้อความที่ยังไม่ได้เปิดและเสียงแจ้งเตือน</li><li>กด <b>เปิดแจ้งเตือนทุกเวลา</b> เพื่อติดตั้ง Web Push บนอุปกรณ์นี้ รับแจ้งเตือนได้แม้ปิดหน้า Company Hub โดยต้องอนุญาตผ่านเบราว์เซอร์ก่อน</li><li>กดปุ่มเดิมอีกครั้งเพื่อปิดแจ้งเตือนเฉพาะอุปกรณ์นี้</li><li>ข้อความ กลุ่ม และไฟล์เปิดได้เฉพาะผู้ที่มีสิทธิ์ในห้องนั้น</li></ol>`});
 MANUAL.push({id:'department-transfer',ic:'i-users',tt:'ย้ายแผนกและดูประวัติ',img:null,html:`<p>ผู้บริหารหรือผู้ดูแลระบบใช้เมนูจัดการพนักงานเพื่อย้ายสังกัด</p><ol><li>เลือกพนักงานแล้วกด <b>ย้ายแผนก</b></li><li>ระบุแผนกใหม่ วันที่มีผล ตำแหน่ง และเหตุผล</li><li>งานและข้อมูลที่เคยบันทึกยังอยู่ในแผนกเดิม ส่วนสิทธิ์ปัจจุบันเปลี่ยนไปยังแผนกใหม่</li><li>กด <b>ประวัติแผนก</b> เพื่อตรวจช่วงเวลาย้อนหลัง</li></ol>`});

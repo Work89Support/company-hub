@@ -1,0 +1,11 @@
+{
+  "name":"Company Hub",
+  "short_name":"Company Hub",
+  "description":"ศูนย์รวมงาน ข้อความ และ KPI ขององค์กร",
+  "start_url":"./index.html",
+  "scope":"./",
+  "display":"standalone",
+  "background_color":"#f4f7fb",
+  "theme_color":"#183b72",
+  "icons":[{"src":"favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
