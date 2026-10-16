@@ -43,7 +43,7 @@ checkConnected:()=>{
  ACCESS_PROFILE={id:'ux-me',department_code:'AUD123',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=['AUD123','ADMIN','PROG'];VIEW='connectedSystems';RENDER.connectedSystems();
  if(main.querySelector('iframe'))throw new Error('Source screen must not be embedded');
  if(main.querySelectorAll('[data-department]').length!==3)throw new Error('Missing department results');
- if(!main.textContent.includes('รอเชื่อมผลจริง')||[...main.querySelectorAll('.cr-metrics strong')].some(n=>n.textContent!=='—'))throw new Error('Disconnected result must not imply zero');
+ if(!main.textContent.includes('ยังไม่มีผลที่เชื่อมไว้ใน 24 ชั่วโมง')||[...main.querySelectorAll('.cr-metrics strong')].some(n=>n.textContent!=='—'))throw new Error('Disconnected result must not imply zero');
  const popup={};let url='';window.open=(u)=>{url=u;return popup;};
  main.querySelector('#cr-connect').click();const hash=new URLSearchParams(url.split('#')[1]);
  const data={version:1,from:hash.get('from'),to:hash.get('to'),fetchedAt:new Date().toISOString(),partial:false,rows:[{id:'case1',title:'ACTUAL AUDIT CASE',company:'A',date:hash.get('from'),ownerId:'person-1',owner:'Audit owner',status:'clarifying',waiting:true,closed:false}],runs:[]};
@@ -55,7 +55,7 @@ checkConnected:()=>{
  main.querySelector('[data-department="ADMIN"]').click();if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Department data leaked into other source');
  if(!main.textContent.includes('ไม่มีการให้คะแนนรายบุคคล'))throw new Error('Missing metric provenance');
  ACCESS_PROFILE={id:'other-user',department_code:'AUD123'};RENDER.connectedSystems();main.querySelector('[data-department="AUD123"]').click();if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Previous account cache survived');
- ACCESS_PROFILE={id:'ux-me',department_code:'AUD123',active:true};RENDER.connectedSystems();main.querySelector('[data-department="AUD123"]').click();if(!main.textContent.includes('ACTUAL AUDIT CASE')||!main.textContent.includes('จำผลในแท็บนี้ 60 นาที'))throw new Error('Connected result did not survive same-tab account return');
+ ACCESS_PROFILE={id:'ux-me',department_code:'AUD123',active:true};RENDER.connectedSystems();main.querySelector('[data-department="AUD123"]').click();if(!main.textContent.includes('ACTUAL AUDIT CASE')||!main.textContent.includes('จำผลบนเครื่องนี้ 24 ชั่วโมง'))throw new Error('Connected result did not survive same-device account return');
  ACCESS_PROFILE=null;RENDER.connectedSystems();if(main.querySelector('a,button'))throw new Error('Source view requires Hub login');
 },
 checkWizard:async()=>{

@@ -35,5 +35,8 @@ assert.match(source,/mergeFullAccountRegistry/,'merges every created profile int
 assert.match(source,/account-summary-card/,'renders clickable account KPI summary cards');
 assert.match(source,/account-table-status/,'supports status filtering in the account table');
 assert.match(source,/missing_email/,'tracks accounts that still need an email');
+assert.match(source,/พร้อมเข้าสู่ระบบ/,'separates enabled accounts from accounts ready to sign in');
+assert.match(source,/ความพร้อมบัญชีครบ 14 แผนก/,'shows department readiness even when a department has no account');
+assert.match(source,/exportPendingAccountActivation/,'exports the activation follow-up queue');
 
 console.log('PASS access consolidation: KPI staff navigation, non-KPI isolation, and one Graphic account administration location');

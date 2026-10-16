@@ -46,7 +46,7 @@
   function accountRegistryMatches(row){
     const state=accountRegistryStatus(row);
     if(!ACCOUNT_DIRECTORY_STATUS)return true;
-    if(ACCOUNT_DIRECTORY_STATUS==='active')return state!=='inactive';
+    if(ACCOUNT_DIRECTORY_STATUS==='enabled')return state!=='inactive';
     if(ACCOUNT_DIRECTORY_STATUS==='missing_email')return !String(row.contact_email||'').trim();
     return state===ACCOUNT_DIRECTORY_STATUS;
   }
@@ -60,23 +60,31 @@
     const filters=document.querySelector('.account-filters');
     if(filters&&!document.getElementById('account-table-status')){
       const label=document.createElement('label');label.textContent='สถานะบัญชี';
-      label.innerHTML+=`<select class="fin" id="account-table-status"><option value="">ทุกสถานะ</option><option value="active">Active</option><option value="pending">รอตั้งรหัส</option><option value="inactive">ปิดใช้งาน</option><option value="missing_email">ยังไม่มีอีเมล</option></select>`;
+      label.innerHTML+=`<select class="fin" id="account-table-status"><option value="">ทุกสถานะ</option><option value="enabled">เปิดใช้งานในระบบ</option><option value="active">พร้อมเข้าสู่ระบบ</option><option value="pending">รอตั้งรหัส</option><option value="inactive">ปิดใช้งาน</option><option value="missing_email">ยังไม่มีอีเมล</option></select>`;
       filters.append(label);const select=document.getElementById('account-table-status');select.value=ACCOUNT_DIRECTORY_STATUS;select.onchange=event=>{ACCOUNT_DIRECTORY_STATUS=event.target.value;renderAccountRegistrySummary();renderAccountDirectory();};
     }
   };
 
   function renderAccountRegistrySummary(){
     const host=document.querySelector('.account-summary');if(!host)return;
-    const counts={all:ACCOUNT_REGISTRY.length,active:0,pending:0,inactive:0,missing_email:0};
-    for(const row of ACCOUNT_REGISTRY){const state=accountRegistryStatus(row);if(state==='inactive')counts.inactive++;else counts.active++;if(state!=='inactive'&&row.must_change_password===true)counts.pending++;if(!String(row.contact_email||'').trim())counts.missing_email++;}
-    const cards=[['','all','บัญชีทั้งหมด'],['active','active','Active'],['pending','pending','รอตั้งรหัส'],['inactive','inactive','ปิดใช้งาน'],['missing_email','missing_email','ยังไม่มีอีเมล']];
+    const counts={all:ACCOUNT_REGISTRY.length,enabled:0,active:0,pending:0,inactive:0,missing_email:0};
+    for(const row of ACCOUNT_REGISTRY){const state=accountRegistryStatus(row);if(state==='inactive')counts.inactive++;else counts.enabled++;if(state==='active')counts.active++;if(state!=='inactive'&&row.must_change_password===true)counts.pending++;if(!String(row.contact_email||'').trim())counts.missing_email++;}
+    const cards=[['','all','บัญชีทั้งหมด'],['enabled','enabled','เปิดใช้งาน'],['active','active','พร้อมเข้าสู่ระบบ'],['pending','pending','รอตั้งรหัส'],['inactive','inactive','ปิดใช้งาน'],['missing_email','missing_email','ยังไม่มีอีเมล']];
     host.innerHTML=cards.map(([filter,key,label])=>`<button type="button" class="account-summary-card ${ACCOUNT_DIRECTORY_STATUS===filter?'active':''}" onclick="setAccountDirectoryStatus('${filter}')"><b>${counts[key]}</b><span>${label}</span></button>`).join('');
+    let readiness=document.getElementById('account-department-readiness');
+    if(!readiness){readiness=document.createElement('section');readiness.id='account-department-readiness';readiness.className='account-department-readiness';host.after(readiness);}
+    const profileIds=new Set(ACCOUNT_REGISTRY.map(row=>row.profile_id));
+    const byDept=new Map(DEPTS.map(dept=>[dept.code,0]));
+    for(const row of ACCESS_USER_DEPTS||[])if(profileIds.has(row.profile_id)&&byDept.has(row.department_code))byDept.set(row.department_code,byDept.get(row.department_code)+1);
+    readiness.innerHTML=`<div class="account-readiness-head"><div><b>ความพร้อมบัญชีครบ 14 แผนก</b><span>คลิกเพื่อกรองรายชื่อ · แผนกที่ยังไม่มีบัญชีจะแสดงเป็น 0</span></div><button type="button" class="tbtn sm" onclick="exportPendingAccountActivation()">ส่งออกรายชื่อรอตั้งรหัส</button></div><div class="account-readiness-grid">${DEPTS.map(dept=>`<button type="button" class="${byDept.get(dept.code)?'':'missing'}" onclick="setAccountDepartmentFilter('${dept.code}')"><span>${esc(dept.name)}</span><b>${byDept.get(dept.code)||0}</b></button>`).join('')}</div>`;
   }
 
   window.setAccountDirectoryStatus=function(status){ACCOUNT_DIRECTORY_STATUS=status;renderAccountRegistrySummary();renderAccountDirectory();};
+  window.exportPendingAccountActivation=function(){const byId=new Map((ACCESS_USERS||[]).map(profile=>[profile.id,profile])),rows=ACCOUNT_REGISTRY.filter(row=>accountRegistryStatus(row)==='pending').map(row=>{const profile=byId.get(row.profile_id)||{},departments=[...new Set((ACCESS_USER_DEPTS||[]).filter(item=>item.profile_id===row.profile_id).map(item=>deptName(item.department_code)))];return [profile.display_name||row.login_name,row.contact_email||'',departments.join(' | '),profile.position_title||'',profile.active===false?'ปิดใช้งาน':'รอตั้งรหัส'];});downloadRows([['ชื่อ','อีเมล','แผนก','ตำแหน่ง','สถานะ'],...rows],`company-hub-pending-activation-${new Date().toISOString().slice(0,10)}.csv`);};
+  window.setAccountDepartmentFilter=function(code){const select=document.getElementById('account-table-dept');if(select){select.value=code;select.dispatchEvent(new Event('change',{bubbles:true}));}else toast('เลือกแผนก '+deptName(code)+' จากตัวกรองด้านล่าง','info');};
 
   if(!document.querySelector('style[data-account-registry]')){
-    const style=document.createElement('style');style.dataset.accountRegistry='1';style.textContent='.account-summary{grid-template-columns:repeat(5,minmax(120px,1fr))}.account-summary>button.account-summary-card{display:flex;align-items:baseline;gap:8px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:12px;text-align:left;cursor:pointer}.account-summary>button.account-summary-card:hover,.account-summary>button.account-summary-card.active{border-color:var(--blue-500);background:var(--blue-50);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue-500) 12%,transparent)}.account-summary-card b{font-size:23px;color:var(--blue-800)}.account-summary-card span{font-size:11px;color:var(--muted)}.account-filters{grid-template-columns:minmax(240px,1.5fr) repeat(3,minmax(150px,.7fr))}@media(max-width:900px){.account-summary{grid-template-columns:repeat(2,1fr)}.account-filters{grid-template-columns:1fr}}';document.head.append(style);
+    const style=document.createElement('style');style.dataset.accountRegistry='1';style.textContent='.account-summary{grid-template-columns:repeat(6,minmax(112px,1fr))}.account-summary>button.account-summary-card{display:flex;align-items:baseline;gap:8px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:12px;text-align:left;cursor:pointer}.account-summary>button.account-summary-card:hover,.account-summary>button.account-summary-card.active{border-color:var(--blue-500);background:var(--blue-50);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue-500) 12%,transparent)}.account-summary-card b{font-size:23px;color:var(--blue-800)}.account-summary-card span{font-size:11px;color:var(--muted)}.account-filters{grid-template-columns:minmax(240px,1.5fr) repeat(3,minmax(150px,.7fr))}.account-department-readiness{margin:14px 0 18px;padding:15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}.account-readiness-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.account-readiness-head span{font-size:11px;color:var(--muted)}.account-readiness-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px}.account-readiness-grid button{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);background:var(--blue-50);padding:8px 10px;border-radius:9px;color:var(--ink)}.account-readiness-grid button.missing{border-color:#fecaca;background:#fff5f5;color:#b42318}.account-readiness-grid button b{color:inherit}@media(max-width:900px){.account-summary{grid-template-columns:repeat(2,1fr)}.account-filters{grid-template-columns:1fr}.account-readiness-head{align-items:flex-start;flex-direction:column}}';document.head.append(style);
   }
 
   function teamGraphicAccountPanel(){

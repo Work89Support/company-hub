@@ -3,7 +3,9 @@ let ACTIVITY_ROWS=[];
 let ACTIVITY_READY=false;
 let ACTIVITY_LOADING=false;
 let ACTIVITY_ERROR='';
-let ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:'',to:''};
+const ACTIVITY_TODAY=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+let ACTIVITY_RANGE_MODE='month';
+let ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:ACTIVITY_TODAY.slice(0,7)+'-01',to:ACTIVITY_TODAY};
 let ACTIVITY_PAGE=1;
 const ACTIVITY_PAGE_SIZE=100;
 const ACTIVITY_PRODUCTION_URL='https://work89support.github.io/company-hub/prototype/index.html';
@@ -55,8 +57,15 @@ function activityVisibleRows(){
     &&(!ACTIVITY_FILTER.to||r.activity_date<=ACTIVITY_FILTER.to)
     &&(!q||[r.employee_name,r.activity,r.category,r.department_label,r.worksite,r.operational_issue,r.result_note].some(v=>String(v||'').toLowerCase().includes(q))));
 }
-function activitySet(key,value){ACTIVITY_FILTER[key]=value;ACTIVITY_PAGE=1;RENDER.activity();}
-function activityClear(){ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:'',to:''};ACTIVITY_PAGE=1;RENDER.activity();}
+function activitySet(key,value){ACTIVITY_FILTER[key]=value;if(key==='from'||key==='to')ACTIVITY_RANGE_MODE='custom';ACTIVITY_PAGE=1;RENDER.activity();}
+function activityClear(){ACTIVITY_RANGE_MODE='all';ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:'',to:''};ACTIVITY_PAGE=1;RENDER.activity();}
+function activitySetPeriod(mode){ACTIVITY_RANGE_MODE=mode;const base={department:ACTIVITY_FILTER.department,status:ACTIVITY_FILTER.status,query:ACTIVITY_FILTER.query,flag:ACTIVITY_FILTER.flag,quality:ACTIVITY_FILTER.quality,from:'',to:''};if(mode==='today')base.from=base.to=ACTIVITY_TODAY;if(mode==='month'){base.from=ACTIVITY_TODAY.slice(0,7)+'-01';base.to=ACTIVITY_TODAY;}ACTIVITY_FILTER=base;ACTIVITY_PAGE=1;RENDER.activity();}
+function activityReviewDepartment(code){ACTIVITY_FILTER.department=code;ACTIVITY_FILTER.quality='review';ACTIVITY_PAGE=1;RENDER.activity();document.querySelector('.activity-scroll')?.scrollIntoView({behavior:'smooth',block:'start'});}
+function activityReviewQueue(){
+  const review=ACTIVITY_ROWS.filter(row=>activityReviewFlags(row).length),groups=DEPTS.map(dept=>({dept,count:review.filter(row=>row.department_code===dept.code).length})).filter(row=>row.count).sort((a,b)=>b.count-a.count);
+  return `<section class="card activity-review-queue"><div class="card-h"><h3>${sic('i-target')} คิวตรวจข้อมูลแบบกลุ่ม</h3><span class="act">${nf(review.length)} รายการทั้งหมด · ระบบไม่รับรองแทนผู้รับผิดชอบ</span></div><div class="pad"><div class="activity-review-groups">${groups.map(({dept,count})=>`<button class="tbtn" onclick="activityReviewDepartment('${dept.code}')"><span>${esc(dept.name)}</span><b>${nf(count)}</b></button>`).join('')||'<span class="muted">ไม่มีรายการต้องตรวจ</span>'}</div><div class="activity-review-actions"><span class="muted">เลือกแผนกเพื่อเปิดเฉพาะรายการที่ขาดชื่อ สถานะ วันที่ หรือเวลา</span><button class="tbtn" onclick="exportActivityReviewQueue()">ส่งออกคิวตรวจ CSV</button></div></div></section>`;
+}
+function exportActivityReviewQueue(){const rows=activityVisibleRows().filter(row=>activityReviewFlags(row).length);downloadRows([['ID','วันที่','แผนก','พนักงาน','กิจกรรม','จุดที่ต้องตรวจ'],...rows.map(row=>[row.id,row.activity_date,row.department_label||deptName(row.department_code),row.employee_name,row.activity,activityReviewFlags(row).map(activityQualityLabel).join(' | ')])],`activity-review-${ACTIVITY_TODAY}.csv`);}
 function activityPage(page){ACTIVITY_PAGE=Math.max(1,page);RENDER.activity();document.querySelector('.activity-scroll')?.scrollIntoView({behavior:'smooth',block:'start'});}
 function canManageActivity(row){return isExecutiveRole()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(row.department_code));}
 function openActivityTime(id){
@@ -158,7 +167,9 @@ RENDER.activity=function(){
       <div class="card"><div class="card-h"><h3>${sic('i-target')} ตามสถานะ</h3><span class="act">ข้อมูลตามตัวกรอง</span></div><div class="pad">${hbars(byStatus)}</div></div>
     </div>
     ${activityReadinessBlock(false)}
+    ${activityReviewQueue()}
     <div class="card pad">
+      <div class="activity-periods"><b>ช่วงข้อมูล</b><button class="tbtn sm ${ACTIVITY_RANGE_MODE==='today'?'primary':''}" onclick="activitySetPeriod('today')">วันนี้</button><button class="tbtn sm ${ACTIVITY_RANGE_MODE==='month'?'primary':''}" onclick="activitySetPeriod('month')">เดือนนี้</button><button class="tbtn sm ${ACTIVITY_RANGE_MODE==='all'?'primary':''}" onclick="activitySetPeriod('all')">ทั้งหมด</button><span>เริ่มต้นที่เดือนปัจจุบันเพื่อลดรายการเก่ารบกวนการทำงานประจำวัน</span></div>
       <div class="activity-filters">
         <div class="field"><label>แผนก</label><select class="fin" onchange="activitySet('department',this.value)"><option value="">ทั้งหมดที่มีสิทธิ์</option>${departments.map(([code,label])=>`<option value="${esc(code)}" ${ACTIVITY_FILTER.department===code?'selected':''}>${esc(label)}</option>`).join('')}</select></div>
         <div class="field"><label>สถานะ</label><select class="fin" onchange="activitySet('status',this.value)"><option value="">ทั้งหมด</option>${statuses.map(s=>`<option ${ACTIVITY_FILTER.status===s?'selected':''}>${esc(s)}</option>`).join('')}</select></div>

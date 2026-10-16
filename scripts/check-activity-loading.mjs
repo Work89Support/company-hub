@@ -3,6 +3,9 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const source=fs.readFileSync(new URL('../prototype/activity-module.js',import.meta.url),'utf8');
+assert.match(source,/ACTIVITY_RANGE_MODE='month'/,'activity page defaults to the current month');
+assert.match(source,/คิวตรวจข้อมูลแบบกลุ่ม/,'activity page exposes a grouped review queue');
+assert.match(source,/exportActivityReviewQueue/,'activity review queue can be exported');
 
 function context(overrides={}){
   const main={innerHTML:''};

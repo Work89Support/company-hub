@@ -14,7 +14,7 @@ for(const id of required)assert.ok(manualIds.includes(id),'คู่มือข
 assert.equal(new Set(manualIds).size,manualIds.length,'คู่มือมีรหัสหัวข้อซ้ำ');
 assert.deepEqual(textOnlyIds.sort(),['extra','intro','loginAccess','world'],'หน้าฟังก์ชันในคู่มือต้องมีภาพปัจจุบันหรือเป็นฟังก์ชันใหม่ที่มีคำอธิบายครบ');
 for(const [,key] of page.matchAll(/img:'([^']+)'/g))assert.ok(String(images[key]||'').startsWith('data:image/'),'คู่มือขาดภาพ '+key);
-assert.ok(page.includes('คู่มือ Company Hub · เวอร์ชัน 15 ต.ค. 2569'));
+assert.ok(page.includes('คู่มือ Company Hub · เวอร์ชัน 16 ต.ค. 2569'));
 assert.ok(page.includes('manual-images.json?v=20261012-current-manual'));
 assert.ok(page.includes('reporting-integrity.js?v=20261016-chat-rooms-1'));
 assert.match(integrity,/document\.getElementById\('data-health'\)\?\.remove\(\);if\(failed\)/,'สถานะข้อมูลปกติต้องไม่แสดงบนหน้าผู้ใช้');

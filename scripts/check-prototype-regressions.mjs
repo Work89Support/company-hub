@@ -23,6 +23,7 @@ const checks = [
   ['Graphic renderer', /RENDER\.graphic\s*=\s*function/],
   ['Graphic database loader', /async function loadGraphic\(/],
   ['Graphic pagination', /GP_COLUMN_PAGE_SIZE\s*=\s*30/],
+  ['Graphic work separates current, stale and completed history', /function gpFreshness\(j\)[\s\S]*ค้างเกิน 30 วัน/],
   ['Graphic realtime refresh', /table:'graphic_jobs'/],
   ['Dashboard includes Graphic jobs', /function dashboardAllWork\(\)/],
   ['Production board unifies RLS-visible sources', /function boardAllWork\(\)[\s\S]*boardActivityRows\(\)[\s\S]*boardIssueRows\(\)/],
@@ -91,7 +92,7 @@ if (/edge_access_allowed/.test(inviteFunction) || /edge_access_allowed/.test(tal
 if (!/company-data-rules-v1/.test(talkFunction) || /api\.openai\.com/.test(talkFunction) || /OPENAI_API_KEY/.test(talkFunction)) failed.push(['Talk to Data uses the no-cost Company Data rules engine', /company-data-rules-v1/]);
 if (!/exactCount\(admin\.from\("daily_activities"\)/.test(talkFunction) || !/total:\s*activityTotal/.test(talkFunction) || !/total:\s*jobTotal/.test(talkFunction)) failed.push(['Talk to Data totals use exact database counts instead of the 5000-row sample', /exactCount|activityTotal|jobTotal/]);
 if (!/function openKpiEvidencePicker\(\)/.test(kpiWork) || !/\+ เพิ่มหลักฐาน KPI/.test(kpiWork) || !/openWorkKpis\(row\.kind,row\.id,row\.department\)/.test(kpiWork)) failed.push(['KPI page exposes a real-work evidence picker', /openKpiEvidencePicker|เพิ่มหลักฐาน KPI/]);
-if (!/sessionStorage\.setItem\(resultCacheKey\(source\)/.test(connectedSystems) || !/cacheTtl=60\*60\*1000/.test(connectedSystems)) failed.push(['Connected team results persist for one hour in the same tab and account', /sessionStorage|cacheTtl/]);
+if (!/localStorage\.setItem\(resultCacheKey\(source\)/.test(connectedSystems) || !/cacheTtl=24\*60\*60\*1000/.test(connectedSystems)) failed.push(['Connected team results persist for 24 hours on the same device and account', /localStorage|cacheTtl/]);
 if (!/enforce_device = false/.test(migration38) || !/enforce_ip = false/.test(migration38) || !/user_access_ip_rules[\s\S]*active = false/.test(migration38)) failed.push(['Migration disables every existing device and IP policy', /enforce_device = false|enforce_ip = false/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
