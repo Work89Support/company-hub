@@ -23,6 +23,11 @@
   let ACCOUNT_REGISTRY=[],ACCOUNT_DIRECTORY_STATUS='';
   const baseRenderAccountDirectory=renderAccountDirectory;
 
+  function isRealAccountEmail(value){
+    const email=String(value||'').trim().toLowerCase();
+    return !!email&&!email.endsWith('@company-hub.invalid');
+  }
+
   function accountRegistryStatus(row){
     const profile=(ACCESS_USERS||[]).find(item=>item.id===row.profile_id)||{};
     if(profile.active===false)return'inactive';
@@ -35,10 +40,11 @@
     for(const profile of ACCESS_USERS||[]){
       const existing=byProfile.get(profile.id);
       if(existing){
-        if(!existing.contact_email&&profile.email)existing.contact_email=profile.email;
+        if(!isRealAccountEmail(existing.contact_email)&&isRealAccountEmail(profile.email))existing.contact_email=profile.email;
+        else if(!isRealAccountEmail(existing.contact_email))existing.contact_email='';
         continue;
       }
-      byProfile.set(profile.id,{profile_id:profile.id,login_name:profile.display_name||profile.email||profile.id,contact_email:profile.email||'',must_change_password:null,source_key:'profile'});
+      byProfile.set(profile.id,{profile_id:profile.id,login_name:profile.display_name||(isRealAccountEmail(profile.email)?profile.email:profile.id),contact_email:isRealAccountEmail(profile.email)?profile.email:'',must_change_password:null,source_key:'profile'});
     }
     ACCOUNT_REGISTRY=[...byProfile.values()];ACCOUNT_LIST=ACCOUNT_REGISTRY;
   }
@@ -47,7 +53,7 @@
     const state=accountRegistryStatus(row);
     if(!ACCOUNT_DIRECTORY_STATUS)return true;
     if(ACCOUNT_DIRECTORY_STATUS==='enabled')return state!=='inactive';
-    if(ACCOUNT_DIRECTORY_STATUS==='missing_email')return !String(row.contact_email||'').trim();
+    if(ACCOUNT_DIRECTORY_STATUS==='missing_email')return !isRealAccountEmail(row.contact_email);
     return state===ACCOUNT_DIRECTORY_STATUS;
   }
 
@@ -60,7 +66,7 @@
     const filters=document.querySelector('.account-filters');
     if(filters&&!document.getElementById('account-table-status')){
       const label=document.createElement('label');label.textContent='สถานะบัญชี';
-      label.innerHTML+=`<select class="fin" id="account-table-status"><option value="">ทุกสถานะ</option><option value="enabled">เปิดใช้งานในระบบ</option><option value="active">พร้อมเข้าสู่ระบบ</option><option value="pending">รอตั้งรหัส</option><option value="inactive">ปิดใช้งาน</option><option value="missing_email">ยังไม่มีอีเมล</option></select>`;
+      label.innerHTML+=`<select class="fin" id="account-table-status"><option value="">ทุกสถานะ</option><option value="enabled">เปิดใช้งานในระบบ</option><option value="active">พร้อมเข้าสู่ระบบ</option><option value="pending">รอตั้งรหัส</option><option value="inactive">ปิดใช้งาน</option><option value="missing_email">ยังไม่มีอีเมลจริง</option></select>`;
       filters.append(label);const select=document.getElementById('account-table-status');select.value=ACCOUNT_DIRECTORY_STATUS;select.onchange=event=>{ACCOUNT_DIRECTORY_STATUS=event.target.value;renderAccountRegistrySummary();renderAccountDirectory();};
     }
   };
@@ -68,8 +74,8 @@
   function renderAccountRegistrySummary(){
     const host=document.querySelector('.account-summary');if(!host)return;
     const counts={all:ACCOUNT_REGISTRY.length,enabled:0,active:0,pending:0,inactive:0,missing_email:0};
-    for(const row of ACCOUNT_REGISTRY){const state=accountRegistryStatus(row);if(state==='inactive')counts.inactive++;else counts.enabled++;if(state==='active')counts.active++;if(state!=='inactive'&&row.must_change_password===true)counts.pending++;if(!String(row.contact_email||'').trim())counts.missing_email++;}
-    const cards=[['','all','บัญชีทั้งหมด'],['enabled','enabled','เปิดใช้งาน'],['active','active','พร้อมเข้าสู่ระบบ'],['pending','pending','รอตั้งรหัส'],['inactive','inactive','ปิดใช้งาน'],['missing_email','missing_email','ยังไม่มีอีเมล']];
+    for(const row of ACCOUNT_REGISTRY){const state=accountRegistryStatus(row);if(state==='inactive')counts.inactive++;else counts.enabled++;if(state==='active')counts.active++;if(state!=='inactive'&&row.must_change_password===true)counts.pending++;if(!isRealAccountEmail(row.contact_email))counts.missing_email++;}
+    const cards=[['','all','บัญชีทั้งหมด'],['enabled','enabled','เปิดใช้งาน'],['active','active','พร้อมเข้าสู่ระบบ'],['pending','pending','รอตั้งรหัส'],['inactive','inactive','ปิดใช้งาน'],['missing_email','missing_email','ยังไม่มีอีเมลจริง']];
     host.innerHTML=cards.map(([filter,key,label])=>`<button type="button" class="account-summary-card ${ACCOUNT_DIRECTORY_STATUS===filter?'active':''}" onclick="setAccountDirectoryStatus('${filter}')"><b>${counts[key]}</b><span>${label}</span></button>`).join('');
     let readiness=document.getElementById('account-department-readiness');
     if(!readiness){readiness=document.createElement('section');readiness.id='account-department-readiness';readiness.className='account-department-readiness';host.after(readiness);}
