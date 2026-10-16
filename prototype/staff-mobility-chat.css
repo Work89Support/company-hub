@@ -31,3 +31,38 @@ body.dark .support-chat-stickers,body.dark .support-chat-peek{background:var(--c
 body.dark .support-chat-floating,body.dark .support-chat-float-header,body.dark .support-chat-float-compose{background:var(--card);color:var(--ink)}body.dark .support-chat-float-rooms-panel{background:#17243a}body.dark .support-chat-float-compose textarea,body.dark .support-chat-float-compose select{border-color:#324661;background:#22324d;color:var(--ink)}
 @keyframes supportFloatIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
 @media(max-width:600px){.support-chat-floating{inset:8px;width:auto;height:auto;max-height:none;border-radius:18px}.support-chat-floating.minimized{top:auto;right:8px;bottom:70px;left:8px;height:66px}.support-chat-float-compose{grid-template-columns:38px 38px minmax(0,1fr) 40px}.support-chat-float-compose select{display:none}.support-chat-floating>.support-chat-list{padding:12px 10px}.support-chat-floating .support-message{max-width:91%}.support-chat-dock{bottom:14px}}
+
+/* Full-page chat: keep the room header and composer visible while only messages scroll. */
+@media(min-width:701px){
+  .support-chat-app{grid-template-columns:290px minmax(0,1fr);height:clamp(560px,calc(100dvh - 250px),700px);min-height:0}
+  .support-chat-main{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto;min-height:0;overflow:hidden}
+  .support-chat-room-head{min-height:64px;padding:10px 16px}
+  .support-room-heading>span{width:40px;height:40px}
+  .support-chat-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 20px}
+  .support-message{max-width:min(560px,72%);margin-bottom:7px;padding:8px 11px;border-radius:6px 15px 15px 15px}
+  .support-message.mine{border-radius:15px 6px 15px 15px}
+  .support-message-head{gap:5px;font-size:9px;line-height:1.35}
+  .support-message-head b{font-size:10.5px}
+  .support-message-head time{margin-left:3px}
+  .support-message p{margin-top:5px;line-height:1.45}
+  .support-chat-compose{position:relative;z-index:2;grid-template-columns:42px 42px 108px minmax(180px,1fr) auto;gap:7px;padding:9px 12px 5px}
+  .support-chat-compose textarea{min-height:42px;max-height:96px}
+  .support-chat-compose .tbtn{min-height:42px;padding-inline:17px}
+  .support-attach{width:42px;height:42px}
+  .support-chat-hint{padding:0 12px 7px}
+  .support-message.sticker{max-width:150px;padding:4px 6px}
+  .support-message.sticker .support-message-head{padding:0 2px}
+  .support-sticker{width:78px;min-height:74px;margin-top:2px;border-radius:21px}
+  .support-sticker span{font-size:44px}
+  .support-sticker small{margin-top:2px;font-size:8px}
+}
+
+/* The page already contains the full chat, so the floating launcher is redundant here. */
+body:has(.support-chat-app) .support-chat-dock{display:none}
+
+@media(max-width:700px){
+  .support-chat-app{height:auto;min-height:0}
+  .support-chat-main{display:grid;grid-template-rows:auto minmax(320px,1fr) auto auto auto;min-height:520px;overflow:hidden}
+  .support-chat-list{overflow-y:auto}
+  body:has(.support-chat-app) .support-chat-dock{display:none}
+}
