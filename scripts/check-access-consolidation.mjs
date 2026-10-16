@@ -9,9 +9,9 @@ const context={
   currentDept:()=>context.department,
   buildNav:()=>{context.navBuilds+=1;},navBuilds:0,department:'KPI',
   gpMemberAccounts:()=>'<button onclick="saveGraphicMemberLink(\'trello-1\')">เชื่อม</button>',
-  RENDER:{teamAccounts:async()=>{}},VIEW:'graphic',
+  renderAccountDirectory:()=>{},loadAccessUsers:async()=>{},RENDER:{teamAccounts:async()=>{}},VIEW:'graphic',
   canAdminAccess:()=>true,GRAPHIC_READY:true,loadGraphic:async()=>{},
-  document:{getElementById:()=>null,createElement:()=>({})},window:{},
+  document:{getElementById:()=>null,querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>({dataset:{}}),head:{append:()=>{}}},window:{},
   normSp:value=>String(value||'').trim(),val:()=>'',SB:{},toast:()=>{},
   gpMember:()=>({}),confirm:()=>false
 };
@@ -31,5 +31,9 @@ assert.equal(context.navBuilds,3,'refreshes navigation when the module loads aft
 assert.match(source,/const baseTeamAccounts=RENDER\.teamAccounts/,'wraps the central Team Accounts screen');
 assert.match(source,/team-graphic-account-links/,'places Graphic account linking in Team Accounts');
 assert.match(source,/saveGraphicMemberLinkFromAccounts/,'keeps Trello-to-account linking available centrally');
+assert.match(source,/mergeFullAccountRegistry/,'merges every created profile into the Team Accounts register');
+assert.match(source,/account-summary-card/,'renders clickable account KPI summary cards');
+assert.match(source,/account-table-status/,'supports status filtering in the account table');
+assert.match(source,/missing_email/,'tracks accounts that still need an email');
 
 console.log('PASS access consolidation: KPI staff navigation, non-KPI isolation, and one Graphic account administration location');
