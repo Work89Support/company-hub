@@ -4,11 +4,25 @@
  const sources={audit:{name:'Audit',origin:'https://work89support.github.io',url:'https://work89support.github.io/Audit-Reconciliation-Control/company-hub.html?v=20260909-hub-pages',home:'https://work89support.github.io/Audit-Reconciliation-Control/#/exceptions'},domainwatch:{name:'Domainwatch',origin:'https://domain-watch-app-sandy.vercel.app',url:'https://domain-watch-app-sandy.vercel.app/api/company-hub',home:'https://domain-watch-app-sandy.vercel.app/incidents'}};
  const groups={AUD123:{name:'ออดิทส่วนกลาง',source:'audit'},ADMIN:{name:'แอดมิน',source:'domainwatch'},PROG:{name:'IT / โปรแกรมเมอร์',source:'domainwatch'}};
  const cache={};let active='AUD123',pending=null,identity=null,page=0,company='',notice='';
+ const cacheVersion=1,cacheTtl=60*60*1000;
  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  let from=today.slice(0,7)+'-01',to=today;
  const safe=x=>esc(String(x??''));
  const allowed=()=>Object.keys(groups).filter(k=>canViewDept(k));
  function resetIdentity(){const id=ACCESS_PROFILE?.id||null;if(id!==identity){Object.keys(cache).forEach(k=>delete cache[k]);pending=null;identity=id;company='';page=0;}}
+ function resultCacheKey(source){return `company_hub_connected_result_v${cacheVersion}:${identity||'guest'}:${source}`;}
+ function validResultPayload(data){return !!(data&&data.version===1&&Array.isArray(data.rows)&&data.rows.length<=100000&&Number.isFinite(Date.parse(data.fetchedAt)));}
+ function restoreResult(source){
+  if(!identity)return null;
+  try{
+   const saved=JSON.parse(sessionStorage.getItem(resultCacheKey(source))||'null');
+   if(!saved||saved.source!==source||Date.now()-Number(saved.savedAt)>cacheTtl||!validResultPayload(saved.data)){sessionStorage.removeItem(resultCacheKey(source));return null;}
+   return saved.data;
+  }catch{return null;}
+ }
+ function rememberResult(source,data){
+  try{sessionStorage.setItem(resultCacheKey(source),JSON.stringify({source,savedAt:Date.now(),data}));}catch{}
+ }
  function rowsFor(data){return (data?.rows||[]).filter(r=>active!=='PROG'||!r.id.startsWith('MOBILE:')).map(r=>({...r,minutes:active==='ADMIN'?r.adminMin:active==='PROG'?r.itMin:null}));}
  function summary(rows){
   const closed=rows.filter(r=>r.closed===true).length,paused=rows.filter(r=>!r.closed&&r.status==='PAUSED').length;
@@ -17,7 +31,7 @@
    rate:rows.length?(closed/rows.length*100).toFixed(1):null,
    average:minutes.length?(minutes.reduce((a,b)=>a+b,0)/minutes.length).toFixed(1):null,timed:minutes.length};
  }
- function current(){resetIdentity();return cache[groups[active]?.source];}
+ function current(){resetIdentity();const source=groups[active]?.source;if(source&&!cache[source])cache[source]=restoreResult(source);return cache[source];}
  NAV.connectedSystems={t:'ผลประเมินทีม',ic:'i-grid'};
  const navGroup=NAVGROUPS.find(g=>g.label==='วัดผล & รายงาน');if(navGroup&&!navGroup.items.includes('connectedSystems'))navGroup.items.push('connectedSystems');
  for(const roles of [ROLE_ALLOW,SIMPLE_ALLOW])for(const allow of Object.values(roles))if(!allow.includes('connectedSystems'))allow.push('connectedSystems');
@@ -36,7 +50,7 @@
   if(!p||Date.now()-p.started>300000||event.source!==p.win||event.origin!==sources[p.source].origin||m?.type!=='company-hub-results'||m.nonce!==p.nonce||m.source!==p.source||p.identity!==ACCESS_PROFILE?.id)return;
   const d=m.data;if(!d||d.version!==1||d.from!==p.from||d.to!==p.to||!Array.isArray(d.rows)||d.rows.length>100000||!Number.isFinite(Date.parse(d.fetchedAt)))return;
   if(!d.rows.every(r=>r&&typeof r.id==='string'&&typeof r.title==='string'))return;
-  cache[p.source]=d;pending=null;company='';page=0;notice='เชื่อมผลจริงเรียบร้อยแล้ว';
+  cache[p.source]=d;rememberResult(p.source,d);pending=null;company='';page=0;notice='เชื่อมผลจริงเรียบร้อยแล้ว · ระบบจำผลในแท็บนี้ 60 นาที';
   if(VIEW==='connectedSystems')RENDER.connectedSystems();
  });
  RENDER.connectedSystems=function(){
@@ -55,7 +69,7 @@
   page=Math.max(0,Math.min(page,Math.ceil(rows.length/25)-1));
   main.innerHTML=`${crumb('หน้าแรก','ผลประเมินทีม')}<div class="page-h"><div><h1>ผลประเมินทีม</h1><p>ภาพรวมผลงานรายเดือนจาก Audit และ Domainwatch</p></div></div>
   <nav class="cr-tabs" aria-label="ทีม">${access.map(k=>`<button data-department="${k}" class="${active===k?'selected':''}" aria-pressed="${active===k}">${groups[k].name}<small>${sources[groups[k].source].name}</small></button>`).join('')}</nav>
-  <section class="card cr-panel"><div class="cr-heading"><div><h2>${groups[active].name}</h2><p>${safe(from)} – ${safe(to)} · ${valid?'อ่านผลเมื่อ '+safe(new Date(data.fetchedAt).toLocaleString('th-TH')):'รอเชื่อมผลจริง'} · ตามสิทธิ์บัญชี ${s.name}</p></div><button class="tbtn primary" id="cr-connect">${valid?'อัปเดตผลทีม':'เชื่อมผลจริง'}</button></div>
+  <section class="card cr-panel"><div class="cr-heading"><div><h2>${groups[active].name}</h2><p>${safe(from)} – ${safe(to)} · ${valid?'อ่านผลเมื่อ '+safe(new Date(data.fetchedAt).toLocaleString('th-TH'))+' · จำผลในแท็บนี้ 60 นาที':'รอเชื่อมผลจริง'} · ตามสิทธิ์บัญชี ${s.name}</p></div><button class="tbtn primary" id="cr-connect">${valid?'อัปเดตผลทีม':'เชื่อมผลจริง'}</button></div>
   <div class="cr-filters"><label>เดือนประเมิน<input id="cr-month" type="month" max="${today.slice(0,7)}" value="${safe(from.slice(0,7))}"></label><label>ตั้งแต่<input id="cr-from" type="date" value="${safe(from)}"></label><label>ถึง<input id="cr-to" type="date" max="${today}" value="${safe(to)}"></label><label>บริษัท<select id="cr-company"><option value="">ทุกบริษัทที่มีสิทธิ์</option>${companies.map(c=>`<option ${c===company?'selected':''} value="${safe(c)}">${safe(c)}</option>`).join('')}</select></label></div>
   ${notice?`<p role="status" class="cr-notice">${safe(notice)}</p>`:''}
   ${valid&&data.partial?'<p role="status" class="cr-warning">ข้อมูลบางส่วน — ยังใช้สรุปทั้งทีมไม่ได้ กรุณาลดช่วงวันที่แล้วเชื่อมผลใหม่</p>':''}

@@ -52,6 +52,12 @@ async function pageRows(fetchPage: (from: number, to: number) => PromiseLike<{ d
   return all;
 }
 
+async function exactCount(query: PromiseLike<{ count: number | null; error: unknown }>) {
+  const { count, error } = await query;
+  if (error) throw error;
+  return Number(count || 0);
+}
+
 function topLabel(rows: unknown, empty = "ยังไม่มีข้อมูล") {
   if (!Array.isArray(rows) || !rows.length) return empty;
   return rows.slice(0, 3).map((item) => Array.isArray(item) ? `${item[0]} ${item[1]} รายการ` : "").filter(Boolean).join(" · ") || empty;
@@ -169,6 +175,14 @@ export default {
           ? [...new Set([profile.department_code, ...(accessRows || []).filter((row: Row) => row.can_manage).map((row: Row) => row.department_code)].filter(Boolean).map(String))]
           : [];
 
+      const countPromise = Promise.all([
+        can("GRAPHIC") ? exactCount(admin.from("graphic_jobs").select("id", { count: "exact", head: true }).eq("department_code", "GRAPHIC")) : Promise.resolve(0),
+        can("GRAPHIC") ? exactCount(admin.from("graphic_jobs").select("id", { count: "exact", head: true }).eq("department_code", "GRAPHIC").neq("status", "done")) : Promise.resolve(0),
+        can("GRAPHIC") ? exactCount(admin.from("graphic_jobs").select("id", { count: "exact", head: true }).eq("department_code", "GRAPHIC").neq("status", "done").lt("due_at", new Date().toISOString())) : Promise.resolve(0),
+        can("ADMIN") ? exactCount(admin.from("operational_issues").select("id", { count: "exact", head: true }).eq("department_code", "ADMIN")) : Promise.resolve(0),
+        can("ADMIN") ? exactCount(admin.from("operational_issues").select("id", { count: "exact", head: true }).eq("department_code", "ADMIN").eq("status", "Resolved")) : Promise.resolve(0),
+        exactCount(admin.from("daily_activities").select("id", { count: "exact", head: true }).in("department_code", allowedDepartments.length ? allowedDepartments : ["__NONE__"])),
+      ]);
       const jobsPromise = can("GRAPHIC") ? pageRows((from, to) => admin.from("graphic_jobs")
         .select("id,job_no,department_code,project_id,title,brief,work_type,status,priority,requester_name,assignee_name,due_at,revision_count,started_at,submitted_at,completed_at,created_at,updated_at")
         .eq("department_code", "GRAPHIC").order("updated_at", { ascending: false }).range(from, to)) : Promise.resolve([]);
@@ -193,9 +207,10 @@ export default {
         .in("department_code", allowedDepartments.length ? allowedDepartments : ["__NONE__"])
         .eq("active", true).order("department_code").range(from, to), 2000);
 
-      const [jobs, projectResult, issues, activities, knowledgeRows, sopRows, kpis] = await Promise.all([
-        jobsPromise, projectsPromise, issuesPromise, activitiesPromise, knowledgePromise, sopPromise, kpiPromise,
+      const [counts, jobs, projectResult, issues, activities, knowledgeRows, sopRows, kpis] = await Promise.all([
+        countPromise, jobsPromise, projectsPromise, issuesPromise, activitiesPromise, knowledgePromise, sopPromise, kpiPromise,
       ]);
+      const [jobTotal,activeJobTotal,overdueJobTotal,issueTotal,resolvedIssueTotal,activityTotal]=counts;
       if (projectResult.error) throw projectResult.error;
       const knowledge = knowledgeRows.filter((row) => row.status === "published" || managedDepartments.includes(String(row.department_code)));
       const sops = sopRows.filter((row) => row.status === "published" || managedDepartments.includes(String(row.department_code)));
@@ -248,7 +263,7 @@ export default {
         current_page: view,
         current_filters: filters,
         graphic: can("GRAPHIC") ? {
-          total: jobs.length, active: activeJobs.length, overdue: overdueJobs.length,
+          total: jobTotal, active: activeJobTotal, overdue: overdueJobTotal,
           status_counts: countBy(jobs, "status"), priority_counts: countBy(jobs, "priority"),
           project_counts: Object.entries(jobs.reduce((acc: Record<string, number>, row) => {
             const name = projectNames[String(row.project_id)] || "ไม่ระบุโปรเจกต์"; acc[name] = (acc[name] || 0) + 1; return acc;
@@ -260,13 +275,13 @@ export default {
           })),
         } : null,
         operational_issues: can("ADMIN") ? {
-          total: issues.length, open: issues.length - resolvedIssues.length, resolved: resolvedIssues.length,
+          total: issueTotal, open: issueTotal - resolvedIssueTotal, resolved: resolvedIssueTotal,
           status_counts: countBy(issues, "status"), priority_counts: countBy(issues, "priority"), category_counts: countBy(issues, "category"), project_counts: countBy(issues, "project_code"),
           average_resolution_minutes: resolvedIssues.length ? Math.round(resolvedIssues.reduce((sum, row) => sum + Number(row.resolution_minutes || 0), 0) / resolvedIssues.length) : null,
           relevant_issues: relevant(issues, question, ["id", "project_code", "category", "problem", "priority", "status", "owner_team", "solution"], 80),
         } : null,
         employee_activities: {
-          total: activities.length, counted_hours: Math.round(validMinutes / 6) / 10,
+          total: activityTotal, counted_hours: Math.round(validMinutes / 6) / 10,
           department_counts: countBy(activities, "department_code"), employee_counts: countBy(activities, "employee_name"), category_counts: countBy(activities, "category"), time_flag_counts: countBy(activities, "time_flag"), status_counts: countBy(activities, "status"),
           relevant_activities: relevant(activities, question, ["department_code", "group_code", "activity_date", "employee_name", "activity", "category", "status", "time_flag"], 70),
         },

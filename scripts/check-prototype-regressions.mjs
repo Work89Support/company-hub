@@ -13,6 +13,8 @@ const migration38 = fs.readFileSync(new URL('../supabase/migrations/202610150038
 const accessGate = fs.readFileSync(new URL('../supabase/functions/access-gate/index.ts', import.meta.url), 'utf8');
 const inviteFunction = fs.readFileSync(new URL('../supabase/functions/invite-company-user/index.ts', import.meta.url), 'utf8');
 const talkFunction = fs.readFileSync(new URL('../supabase/functions/talk-to-data/index.ts', import.meta.url), 'utf8');
+const kpiWork = fs.readFileSync(new URL('../prototype/kpi-work.js', import.meta.url), 'utf8');
+const connectedSystems = fs.readFileSync(new URL('../prototype/connected-systems.js', import.meta.url), 'utf8');
 const issueImporter = fs.readFileSync(new URL('./prepare_operational_issue_import.py', import.meta.url), 'utf8');
 const checks = [
   ['production activity module is loaded', /<script src="activity-module\.js\?v=[^"]+"><\/script>/],
@@ -87,6 +89,9 @@ if (!/enforce_device/.test(migration19) || !/allowed_network inet/.test(migratio
 if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/company_credentials_ready/.test(accessGate) || !/allowed: true/.test(accessGate) || /evaluate_login_access/.test(accessGate)) failed.push(['Legacy Access Gate verifies the account only and never checks device or IP', /getUser|company_credentials_ready|allowed: true/]);
 if (/edge_access_allowed/.test(inviteFunction) || /edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions no longer require device or IP approval', /edge_access_allowed/]);
 if (!/company-data-rules-v1/.test(talkFunction) || /api\.openai\.com/.test(talkFunction) || /OPENAI_API_KEY/.test(talkFunction)) failed.push(['Talk to Data uses the no-cost Company Data rules engine', /company-data-rules-v1/]);
+if (!/exactCount\(admin\.from\("daily_activities"\)/.test(talkFunction) || !/total:\s*activityTotal/.test(talkFunction) || !/total:\s*jobTotal/.test(talkFunction)) failed.push(['Talk to Data totals use exact database counts instead of the 5000-row sample', /exactCount|activityTotal|jobTotal/]);
+if (!/function openKpiEvidencePicker\(\)/.test(kpiWork) || !/\+ เพิ่มหลักฐาน KPI/.test(kpiWork) || !/openWorkKpis\(row\.kind,row\.id,row\.department\)/.test(kpiWork)) failed.push(['KPI page exposes a real-work evidence picker', /openKpiEvidencePicker|เพิ่มหลักฐาน KPI/]);
+if (!/sessionStorage\.setItem\(resultCacheKey\(source\)/.test(connectedSystems) || !/cacheTtl=60\*60\*1000/.test(connectedSystems)) failed.push(['Connected team results persist for one hour in the same tab and account', /sessionStorage|cacheTtl/]);
 if (!/enforce_device = false/.test(migration38) || !/enforce_ip = false/.test(migration38) || !/user_access_ip_rules[\s\S]*active = false/.test(migration38)) failed.push(['Migration disables every existing device and IP policy', /enforce_device = false|enforce_ip = false/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
