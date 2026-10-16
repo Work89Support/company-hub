@@ -205,3 +205,6 @@ if(!document.querySelector('script[data-company-ux]')){const script=document.cre
 // Department history and shared support room release (15 Oct 2026).
 if(!document.querySelector('link[data-staff-mobility]')){const link=document.createElement('link');link.rel='stylesheet';link.href='staff-mobility-chat.css?v=20261016-floating-chat-4';link.dataset.staffMobility='1';document.head.append(link);}
 if(!document.querySelector('script[data-staff-mobility]')){const script=document.createElement('script');script.src='staff-mobility-chat.js?v=20261016-floating-chat-4';script.dataset.staffMobility='1';document.head.append(script);}
+
+// KPI department navigation and centralised Graphic account administration.
+if(!document.querySelector('script[data-access-consolidation]')){const script=document.createElement('script');script.src='access-consolidation.js?v=20261016-kpi-graphic-1';script.dataset.accessConsolidation='1';document.head.append(script);}
