@@ -34,7 +34,7 @@ body.dark .support-chat-floating,body.dark .support-chat-float-header,body.dark 
 
 /* Full-page chat: keep the room header and composer visible while only messages scroll. */
 @media(min-width:701px){
-  .support-chat-app{grid-template-columns:290px minmax(0,1fr);height:clamp(560px,calc(100dvh - 250px),700px);min-height:0}
+  .support-chat-app{grid-template-columns:290px minmax(0,1fr);height:clamp(500px,calc(100dvh - 330px),660px);min-height:0}
   .support-chat-main{display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto;min-height:0;overflow:hidden}
   .support-chat-room-head{min-height:64px;padding:10px 16px}
   .support-room-heading>span{width:40px;height:40px}
@@ -46,7 +46,7 @@ body.dark .support-chat-floating,body.dark .support-chat-float-header,body.dark 
   .support-message-head time{margin-left:3px}
   .support-message p{margin-top:5px;line-height:1.45}
   .support-chat-compose{position:relative;z-index:2;grid-template-columns:42px 42px 108px minmax(180px,1fr) auto;gap:7px;padding:9px 12px 5px}
-  .support-chat-compose textarea{min-height:42px;max-height:96px}
+  .ux-ready .support-chat-compose textarea.fin{height:42px;min-height:42px;max-height:96px;resize:none}
   .support-chat-compose .tbtn{min-height:42px;padding-inline:17px}
   .support-attach{width:42px;height:42px}
   .support-chat-hint{padding:0 12px 7px}
