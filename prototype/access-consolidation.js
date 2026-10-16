@@ -65,4 +65,7 @@
       const target=document.getElementById('account-admin-error');if(target)target.textContent='โหลดรายชื่อทีมกราฟิกไม่สำเร็จ · '+(error.message||'');
     }
   };
+
+  // The module is loaded dynamically; refresh navigation if login finished first.
+  if(ACCESS_PROFILE)buildNav();
 })();

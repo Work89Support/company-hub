@@ -18,7 +18,7 @@ const context={
 vm.createContext(context);vm.runInContext(source,context);
 
 context.buildNav();
-assert.equal(context.navBuilds,1,'keeps the original navigation builder');
+assert.equal(context.navBuilds,2,'keeps the original navigation builder and refreshes after dynamic loading');
 assert(context.ROLE_ALLOW.staff.includes('kpi'),'KPI staff receives the full KPI navigation item');
 assert(context.SIMPLE_ALLOW.staff.includes('kpi'),'KPI staff receives the simple KPI navigation item');
 
@@ -26,6 +26,7 @@ context.department='CRM';context.buildNav();
 assert(!context.ROLE_ALLOW.staff.includes('kpi'),'non-KPI staff does not retain the KPI item');
 assert(!context.SIMPLE_ALLOW.staff.includes('kpi'),'simple navigation follows the same department rule');
 assert.equal(context.gpMemberAccounts(),'','Graphic Production no longer renders account administration');
+assert.equal(context.navBuilds,3,'refreshes navigation when the module loads after login');
 
 assert.match(source,/const baseTeamAccounts=RENDER\.teamAccounts/,'wraps the central Team Accounts screen');
 assert.match(source,/team-graphic-account-links/,'places Graphic account linking in Team Accounts');
