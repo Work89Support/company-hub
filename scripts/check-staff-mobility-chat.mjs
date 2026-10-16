@@ -19,6 +19,8 @@ for(const token of ['create table if not exists public.chat_rooms','create table
 }
 for(const token of ['support-chat-sidebar','support-chat-rooms','chat-member-list','chat-image-attachment','chat-file-attachment'])assert.ok(css.includes(token),`missing chat UI style ${token}`);
 for(const token of ['support-chat-stickers','support-sticker','support-chat-dock','support-chat-peek','support-unread'])assert.ok(css.includes(token),`missing sticker/notification UI ${token}`);
+for(const token of ['support-chat-floating','support-chat-float-header','support-chat-float-compose','support-chat-float-rooms-panel'])assert.ok(css.includes(token),`missing floating chat UI ${token}`);
+for(const token of ['openSupportChatFloating','supportChatFloatingMinimize','toggleSupportChatFloating','closeSupportChatFloating'])assert.ok(source.includes(token),`missing floating chat behavior ${token}`);
 assert.match(migration40,/room members read chat messages/);
 assert.match(migration40,/chat members read attachments/);
 assert.match(migration40,/10485760/,'attachment limit must remain 10 MB');
@@ -74,9 +76,17 @@ assert.ok(main.querySelector('.support-sticker'),'sticker renders as a large vis
 ctx.supportChatReceive({id:'m3',room_id:directRoom.id,author_id:'u2',author_name:'User Two',department_code:'FIN',message_type:'message',body:'มีข้อความใหม่',created_at:'2026-10-16T04:00:00Z'});
 assert.equal(document.querySelector('.support-chat-dock-button b')?.textContent,'1','unread message appears in the bottom dock');
 assert.ok(document.querySelector('.support-chat-peek'),'new message shows a Facebook-style bottom peek');
+await ctx.openSupportChatFloating(directRoom.id);
+assert.ok(document.getElementById('support-chat-floating'),'bottom dock opens a floating messenger without changing page');
+assert.ok(document.querySelector('#support-chat-floating .support-room-heading')?.textContent.includes('User Two'),'floating messenger renders the selected room');
+ctx.supportChatFloatingMinimize();
+assert.ok(document.getElementById('support-chat-floating').classList.contains('minimized'),'floating messenger can be minimized');
+ctx.supportChatFloatingMinimize();
+ctx.supportChatFloatingRooms(true);
+assert.ok(document.querySelector('.support-chat-float-rooms-panel.show'),'floating messenger switches rooms in place');
 await ctx.openSupportChatCreate('direct');
 modal.querySelector('.chat-member-choice input').checked=true;
 await ctx.createSupportChatRoom('direct');
 assert.ok(rpcCalls.some(([name,args])=>name==='create_chat_room'&&args.p_member_ids[0]==='u2'));
-console.log('PASS secure chat rooms, stickers, bottom message peeks, unread badge, direct/group chat and private attachments');
+console.log('PASS secure chat rooms, floating messenger, stickers, bottom peeks, unread badge, direct/group chat and private attachments');
 await window.happyDOM.close();

@@ -110,18 +110,17 @@ async function hydrateSupportChatAttachments(){
     const result=await SB.storage.from('chat-attachments').createSignedUrl(row.attachment_path,3600);
     if(result.data?.signedUrl){SUPPORT_CHAT_ATTACHMENT_URLS.set(row.attachment_path,result.data.signedUrl);changed=true;}
   }));
-  if(changed&&VIEW==='supportChat')renderSupportChatMessages(false);
+  if(changed&&(VIEW==='supportChat'||document.getElementById('support-chat-floating')))renderSupportChatMessages(false);
 }
 async function supportChatOpenAttachment(path,name){
   let url=SUPPORT_CHAT_ATTACHMENT_URLS.get(path);
   if(!url){const result=await SB.storage.from('chat-attachments').createSignedUrl(path,300,{download:name});if(result.error){toast('เปิดไฟล์ไม่สำเร็จ · '+result.error.message,'info');return;}url=result.data?.signedUrl;}
   if(url)window.open(url,'_blank','noopener');
 }
-function renderSupportChatMessages(scroll=true){
-  const list=document.getElementById('support-chat-list');if(!list)return;
-  if(!SUPPORT_CHAT_ROOM_ID){list.innerHTML='<div class="support-chat-empty"><b>เลือกห้องสนทนา</b><span>เลือกห้องด้านซ้ายหรือสร้างกลุ่มใหม่</span></div>';return;}
-  if(!SUPPORT_CHAT_ROWS.length){list.innerHTML='<div class="support-chat-empty"><b>ยังไม่มีข้อความ</b><span>เริ่มบทสนทนาด้วยข้อความ รูปภาพ หรือไฟล์ได้เลย</span></div>';return;}
-  list.innerHTML=SUPPORT_CHAT_ROWS.map(row=>{
+function supportChatMessagesMarkup(){
+  if(!SUPPORT_CHAT_ROOM_ID)return '<div class="support-chat-empty"><b>เลือกห้องสนทนา</b><span>เลือกห้องหรือสร้างกลุ่มใหม่</span></div>';
+  if(!SUPPORT_CHAT_ROWS.length)return '<div class="support-chat-empty"><b>ยังไม่มีข้อความ</b><span>เริ่มบทสนทนาด้วยข้อความ รูปภาพ หรือไฟล์ได้เลย</span></div>';
+  return SUPPORT_CHAT_ROWS.map(row=>{
     const mine=row.author_id===ACCESS_PROFILE?.id,type=supportChatTypeLabel(row.message_type),sticker=row.message_type==='sticker'?supportChatSticker(row.body):null;
     return `<article class="support-message ${mine?'mine':''} ${sticker?'sticker':''}" data-message-id="${esc(row.id)}">
       <div class="support-message-head"><b>${esc(row.author_name||'ผู้ใช้งาน')}</b><span>${esc(deptName(row.department_code)||row.department_code||'-')}</span><time>${esc(supportChatTime(row.created_at))}</time></div>
@@ -129,18 +128,28 @@ function renderSupportChatMessages(scroll=true){
       ${sticker?`<div class="support-sticker" role="img" aria-label="สติ๊กเกอร์ ${esc(sticker.label)}"><span>${sticker.emoji}</span><small>${esc(sticker.label)}</small></div>`:row.body?`<p>${esc(row.body).replace(/\n/g,'<br>')}</p>`:''}${supportChatAttachment(row)}
     </article>`;
   }).join('');
-  if(scroll)requestAnimationFrame(()=>{list.scrollTop=list.scrollHeight;});
+}
+function renderSupportChatMessages(scroll=true){
+  const markup=supportChatMessagesMarkup();
+  for(const list of [document.getElementById('support-chat-list'),document.getElementById('support-chat-float-list')].filter(Boolean)){
+    list.innerHTML=markup;if(scroll)requestAnimationFrame(()=>{list.scrollTop=list.scrollHeight;});
+  }
   hydrateSupportChatAttachments();
 }
+function supportChatRoomsMarkup(query=''){
+  const q=query.trim().toLowerCase(),rooms=SUPPORT_CHAT_ROOMS.filter(room=>(supportChatRoomTitle(room)+' '+supportChatRoomSubtitle(room)).toLowerCase().includes(q));
+  return rooms.length?rooms.map(room=>{const unread=SUPPORT_CHAT_UNREAD.get(room.id)||0;return `<button class="support-room ${room.id===SUPPORT_CHAT_ROOM_ID?'active':''}" onclick="selectSupportChatRoom('${esc(room.id)}');supportChatFloatingRooms(false)"><span class="support-room-avatar">${supportChatRoomIcon(room)}</span><span><b>${esc(supportChatRoomTitle(room))}</b><small>${esc(supportChatRoomSubtitle(room))}</small></span>${unread?`<strong class="support-unread">${unread>99?'99+':unread}</strong>`:'<i>›</i>'}</button>`;}).join(''):'<div class="support-room-empty">ไม่พบห้องสนทนา</div>';
+}
 function renderSupportChatRooms(){
-  const holder=document.getElementById('support-chat-rooms');if(!holder)return;
-  const q=(document.getElementById('support-chat-search')?.value||'').trim().toLowerCase();
-  const rooms=SUPPORT_CHAT_ROOMS.filter(room=>(supportChatRoomTitle(room)+' '+supportChatRoomSubtitle(room)).toLowerCase().includes(q));
-  holder.innerHTML=rooms.length?rooms.map(room=>{const unread=SUPPORT_CHAT_UNREAD.get(room.id)||0;return `<button class="support-room ${room.id===SUPPORT_CHAT_ROOM_ID?'active':''}" onclick="selectSupportChatRoom('${esc(room.id)}')"><span class="support-room-avatar">${supportChatRoomIcon(room)}</span><span><b>${esc(supportChatRoomTitle(room))}</b><small>${esc(supportChatRoomSubtitle(room))}</small></span>${unread?`<strong class="support-unread">${unread>99?'99+':unread}</strong>`:'<i>›</i>'}</button>`;}).join(''):'<div class="support-room-empty">ไม่พบห้องสนทนา</div>';
+  const page=document.getElementById('support-chat-rooms'),floating=document.getElementById('support-chat-float-rooms');
+  if(page)page.innerHTML=supportChatRoomsMarkup(document.getElementById('support-chat-search')?.value||'');
+  if(floating)floating.innerHTML=supportChatRoomsMarkup(document.getElementById('support-chat-float-search')?.value||'');
+}
+function supportChatHeaderMarkup(){
+  const room=supportChatCurrentRoom();return room?`<div class="support-room-heading"><span>${supportChatRoomIcon(room)}</span><div><b>${esc(supportChatRoomTitle(room))}</b><small>${esc(supportChatRoomSubtitle(room))} · Realtime</small></div></div>`:'<div class="support-room-heading"><span>💬</span><div><b>เลือกห้องสนทนา</b></div></div>';
 }
 function renderSupportChatHeader(){
-  const holder=document.getElementById('support-chat-room-head'),room=supportChatCurrentRoom();if(!holder)return;
-  holder.innerHTML=room?`<div class="support-room-heading"><span>${supportChatRoomIcon(room)}</span><div><b>${esc(supportChatRoomTitle(room))}</b><small>${esc(supportChatRoomSubtitle(room))} · ข้อความแบบ Realtime</small></div></div>`:'<div class="support-room-heading"><span>💬</span><div><b>เลือกห้องสนทนา</b></div></div>';
+  const markup=supportChatHeaderMarkup(),page=document.getElementById('support-chat-room-head'),floating=document.getElementById('support-chat-float-room-head');if(page)page.innerHTML=markup;if(floating)floating.innerHTML=markup;
 }
 async function loadSupportChatDirectory(){
   const result=await SB.rpc('chat_directory');if(result.error)throw result.error;SUPPORT_CHAT_DIRECTORY=result.data||[];
@@ -236,19 +245,18 @@ function supportChatReceive(row){
   if(!row||row.author_id===ACCESS_PROFILE?.id)return;
   const room=SUPPORT_CHAT_ROOMS.find(item=>item.id===row.room_id);if(!room)return;
   room.updated_at=row.created_at||new Date().toISOString();SUPPORT_CHAT_ROOMS.sort((a,b)=>String(b.updated_at).localeCompare(String(a.updated_at)));
-  const viewing=VIEW==='supportChat'&&SUPPORT_CHAT_ROOM_ID===row.room_id&&document.visibilityState==='visible';
+  const viewing=(VIEW==='supportChat'||!!document.getElementById('support-chat-floating'))&&SUPPORT_CHAT_ROOM_ID===row.room_id&&document.visibilityState==='visible';
   if(viewing){if(!SUPPORT_CHAT_ROWS.some(item=>item.id===row.id))SUPPORT_CHAT_ROWS.push(row);supportChatMarkRead(row.room_id);renderSupportChatMessages();return;}
   SUPPORT_CHAT_UNREAD.set(row.room_id,(SUPPORT_CHAT_UNREAD.get(row.room_id)||0)+1);
   SUPPORT_CHAT_PEEKS=[row,...SUPPORT_CHAT_PEEKS.filter(item=>item.room_id!==row.room_id)].slice(0,3);
   renderSupportChatRooms();renderSupportChatDock();supportChatPlaySound();supportChatSystemNotification(row,room);
 }
 function supportChatDismissPeek(roomId,event){event?.stopPropagation();SUPPORT_CHAT_PEEKS=SUPPORT_CHAT_PEEKS.filter(item=>item.room_id!==roomId);renderSupportChatDock();}
-function supportChatOpenRoom(roomId){
-  supportChatMarkRead(roomId);SUPPORT_CHAT_ROOM_ID='';SUPPORT_CHAT_ROWS=[];go('supportChat');requestAnimationFrame(()=>selectSupportChatRoom(roomId));
-}
+function supportChatOpenRoom(roomId){openSupportChatFloating(roomId);}
+
 function renderSupportChatDock(){
   let dock=document.getElementById('support-chat-dock');if(!dock){dock=document.createElement('aside');dock.id='support-chat-dock';dock.className='support-chat-dock';dock.setAttribute('aria-live','polite');document.body.append(dock);}
-  const total=supportChatUnreadTotal();dock.innerHTML=`<div class="support-chat-peeks">${SUPPORT_CHAT_PEEKS.map(row=>{const room=SUPPORT_CHAT_ROOMS.find(item=>item.id===row.room_id);return `<button class="support-chat-peek" onclick="supportChatOpenRoom('${esc(row.room_id)}')"><span class="support-chat-peek-avatar">${supportChatRoomIcon(room)}</span><span><b>${esc(supportChatRoomTitle(room))}</b><small>${esc(row.author_name||'ข้อความใหม่')} · ${esc(supportChatPreview(row))}</small></span><i onclick="supportChatDismissPeek('${esc(row.room_id)}',event)" aria-label="ปิด">×</i></button>`;}).join('')}</div><button class="support-chat-dock-button" onclick="go('supportChat')" title="เปิดข้อความ">${sic('i-chat')}<span>ข้อความ</span>${total?`<b>${total>99?'99+':total}</b>`:''}</button>`;
+  const total=supportChatUnreadTotal();dock.innerHTML=`<div class="support-chat-peeks">${SUPPORT_CHAT_PEEKS.map(row=>{const room=SUPPORT_CHAT_ROOMS.find(item=>item.id===row.room_id);return `<button class="support-chat-peek" onclick="supportChatOpenRoom('${esc(row.room_id)}')"><span class="support-chat-peek-avatar">${supportChatRoomIcon(room)}</span><span><b>${esc(supportChatRoomTitle(room))}</b><small>${esc(row.author_name||'ข้อความใหม่')} · ${esc(supportChatPreview(row))}</small></span><i onclick="supportChatDismissPeek('${esc(row.room_id)}',event)" aria-label="ปิด">×</i></button>`;}).join('')}</div><button class="support-chat-dock-button" onclick="toggleSupportChatFloating()" title="เปิดข้อความ">${sic('i-chat')}<span>ข้อความ</span>${total?`<b>${total>99?'99+':total}</b>`:''}</button>`;
   const title=document.title.replace(/^\(\d+\)\s*/, '');document.title=total?`(${total}) ${title}`:title;
 }
 async function initializeSupportChatNotifications(){
@@ -259,8 +267,8 @@ async function initializeSupportChatNotifications(){
 async function selectSupportChatRoom(roomId){
   if(roomId===SUPPORT_CHAT_ROOM_ID&&SUPPORT_CHAT_ROWS.length){supportChatMarkRead(roomId);return;}SUPPORT_CHAT_ROOM_ID=roomId;SUPPORT_CHAT_ROWS=[];SUPPORT_CHAT_PENDING_FILE=null;supportChatMarkRead(roomId);
   renderSupportChatRooms();renderSupportChatHeader();renderSupportChatPendingFile();
-  const list=document.getElementById('support-chat-list');if(list)list.innerHTML='<div class="support-chat-empty"><b>กำลังโหลดข้อความ…</b></div>';
-  try{await loadSupportChatMessages();}catch(error){if(list)list.innerHTML=`<div class="support-chat-empty error">${esc(error.message||error)}</div>`;}
+  const lists=[document.getElementById('support-chat-list'),document.getElementById('support-chat-float-list')].filter(Boolean);lists.forEach(list=>list.innerHTML='<div class="support-chat-empty"><b>กำลังโหลดข้อความ…</b></div>');
+  try{await loadSupportChatMessages();}catch(error){lists.forEach(list=>list.innerHTML=`<div class="support-chat-empty error">${esc(error.message||error)}</div>`);}
 }
 function supportChatSearchRooms(){renderSupportChatRooms();}
 function chooseSupportChatFile(input){
@@ -271,15 +279,15 @@ function chooseSupportChatFile(input){
   SUPPORT_CHAT_PENDING_FILE=file;renderSupportChatPendingFile();
 }
 function renderSupportChatPendingFile(){
-  const holder=document.getElementById('support-chat-pending');if(!holder)return;
-  holder.innerHTML=SUPPORT_CHAT_PENDING_FILE?`<span>📎 ${esc(SUPPORT_CHAT_PENDING_FILE.name)} · ${supportChatBytes(SUPPORT_CHAT_PENDING_FILE.size)}</span><button onclick="removeSupportChatFile()">×</button>`:'';
-  holder.classList.toggle('show',!!SUPPORT_CHAT_PENDING_FILE);
+  for(const holder of [document.getElementById('support-chat-pending'),document.getElementById('support-chat-float-pending')].filter(Boolean)){
+    holder.innerHTML=SUPPORT_CHAT_PENDING_FILE?`<span>📎 ${esc(SUPPORT_CHAT_PENDING_FILE.name)} · ${supportChatBytes(SUPPORT_CHAT_PENDING_FILE.size)}</span><button onclick="removeSupportChatFile()">×</button>`:'';holder.classList.toggle('show',!!SUPPORT_CHAT_PENDING_FILE);
+  }
 }
 function removeSupportChatFile(){SUPPORT_CHAT_PENDING_FILE=null;renderSupportChatPendingFile();}
-function toggleSupportChatStickers(force){
-  const picker=document.getElementById('support-chat-stickers');if(!picker)return;
+function toggleSupportChatStickers(force,surface='page'){
+  const suffix=surface==='float'?'-float':'',picker=document.getElementById(`support-chat${suffix}-stickers`);if(!picker)return;
   const open=typeof force==='boolean'?force:!picker.classList.contains('show');picker.classList.toggle('show',open);
-  document.getElementById('support-chat-sticker-button')?.setAttribute('aria-expanded',String(open));
+  document.getElementById(`support-chat${suffix}-sticker-button`)?.setAttribute('aria-expanded',String(open));
 }
 async function sendSupportChatSticker(key){
   const sticker=supportChatSticker(key);if(!sticker||!SUPPORT_CHAT_ROOM_ID)return;
@@ -289,7 +297,7 @@ async function sendSupportChatSticker(key){
     const result=await SB.from('support_chat_messages').insert(payload).select().single();if(result.error)throw result.error;
     if(result.data&&!SUPPORT_CHAT_ROWS.some(row=>row.id===result.data.id))SUPPORT_CHAT_ROWS.push(result.data);
     supportChatDispatchPush(result.data?.id);
-    toggleSupportChatStickers(false);renderSupportChatMessages();renderSupportChatRooms();
+    document.querySelectorAll('.support-chat-stickers.show').forEach(node=>node.classList.remove('show'));renderSupportChatMessages();renderSupportChatRooms();
   }catch(error){toast('ส่งสติ๊กเกอร์ไม่สำเร็จ · '+(error.message||error),'info');}finally{if(button)button.disabled=false;}
 }
 async function uploadSupportChatFile(file,roomId){
@@ -298,12 +306,12 @@ async function uploadSupportChatFile(file,roomId){
   const result=await SB.storage.from('chat-attachments').upload(path,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
   if(result.error)throw result.error;return path;
 }
-async function sendSupportChatMessage(){
-  const input=document.getElementById('support-chat-body'),type=val('support-chat-type')||'message',body=(input?.value||'').trim(),file=SUPPORT_CHAT_PENDING_FILE;
+async function sendSupportChatMessage(surface='page'){
+  const prefix=surface==='float'?'support-chat-float':'support-chat',input=document.getElementById(prefix+'-body'),type=document.getElementById(prefix+'-type')?.value||'message',body=(input?.value||'').trim(),file=SUPPORT_CHAT_PENDING_FILE;
   if(!SUPPORT_CHAT_ROOM_ID){toast('กรุณาเลือกห้องสนทนา','info');return;}
   if(!body&&!file){toast('พิมพ์ข้อความหรือเลือกไฟล์ก่อนส่ง','info');input?.focus();return;}
   if(body.length>2000){toast('ข้อความยาวเกิน 2,000 ตัวอักษร','info');return;}
-  const button=document.getElementById('support-chat-send');button.disabled=true;let uploadedPath='';
+  const button=document.getElementById(prefix+'-send');button.disabled=true;let uploadedPath='';
   try{
     if(file)uploadedPath=await uploadSupportChatFile(file,SUPPORT_CHAT_ROOM_ID);
     const payload={room_id:SUPPORT_CHAT_ROOM_ID,author_id:ACCESS_PROFILE.id,message_type:type,body};
@@ -317,7 +325,7 @@ async function sendSupportChatMessage(){
     toast('ส่งข้อความไม่สำเร็จ · '+(error.message||error),'info');
   }finally{button.disabled=false;}
 }
-function supportChatKeydown(event){if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportChatMessage();}}
+function supportChatKeydown(event,surface='page'){if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendSupportChatMessage(surface);}}
 function supportChatFilterPeople(){
   const q=(document.getElementById('chat-member-search')?.value||'').trim().toLowerCase();
   document.querySelectorAll('.chat-member-choice').forEach(row=>row.hidden=!row.dataset.search.includes(q));
@@ -369,6 +377,28 @@ RENDER.supportChat=function(){
   renderSupportChatRooms();renderSupportChatHeader();renderSupportChatMessages(false);renderSupportChatNotificationButton();loadSupportChatRooms();
 };
 
+function supportChatFloatingRooms(force){
+  const panel=document.getElementById('support-chat-floating');if(!panel)return;const drawer=panel.querySelector('.support-chat-float-rooms-panel');
+  drawer.classList.toggle('show',typeof force==='boolean'?force:!drawer.classList.contains('show'));renderSupportChatRooms();
+}
+function supportChatFloatingMinimize(){document.getElementById('support-chat-floating')?.classList.toggle('minimized');}
+function closeSupportChatFloating(){document.getElementById('support-chat-floating')?.remove();renderSupportChatDock();}
+function supportChatFloatingMarkup(){return `<section id="support-chat-floating" class="support-chat-floating" aria-label="หน้าต่างข้อความ">
+  <header class="support-chat-float-header"><button class="support-chat-float-identity" onclick="supportChatFloatingRooms()" title="เปลี่ยนห้อง"><span id="support-chat-float-room-head">${supportChatHeaderMarkup()}</span><i>⌄</i></button><div><button onclick="supportChatFloatingMinimize()" title="ย่อหน้าต่าง">−</button><button onclick="closeSupportChatFloating()" title="ปิดหน้าต่าง">×</button></div></header>
+  <aside class="support-chat-float-rooms-panel"><div class="support-chat-float-rooms-tools"><b>ข้อความ</b><div><button onclick="openSupportChatCreate('direct')">👤 ใหม่</button><button onclick="openSupportChatCreate('group')">👥 กลุ่ม</button></div></div><label class="support-chat-search"><span>⌕</span><input id="support-chat-float-search" placeholder="ค้นหาห้องหรือชื่อคน" oninput="renderSupportChatRooms()"></label><div id="support-chat-float-rooms" class="support-chat-rooms"></div></aside>
+  <div id="support-chat-float-list" class="support-chat-list" aria-live="polite">${supportChatMessagesMarkup()}</div>
+  <div id="support-chat-float-pending" class="support-chat-pending"></div>
+  <div id="support-chat-float-stickers" class="support-chat-stickers" role="dialog" aria-label="เลือกสติ๊กเกอร์"><div><b>เลือกสติ๊กเกอร์</b><button onclick="toggleSupportChatStickers(false,'float')" aria-label="ปิด">×</button></div><section>${SUPPORT_CHAT_STICKERS.map(item=>`<button data-sticker="${item.key}" onclick="sendSupportChatSticker('${item.key}')" title="${esc(item.label)}"><span>${item.emoji}</span><small>${esc(item.label)}</small></button>`).join('')}</section></div>
+  <div class="support-chat-float-compose"><button onclick="document.getElementById('support-chat-float-file').click()" title="แนบไฟล์">📎</button><button id="support-chat-float-sticker-button" onclick="toggleSupportChatStickers(undefined,'float')" title="ส่งสติ๊กเกอร์">😊</button><input id="support-chat-float-file" type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.csv,.zip,.docx,.xlsx,.pptx" onchange="chooseSupportChatFile(this)"><select id="support-chat-float-type" aria-label="ประเภทข้อความ"><option value="message">ข้อความ</option><option value="problem">แจ้งปัญหา</option><option value="update">อัปเดตผล</option></select><textarea id="support-chat-float-body" maxlength="2000" rows="1" placeholder="Aa" onkeydown="supportChatKeydown(event,'float')"></textarea><button id="support-chat-float-send" class="send" onclick="sendSupportChatMessage('float')" title="ส่ง">➤</button></div>
+ </section>`;}
+async function openSupportChatFloating(roomId){
+  let panel=document.getElementById('support-chat-floating');if(!panel){document.body.insertAdjacentHTML('beforeend',supportChatFloatingMarkup());panel=document.getElementById('support-chat-floating');}
+  panel.classList.remove('minimized');SUPPORT_CHAT_PEEKS=[];renderSupportChatDock();renderSupportChatPendingFile();
+  if(roomId&&roomId!==SUPPORT_CHAT_ROOM_ID){await selectSupportChatRoom(roomId);}else if(SUPPORT_CHAT_ROOM_ID&&!SUPPORT_CHAT_ROWS.length){await loadSupportChatMessages();}else{renderSupportChatHeader();renderSupportChatRooms();renderSupportChatMessages();}
+  document.getElementById('support-chat-float-body')?.focus();
+}
+function toggleSupportChatFloating(){const panel=document.getElementById('support-chat-floating');if(!panel)return openSupportChatFloating();if(panel.classList.contains('minimized')){panel.classList.remove('minimized');return;}closeSupportChatFloating();}
+
 async function openDepartmentHistory(profileId){
   const user=ACCESS_USERS.find(x=>x.id===profileId);if(!user)return;
   showModal(`<div class="modal-h"><div><h3>${sic('i-users')} ประวัติการย้ายแผนก</h3><div class="muted" style="font-size:11.5px">${esc(user.display_name||user.email)}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div id="department-history-list" class="department-history-list"><div class="ai-note">กำลังโหลดประวัติ…</div></div></div>`);
@@ -414,10 +444,10 @@ const supportChatOnLoggedInBase=onLoggedIn;
 onLoggedIn=async function(...args){const result=await supportChatOnLoggedInBase(...args);if(ACCESS_PROFILE)initializeSupportChatNotifications();return result;};
 const supportChatLogoutBase=sbLogout;
 sbLogout=async function(...args){
-  if(SUPPORT_CHAT_GLOBAL_CHANNEL&&SB.removeChannel)SB.removeChannel(SUPPORT_CHAT_GLOBAL_CHANNEL);SUPPORT_CHAT_GLOBAL_CHANNEL=null;SUPPORT_CHAT_UNREAD.clear();SUPPORT_CHAT_PEEKS=[];SUPPORT_CHAT_PUSH_SUBSCRIPTION=null;document.getElementById('support-chat-dock')?.remove();
+  if(SUPPORT_CHAT_GLOBAL_CHANNEL&&SB.removeChannel)SB.removeChannel(SUPPORT_CHAT_GLOBAL_CHANNEL);SUPPORT_CHAT_GLOBAL_CHANNEL=null;SUPPORT_CHAT_UNREAD.clear();SUPPORT_CHAT_PEEKS=[];SUPPORT_CHAT_PUSH_SUBSCRIPTION=null;document.getElementById('support-chat-dock')?.remove();document.getElementById('support-chat-floating')?.remove();
   return supportChatLogoutBase(...args);
 };
 if(ACCESS_PROFILE)setTimeout(initializeSupportChatNotifications,0);
 
-MANUAL.push({id:'support-chat',ic:'i-chat',tt:'ข้อความ สติ๊กเกอร์ และการแจ้งเตือน',img:null,html:`<p>ระบบสนทนาภายใน Company Hub รองรับห้องกลาง กลุ่ม และแชทส่วนตัวแบบ Realtime</p><ol><li>กด <b>ข้อความใหม่</b> แล้วเลือกคน 1 คน หรือกด <b>สร้างกลุ่ม</b> เพื่อเลือกสมาชิกหลายคน</li><li>กด 😊 เพื่อเลือกสติ๊กเกอร์ หรือกด 📎 เพื่อแนบรูปและไฟล์ขนาดไม่เกิน 10 MB</li><li>เมื่อมีข้อความใหม่ ระบบจะแสดงการ์ดที่แถบล่าง พร้อมตัวเลขข้อความที่ยังไม่ได้เปิดและเสียงแจ้งเตือน</li><li>กด <b>เปิดแจ้งเตือนทุกเวลา</b> เพื่อติดตั้ง Web Push บนอุปกรณ์นี้ รับแจ้งเตือนได้แม้ปิดหน้า Company Hub โดยต้องอนุญาตผ่านเบราว์เซอร์ก่อน</li><li>กดปุ่มเดิมอีกครั้งเพื่อปิดแจ้งเตือนเฉพาะอุปกรณ์นี้</li><li>ข้อความ กลุ่ม และไฟล์เปิดได้เฉพาะผู้ที่มีสิทธิ์ในห้องนั้น</li></ol>`});
+MANUAL.push({id:'support-chat',ic:'i-chat',tt:'ข้อความ สติ๊กเกอร์ และการแจ้งเตือน',img:null,html:`<p>ระบบสนทนาภายใน Company Hub รองรับห้องกลาง กลุ่ม และแชทส่วนตัวแบบ Realtime</p><ol><li>กด <b>ข้อความใหม่</b> แล้วเลือกคน 1 คน หรือกด <b>สร้างกลุ่ม</b> เพื่อเลือกสมาชิกหลายคน</li><li>กด 😊 เพื่อเลือกสติ๊กเกอร์ หรือกด 📎 เพื่อแนบรูปและไฟล์ขนาดไม่เกิน 10 MB</li><li>กดปุ่ม <b>ข้อความ</b> มุมล่างเพื่อเปิดหน้าต่างแชทลอย ใช้งานพร้อมกับหน้าอื่นได้โดยไม่ต้องเปลี่ยนเมนู</li><li>เมื่อมีข้อความใหม่ ระบบจะแสดงการ์ดที่แถบล่าง พร้อมตัวเลขข้อความที่ยังไม่ได้เปิดและเสียงแจ้งเตือน</li><li>กด <b>เปิดแจ้งเตือนทุกเวลา</b> เพื่อติดตั้ง Web Push บนอุปกรณ์นี้ รับแจ้งเตือนได้แม้ปิดหน้า Company Hub โดยต้องอนุญาตผ่านเบราว์เซอร์ก่อน</li><li>กดปุ่มเดิมอีกครั้งเพื่อปิดแจ้งเตือนเฉพาะอุปกรณ์นี้</li><li>ข้อความ กลุ่ม และไฟล์เปิดได้เฉพาะผู้ที่มีสิทธิ์ในห้องนั้น</li></ol>`});
 MANUAL.push({id:'department-transfer',ic:'i-users',tt:'ย้ายแผนกและดูประวัติ',img:null,html:`<p>ผู้บริหารหรือผู้ดูแลระบบใช้เมนูจัดการพนักงานเพื่อย้ายสังกัด</p><ol><li>เลือกพนักงานแล้วกด <b>ย้ายแผนก</b></li><li>ระบุแผนกใหม่ วันที่มีผล ตำแหน่ง และเหตุผล</li><li>งานและข้อมูลที่เคยบันทึกยังอยู่ในแผนกเดิม ส่วนสิทธิ์ปัจจุบันเปลี่ยนไปยังแผนกใหม่</li><li>กด <b>ประวัติแผนก</b> เพื่อตรวจช่วงเวลาย้อนหลัง</li></ol>`});
