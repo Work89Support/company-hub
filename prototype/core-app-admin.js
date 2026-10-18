@@ -260,27 +260,32 @@ async function inviteAccessUser(){
 }
 function openAccessUser(id){
   const user=ACCESS_USERS.find(x=>x.id===id);if(!user)return;const rows=accessRowsFor(id),visible=rows.map(x=>x.department_code),managed=rows.filter(x=>x.can_manage).map(x=>x.department_code),self=id===ACCESS_PROFILE?.id;
-  const roster=typeof ACCOUNT_LIST!=='undefined'?ACCOUNT_LIST.find(x=>x.profile_id===id):null,rawEmail=roster?.contact_email||user.email||'',shownEmail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)&&!/@company-hub\.invalid$/i.test(rawEmail)?rawEmail:'ยังไม่มีอีเมลจริง';
+  const roster=typeof ACCOUNT_LIST!=='undefined'?ACCOUNT_LIST.find(x=>x.profile_id===id):null,rawEmail=roster?.contact_email||user.email||'',shownEmail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)&&!/@company-hub\.invalid$/i.test(rawEmail)?rawEmail:'ยังไม่มีอีเมลจริง',editableEmail=shownEmail==='ยังไม่มีอีเมลจริง'?'':shownEmail;
   if(user.role==='admin'&&AUTH_DB_ROLE!=='admin'){showModal(`<div class="modal-h"><div><h3>${sic('i-users')} บัญชีผู้ดูแลระบบ</h3><div class="muted" style="font-size:11.5px">${esc(shownEmail)}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note">เฉพาะผู้ดูแลระบบเท่านั้นที่แก้สิทธิ์บัญชี Admin ได้</div><button class="tbtn" onclick="closeModal()">ปิด</button></div>`);return;}
   showModal(`<div class="modal-h"><div><h3>${sic('i-users')} ตั้งค่าพนักงาน</h3><div class="muted" style="font-size:11.5px">${esc(shownEmail)}${self?' · บัญชีของคุณ':''}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad">
-    <div class="two"><div class="field"><label>ชื่อที่แสดง</label><input class="fin" value="${esc(user.display_name||'')}" disabled></div><div class="field"><label>ตำแหน่งงาน</label><input class="fin" id="editUserPosition" maxlength="120" value="${esc(user.position_title||'')}" placeholder="ตำแหน่งงานจริง"></div></div>
+    <div class="two"><div class="field"><label>ชื่อที่แสดง</label><input class="fin" value="${esc(user.display_name||'')}" disabled></div><div class="field"><label>อีเมลสำหรับเข้าสู่ระบบ</label><input class="fin" id="editUserEmail" type="email" maxlength="254" value="${esc(editableEmail)}" placeholder="name@example.com" ${roster?'':'disabled'}><div class="muted" style="font-size:10.5px;margin-top:5px">${roster?'แก้ไขได้โดยไม่กระทบงาน ประวัติ หรือสิทธิ์เดิม · อีเมลเดียวใช้หลายบัญชีได้':'บัญชีอีเมลแบบเดิมต้องแก้ผ่านระบบยืนยันตัวตน'}</div></div></div>
+    <div class="field"><label>ตำแหน่งงาน</label><input class="fin" id="editUserPosition" maxlength="120" value="${esc(user.position_title||'')}" placeholder="ตำแหน่งงานจริง"></div>
     <div class="two"><div class="field"><label>Role</label><select class="fin" id="editUserRole" onchange="syncAccessRoleForm('editUser')">${accessRoleOptions(user.role)}</select></div><div class="field"><label>แผนกหลัก</label><select class="fin" id="editUserDept" onchange="syncAccessRoleForm('editUser')">${accessDepartmentOptions(user.department_code)}</select></div></div>
     <div class="field"><label>แผนกที่มองเห็น <span class="muted">· ติ๊ก “จัดการ” สำหรับแผนกที่หัวหน้าดูแล</span></label><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px">${accessDepartmentChecks('editUser',visible,managed)}</div></div>
     <div class="field"><label>สถานะบัญชี</label><select class="fin" id="editUserActive"><option value="true" ${user.active?'selected':''}>เปิดใช้งาน</option><option value="false" ${!user.active?'selected':''}>ปิดใช้งาน</option></select><div class="muted" style="font-size:10.5px;margin-top:5px">ปิดใช้แล้วจะเข้าสู่ระบบไม่ได้ แต่ประวัติงานเดิมยังคงอยู่ · สถานะ “พร้อมใช้/รอตั้งรหัส” คำนวณจากการตั้งรหัสอัตโนมัติ</div></div>
     ${self?'<div class="ai-note">ระบบจะไม่ยอมให้คุณปิดบัญชีหรือลดสิทธิ์ผู้ดูแลของตัวเอง</div>':''}
-    <button class="tbtn primary" id="saveAccessBtn" onclick="saveAccessUser('${id}')">บันทึกสิทธิ์</button></div>`);
+    <button class="tbtn primary" id="saveAccessBtn" onclick="saveAccessUser('${id}')">บันทึกข้อมูลและสิทธิ์</button></div>`);
   setTimeout(()=>syncAccessRoleForm('editUser'),0);
 }
 async function saveAccessUser(id){
   const btn=document.getElementById('saveAccessBtn');if(btn.disabled)return;
-  const position=normSp(val('editUserPosition'));if(!position){toast('กรุณาระบุตำแหน่งงาน','info');return;}
+  const position=normSp(val('editUserPosition')),emailInput=document.getElementById('editUserEmail'),email=emailInput?val('editUserEmail').trim().toLowerCase():null;
+  if(!position){toast('กรุณาระบุตำแหน่งงาน','info');return;}
+  if(email!==null&&email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast('กรุณากรอกอีเมลให้ถูกต้อง หรือเว้นว่างหากยังไม่มีอีเมล','info');return;}
   const args={target_user:id,new_role:val('editUserRole'),new_primary_department:val('editUserDept'),visible_departments:selectedAccessValues('data-access-visible','editUser'),managed_departments:selectedAccessValues('data-access-manage','editUser'),new_active:document.getElementById('editUserActive').value==='true',new_position_title:position};
-  if(!confirm('ยืนยันการเปลี่ยนแผนก หน้าที่ และสิทธิ์ของบัญชีนี้?'))return;
+  const roster=typeof ACCOUNT_LIST!=='undefined'?ACCOUNT_LIST.find(x=>x.profile_id===id):null,oldEmail=(roster?.contact_email||'').trim().toLowerCase(),emailChanged=email!==null&&email!==oldEmail;
+  if(!confirm(`ยืนยันการแก้ไข${emailChanged?'อีเมล ':''}แผนก หน้าที่ และสิทธิ์ของบัญชีนี้?`))return;
   btn.disabled=true;
   try{const r=await SB.rpc('set_user_access',args);if(r.error)throw r.error;
-    closeModal();toast('บันทึกแผนก / หน้าที่แล้ว');
+    if(emailChanged){try{await accountCall('update-contact-email',{profile_id:id,contact_email:email});if(roster)roster.contact_email=email;}catch(emailError){btn.disabled=false;toast('บันทึกสิทธิ์แล้ว แต่อีเมลไม่สำเร็จ · '+(emailError.message||''),'info');return;}}
+    closeModal();toast(emailChanged?'บันทึกอีเมลและสิทธิ์แล้ว':'บันทึกแผนก / หน้าที่แล้ว');
     if(id===ACCESS_PROFILE?.id){await sbLogout();return;}
-    try{await loadAccessUsers(true);}catch(e){toast('บันทึกแล้ว แต่โหลดรายการใหม่ไม่สำเร็จ กรุณาโหลดใหม่','info');}
+    try{await loadAccessUsers(true);if(typeof renderAccountDirectory==='function'&&typeof VIEW!=='undefined'&&VIEW==='teamAccounts')renderAccountDirectory();}catch(e){toast('บันทึกแล้ว แต่โหลดรายการใหม่ไม่สำเร็จ กรุณาโหลดใหม่','info');}
   }catch(e){btn.disabled=false;toast('บันทึกไม่สำเร็จ · '+(e.message||''),'info');}
 }
 RENDER.users=function(){

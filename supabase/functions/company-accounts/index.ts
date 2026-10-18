@@ -89,6 +89,20 @@ export default {fetch:async(request:Request)=>{
  if(!checked(await admin.rpc('company_credentials_ready',{p_profile:user.id,p_iat:iat})))return json({error:'บัญชียังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสล่าสุด'},403);
  if(!['admin','exec'].includes(actor.role))return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
  if(action==='list')return json({accounts:checked(await admin.from('company_login_accounts').select('profile_id,login_name,contact_email,must_change_password,source_key').order('login_name'))});
+ if(action==='update-contact-email'){
+  const profileId=clean(b.profile_id),email=String(b.contact_email||'').trim().toLowerCase();
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId))return json({error:'ไม่พบบัญชีที่ต้องการแก้ไข'},400);
+  if(email&&(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return json({error:'กรุณากรอกอีเมลให้ถูกต้อง หรือเว้นว่างหากยังไม่มีอีเมล'},400);
+  const target=required(await admin.from('company_login_accounts').select('profile_id,contact_email').eq('profile_id',profileId).single());
+  const targetProfile=required(await admin.from('profiles').select('role').eq('id',profileId).single());
+  if(targetProfile.role==='admin'&&actor.role!=='admin')return json({error:'เฉพาะผู้ดูแลระบบเท่านั้นที่แก้อีเมลบัญชี Admin ได้'},403);
+  const nextEmail=email||null,previousEmail=target.contact_email||null;
+  if(previousEmail!==nextEmail){
+   checked(await admin.from('company_login_accounts').update({contact_email:nextEmail}).eq('profile_id',profileId));
+   checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:profileId,old_access:{contact_email:previousEmail},new_access:{action:'contact_email_updated',contact_email:nextEmail}}));
+  }
+  return json({ok:true,profile_id:profileId,contact_email:email});
+ }
  if(action==='bootstrap-roster'){
   const password=String(b.initial_password||''),rows=Array.isArray(b.rows)?b.rows:[];
   if(password.length<12||password.length>128)return json({error:'รหัสแรกเข้าต้องมี 12–128 ตัวอักษร'},400);
