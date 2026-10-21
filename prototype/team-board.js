@@ -21,7 +21,13 @@ function teamWorkPeople(work){
   return [...new Map(members.map(m=>{const key=m.id?'user:'+m.id:teamPersonKey(work.dept,m.name);return [key,{key,name:teamAccountName(m.id,m.name),linked:!!m.id}];})).values()];
  }
  if(work._source==='activity'){
-  const row=work.sourceRow||{};return [{key:row.employee_id?'user:'+row.employee_id:teamPersonKey(work.dept,row.employee_name),name:teamAccountName(row.employee_id,row.employee_name),linked:!!row.employee_id}];
+  const row=work.sourceRow||{},assignments=typeof activityAssignmentRows==='function'?activityAssignmentRows(row):[];
+  if(assignments.some(a=>a.assignment_type==='department')){
+   const ids=typeof activityAssigneeIds==='function'?activityAssigneeIds(row):[];
+   return ids.length?ids.map(id=>({key:'user:'+id,name:teamAccountName(id),linked:true})):[{key:'department:'+work.dept,name:'ทุกคนในแผนก '+deptName(work.dept),linked:true}];
+  }
+  if(assignments.length)return assignments.map(a=>({key:a.profile_id?'user:'+a.profile_id:teamPersonKey(work.dept,a.source_name),name:a.profile_id?teamAccountName(a.profile_id,a.display_name||a.source_name):(a.source_name||'ยังไม่จับคู่บัญชี'),linked:!!a.profile_id}));
+  return [{key:row.employee_id?'user:'+row.employee_id:teamPersonKey(work.dept,row.employee_name),name:teamAccountName(row.employee_id,row.employee_name),linked:!!row.employee_id}];
  }
  if(work._source==='issue')return [{key:'team:'+JSON.stringify([work.dept,work.assignee]),name:(work.assignee||'ยังไม่ระบุทีม')+' · ทีมรับผิดชอบ',linked:false}];
  return (work.assignees?.length?work.assignees:[work.assignee||'']).map(id=>({key:id?'user:'+id:teamPersonKey(work.dept,''),name:id?shortName(id):'ยังไม่มอบหมาย',linked:!!id}));

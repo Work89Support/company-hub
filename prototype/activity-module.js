@@ -1,5 +1,6 @@
 /* Daily Activity module — loaded after the core application. */
 let ACTIVITY_ROWS=[];
+let ACTIVITY_ASSIGNMENTS=[];
 let ACTIVITY_READY=false;
 let ACTIVITY_LOADING=false;
 let ACTIVITY_ERROR='';
@@ -18,6 +19,35 @@ for(const role of Object.keys(ROLE_ALLOW)){
 }
 
 function activityDuration(row){return row.duration_minutes==null?null:Number(row.duration_minutes)/60;}
+function activityAssignmentRows(row){return Array.isArray(row?.activity_assignees)?row.activity_assignees:[];}
+function activityAssigneeLabels(row){
+  const assignments=activityAssignmentRows(row);
+  if(assignments.some(a=>a.assignment_type==='department'))return ['ทุกคนในแผนก '+deptName(row.department_code)];
+  const labels=[...new Set(assignments.map(a=>String(a.display_name||a.source_name||'').trim()).filter(Boolean))];
+  return labels.length?labels:[String(row.employee_name||'ไม่ระบุ').trim()||'ไม่ระบุ'];
+}
+function activityOwnerLabel(row){return activityAssigneeLabels(row).join(', ');}
+function activityHasResolvedAssignment(row){
+  const assignments=activityAssignmentRows(row);
+  if(row?.employee_id||assignments.some(a=>a.assignment_type==='department'))return true;
+  const people=assignments.filter(a=>a.assignment_type==='person');
+  return people.length>0&&people.every(a=>a.profile_id);
+}
+function activityHasSharedAssignment(row){
+  const assignments=activityAssignmentRows(row);
+  return assignments.some(a=>a.assignment_type==='department')||assignments.filter(a=>a.assignment_type==='person').length>1;
+}
+function activityAssigneeIds(row){
+  const assignments=activityAssignmentRows(row),ids=new Set(assignments.map(a=>a.profile_id).filter(Boolean));
+  if(row?.employee_id)ids.add(row.employee_id);
+  if(assignments.some(a=>a.assignment_type==='department')&&typeof TASK_PROFILES!=='undefined'){
+    for(const person of TASK_PROFILES){
+      const departments=person.department_codes||[person.department_code];
+      if(person.is_active!==false&&departments.includes(row.department_code))ids.add(person.id);
+    }
+  }
+  return [...ids];
+}
 function activityCountedDuration(row){return row.time_flag==='ok'&&!(typeof entryMissing==='function'&&entryMissing(row).length)?(activityDuration(row)||0):0;}
 function activityDateLabel(value){
   if(!value)return '-';
@@ -55,7 +85,7 @@ function activityVisibleRows(){
     &&(!ACTIVITY_FILTER.quality||(ACTIVITY_FILTER.quality==='review'?activityReviewFlags(r).length>0:activityQualityFlags(r).includes(ACTIVITY_FILTER.quality)))
     &&(!ACTIVITY_FILTER.from||r.activity_date>=ACTIVITY_FILTER.from)
     &&(!ACTIVITY_FILTER.to||r.activity_date<=ACTIVITY_FILTER.to)
-    &&(!q||[r.employee_name,r.activity,r.category,r.department_label,r.worksite,r.operational_issue,r.result_note].some(v=>String(v||'').toLowerCase().includes(q))));
+    &&(!q||[activityOwnerLabel(r),r.employee_name,r.activity,r.category,r.department_label,r.worksite,r.operational_issue,r.result_note].some(v=>String(v||'').toLowerCase().includes(q))));
 }
 function activitySet(key,value){ACTIVITY_FILTER[key]=value;if(key==='from'||key==='to')ACTIVITY_RANGE_MODE='custom';ACTIVITY_PAGE=1;RENDER.activity();}
 function activityClear(){ACTIVITY_RANGE_MODE='all';ACTIVITY_FILTER={department:'',status:'',query:'',flag:'',quality:'',from:'',to:''};ACTIVITY_PAGE=1;RENDER.activity();}
@@ -70,7 +100,7 @@ function activityPage(page){ACTIVITY_PAGE=Math.max(1,page);RENDER.activity();doc
 function canManageActivity(row){return isExecutiveRole()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(row.department_code));}
 function openActivityTime(id){
   const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row||!canManageActivity(row))return;
-  showModal(`<div class="modal-h"><div><h3>ตรวจและยืนยันเวลา</h3><div class="muted" style="font-size:11.5px">${esc(row.employee_name)} · ${activityDateLabel(row.activity_date)} · ${esc(row.department_label||deptName(row.department_code))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note"><b>ค่าต้นทาง:</b> ${esc(row.source_start_raw||'(ไม่มีค่าเดิม)')} – ${esc(row.source_end_raw||'(ไม่มีค่าเดิม)')}<br><span class="muted">รายการที่นำเข้าก่อน Migration 009 อาจไม่มีค่าต้นทาง ให้ตรวจจากชีตเดิมก่อนยืนยัน</span></div><div class="two" style="margin-top:14px"><div class="field"><label>เวลาเริ่มที่ถูกต้อง</label><input class="fin" id="avStart" type="time" value="${activityTime(row.start_time)==='-'?'':activityTime(row.start_time)}"></div><div class="field"><label>เวลาสิ้นสุดที่ถูกต้อง</label><input class="fin" id="avEnd" type="time" value="${activityTime(row.end_time)==='-'?'':activityTime(row.end_time)}"></div></div><div class="field"><label>หมายเหตุ / หลักฐานอ้างอิง</label><textarea class="fin" id="avNote" rows="3" placeholder="เช่น ตรวจจาก Google Sheet ต้นทางแล้ว"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="tbtn" onclick="closeModal()">ยกเลิก</button><button class="tbtn primary" id="avSave" onclick="saveActivityTime('${esc(row.id)}')">ยืนยันเวลา</button></div></div>`);
+  showModal(`<div class="modal-h"><div><h3>ตรวจและยืนยันเวลา</h3><div class="muted" style="font-size:11.5px">${esc(activityOwnerLabel(row))} · ${activityDateLabel(row.activity_date)} · ${esc(row.department_label||deptName(row.department_code))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note"><b>ค่าต้นทาง:</b> ${esc(row.source_start_raw||'(ไม่มีค่าเดิม)')} – ${esc(row.source_end_raw||'(ไม่มีค่าเดิม)')}<br><span class="muted">รายการที่นำเข้าก่อน Migration 009 อาจไม่มีค่าต้นทาง ให้ตรวจจากชีตเดิมก่อนยืนยัน</span></div><div class="two" style="margin-top:14px"><div class="field"><label>เวลาเริ่มที่ถูกต้อง</label><input class="fin" id="avStart" type="time" value="${activityTime(row.start_time)==='-'?'':activityTime(row.start_time)}"></div><div class="field"><label>เวลาสิ้นสุดที่ถูกต้อง</label><input class="fin" id="avEnd" type="time" value="${activityTime(row.end_time)==='-'?'':activityTime(row.end_time)}"></div></div><div class="field"><label>หมายเหตุ / หลักฐานอ้างอิง</label><textarea class="fin" id="avNote" rows="3" placeholder="เช่น ตรวจจาก Google Sheet ต้นทางแล้ว"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="tbtn" onclick="closeModal()">ยกเลิก</button><button class="tbtn primary" id="avSave" onclick="saveActivityTime('${esc(row.id)}')">ยืนยันเวลา</button></div></div>`);
 }
 async function saveActivityTime(id){
   const start=val('avStart'),end=val('avEnd'),note=normSp(val('avNote'));if(!start||!end){toast('กรุณาระบุเวลาเริ่มและสิ้นสุด','info');return;}
@@ -110,9 +140,11 @@ async function loadActivities(){
   ACTIVITY_LOADING=true;
   ACTIVITY_ERROR='';
   try{
-    const result=await sbAllRows('daily_activities','activity_date',false);
-    if(result.error)throw result.error;
-    ACTIVITY_ROWS=(result.data||[]).filter(row=>row.is_active!==false);
+    const [result,assignmentResult]=await Promise.all([sbAllRows('daily_activities','activity_date',false),sbAllRows('activity_assignees','activity_id',true)]);
+    if(result.error)throw result.error;if(assignmentResult.error)throw assignmentResult.error;
+    ACTIVITY_ASSIGNMENTS=assignmentResult.data||[];
+    const byActivity=ACTIVITY_ASSIGNMENTS.reduce((map,item)=>{const key=String(item.activity_id);if(!map.has(key))map.set(key,[]);map.get(key).push(item);return map;},new Map());
+    ACTIVITY_ROWS=(result.data||[]).filter(row=>row.is_active!==false).map(row=>({...row,activity_assignees:byActivity.get(String(row.id))||[]}));
     ACTIVITY_READY=true;
     if(VIEW==='activity')RENDER.activity();
     if(VIEW==='dash')RENDER.dash();
@@ -137,14 +169,14 @@ RENDER.activity=function(){
   const rows=activityVisibleRows();
   const departments=[...new Map(ACTIVITY_ROWS.map(r=>[r.department_code,r.department_label||deptName(r.department_code)])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'th'));
   const statuses=[...new Set(ACTIVITY_ROWS.map(r=>r.status).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));
-  const people=new Set(rows.map(r=>r.employee_name)).size;
+  const people=new Set(rows.flatMap(activityAssigneeLabels)).size;
   const hours=rows.reduce((sum,r)=>sum+activityCountedDuration(r),0);
   const completed=rows.filter(r=>/Completed|เสร็จ/i.test(r.status)).length;
   const flagged=rows.filter(r=>r.time_flag!=='ok').length;
   const qualityRows=rows.filter(r=>activityReviewFlags(r).length>0).length;
   const flagCounts=rows.reduce((o,r)=>(o[r.time_flag]=(o[r.time_flag]||0)+1,o),{});
   const byDepartment=[...rows.reduce((m,r)=>m.set(r.department_label||deptName(r.department_code),(m.get(r.department_label||deptName(r.department_code))||0)+1),new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v);
-  const byPerson=[...rows.reduce((m,r)=>{const key=r.employee_name||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+activityCountedDuration(r));},new Map())].map(([label,v])=>({label:esc(label),v:Number(v.toFixed(1))})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const byPerson=[...rows.reduce((m,r)=>{for(const key of activityAssigneeLabels(r))m.set(key,(m.get(key)||0)+activityCountedDuration(r));return m;},new Map())].map(([label,v])=>({label:esc(label),v:Number(v.toFixed(1))})).sort((a,b)=>b.v-a.v).slice(0,8);
   const byCategory=[...rows.reduce((m,r)=>{const key=r.category||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+1);},new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v).slice(0,8);
   const byStatus=[...rows.reduce((m,r)=>{const key=r.status||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+1);},new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v);
   const pages=Math.max(1,Math.ceil(rows.length/ACTIVITY_PAGE_SIZE));
@@ -181,7 +213,7 @@ RENDER.activity=function(){
         <button class="tbtn" onclick="activityClear()">ล้างตัวกรอง</button>
       </div>
       <div class="activity-scroll"><table class="activity-table"><thead><tr><th>วันที่</th><th>แผนก / เว็บ</th><th>พนักงาน</th><th>กิจกรรม / ผลลัพธ์</th><th>หมวด</th><th>เวลา / ตรวจ</th><th>ชม.</th><th>สถานะ / คุณภาพ</th></tr></thead><tbody>
-      ${pageRows.map(r=>{const quality=activityReviewFlags(r);return `<tr><td class="nowrap">${activityDateLabel(r.activity_date)}</td><td>${esc(r.department_label||deptName(r.department_code))}${r.worksite?`<br><span class="muted">${esc(r.worksite)}</span>`:''}</td><td class="nowrap"><b>${esc(r.employee_name||'ไม่ระบุ')}</b></td><td class="work">${esc(r.activity)}${typeof entryCanEdit==='function'&&entryCanEdit(r)?`<br><button class="tbtn sm" onclick="openActivityEntry('${r.id}')">รายละเอียด / เติมข้อมูล</button>`:''}${r.result_note?`<br><span class="muted">ผลลัพธ์: ${esc(r.result_note)}</span>`:''}${r.operational_issue?`<br><span class="activity-issue">ปัญหา: ${esc(r.operational_issue)}</span>`:''}</td><td>${esc(r.category||'-')}</td><td class="nowrap">${activityTime(r.start_time)}–${activityTime(r.end_time)}${r.time_flag!=='ok'&&canManageActivity(r)?`<br><button class="tbtn sm" style="margin-top:5px" onclick="openActivityTime('${esc(r.id)}')">ตรวจ/แก้เวลา</button>`:''}</td><td>${activityDuration(r)==null?'<span class="muted">-</span>':activityDuration(r).toFixed(2)}${r.time_flag!=='ok'?`<br><span class="activity-flag">${esc(r.time_flag)}</span>`:''}</td><td>${esc(r.status||'-')}${quality.length?`<br><span class="activity-quality" title="${esc(quality.map(activityQualityLabel).join(' · '))}">${nf(quality.length)} จุดต้องตรวจ</span>`:''}</td></tr>`}).join('')}
+      ${pageRows.map(r=>{const quality=activityReviewFlags(r);return `<tr><td class="nowrap">${activityDateLabel(r.activity_date)}</td><td>${esc(r.department_label||deptName(r.department_code))}${r.worksite?`<br><span class="muted">${esc(r.worksite)}</span>`:''}</td><td class="nowrap"><b>${esc(activityOwnerLabel(r))}</b>${activityHasSharedAssignment(r)?'<br><span class="tag">งานร่วม</span>':''}</td><td class="work">${esc(r.activity)}${typeof entryCanEdit==='function'&&entryCanEdit(r)?`<br><button class="tbtn sm" onclick="openActivityEntry('${r.id}')">รายละเอียด / เติมข้อมูล</button>`:''}${r.result_note?`<br><span class="muted">ผลลัพธ์: ${esc(r.result_note)}</span>`:''}${r.operational_issue?`<br><span class="activity-issue">ปัญหา: ${esc(r.operational_issue)}</span>`:''}</td><td>${esc(r.category||'-')}</td><td class="nowrap">${activityTime(r.start_time)}–${activityTime(r.end_time)}${r.time_flag!=='ok'&&canManageActivity(r)?`<br><button class="tbtn sm" style="margin-top:5px" onclick="openActivityTime('${esc(r.id)}')">ตรวจ/แก้เวลา</button>`:''}</td><td>${activityDuration(r)==null?'<span class="muted">-</span>':activityDuration(r).toFixed(2)}${r.time_flag!=='ok'?`<br><span class="activity-flag">${esc(r.time_flag)}</span>`:''}</td><td>${esc(r.status||'-')}${quality.length?`<br><span class="activity-quality" title="${esc(quality.map(activityQualityLabel).join(' · '))}">${nf(quality.length)} จุดต้องตรวจ</span>`:''}</td></tr>`}).join('')}
       </tbody></table>${rows.length?`<div class="activity-pages"><span>แสดง ${nf(from+1)}–${nf(Math.min(from+ACTIVITY_PAGE_SIZE,rows.length))} จาก ${nf(rows.length)} รายการ</span><div><button class="tbtn sm" ${ACTIVITY_PAGE<=1?'disabled':''} onclick="activityPage(${ACTIVITY_PAGE-1})">← ก่อนหน้า</button><span>หน้า ${nf(ACTIVITY_PAGE)} / ${nf(pages)}</span><button class="tbtn sm" ${ACTIVITY_PAGE>=pages?'disabled':''} onclick="activityPage(${ACTIVITY_PAGE+1})">ถัดไป →</button></div></div>`:'<div class="activity-empty">ไม่พบข้อมูลตามตัวกรอง</div>'}</div>
     </div>`;
 };
@@ -192,7 +224,7 @@ function activityAnswer(question){
   const rows=activityVisibleRows(), hours=rows.reduce((s,r)=>s+activityCountedDuration(r),0),review=rows.filter(r=>r.time_flag!=='ok'),quality=rows.filter(r=>activityReviewFlags(r).length>0);
   const byDept={}; rows.forEach(r=>{const k=r.department_label||r.department_code;byDept[k]=(byDept[k]||0)+activityCountedDuration(r);});
   const top=Object.entries(byDept).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  return `พบ <b>${nf(rows.length)}</b> กิจกรรม จาก <b>${nf(new Set(rows.map(r=>r.employee_name).filter(Boolean)).size)}</b> คน รวมเวลาที่ผ่านการตรวจ <b>${nf(hours.toFixed(1))} ชั่วโมง</b> · ต้องตรวจเวลา <b>${nf(review.length)} รายการ</b> · ต้องตรวจข้อมูล <b>${nf(quality.length)} รายการ</b>${top.length?`<br><br><b>ชั่วโมงสูงสุดตามแผนก</b><br>${top.map(([k,v],i)=>`${i+1}. ${esc(k)} — ${nf(v.toFixed(1))} ชม.`).join('<br>')}`:''}`;
+  return `พบ <b>${nf(rows.length)}</b> กิจกรรม จาก <b>${nf(new Set(rows.flatMap(activityAssigneeLabels).filter(Boolean)).size)}</b> ผู้รับผิดชอบ รวมเวลาที่ผ่านการตรวจ <b>${nf(hours.toFixed(1))} ชั่วโมง</b> · ต้องตรวจเวลา <b>${nf(review.length)} รายการ</b> · ต้องตรวจข้อมูล <b>${nf(quality.length)} รายการ</b>${top.length?`<br><br><b>ชั่วโมงสูงสุดตามแผนก</b><br>${top.map(([k,v],i)=>`${i+1}. ${esc(k)} — ${nf(v.toFixed(1))} ชม.`).join('<br>')}`:''}`;
 }
 
 const coreAsk=ask;
