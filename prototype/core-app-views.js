@@ -9,7 +9,7 @@ const GP_STATUS={
   review:{t:'ส่งตรวจ',c:'#f59e0b'},revision:{t:'กำลังแก้ไข',c:'#ef4444'},monthly:{t:'งานประจำเดือน',c:'#06b6d4'},done:{t:'เสร็จแล้ว',c:'#10b981'}
 };
 const GP_PRIO={low:'ต่ำ',mid:'ปกติ',high:'สูง',urgent:'ด่วน'};
-const GP_EXCLUDED_BOARD_IDS=new Set(['WpmJKvNo']);
+const GP_EXCLUDED_BOARD_IDS=new Set(['WpmJKvNo','adzpIT5G']);
 function gpExcludedProject(p){return !!p&&(GP_EXCLUDED_BOARD_IDS.has(p.trello_board_id)||String(p.name||'').trim().toLowerCase()==='(center) ทดลอง');}
 function canManageGraphic(){return isExecutiveRole()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes('GRAPHIC'));}
 function gpProject(id){return GRAPHIC_PROJECTS.find(x=>x.id===id)||{};}
