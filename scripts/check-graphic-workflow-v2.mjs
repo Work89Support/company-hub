@@ -8,7 +8,9 @@ const migration=fs.readFileSync(new URL('../supabase/migrations/202610230042_gra
 
 new vm.Script(source,{filename:'graphic-production-v2.js'});
 assert.match(source,/GF\.scope=GF\.scope\|\|''/,'graphic filter state includes personal scope');
-assert.match(html,/graphic-production-v2\.js\?v=20261023-trello-workflow-1/,'production page loads the workflow enhancement');
+assert.match(html,/graphic-production-v2\.js\?v=20261024-trello-board-2/,'production page loads the workflow enhancement');
+assert.match(html,/department-workflows\.css\?v=20261024-trello-board-2/,'production page loads the compact Trello-style board');
+assert.match(source,/gp-filter-drawer/,'advanced filters are tucked into a compact drawer');
 assert.match(source,/งานของฉัน/);
 assert.match(source,/งานทั้งหมดในทีม/);
 assert.match(source,/accept="image\/jpeg,image\/png,image\/webp,image\/gif"/);
