@@ -51,7 +51,8 @@
     return true;
   };
   gpGlobalVisible=function(){return GRAPHIC_JOBS.filter(gpMatchesGlobal);};
-  function gpImageFile(jobId){return gpJobFiles(jobId).find(f=>f.storage_path&&(!f.mime_type||f.mime_type.startsWith('image/')))||null;}
+  function gpImageLike(file){return !!file&&(!!file.storage_path||String(file.mime_type||'').startsWith('image/')||/(?:\/|\b)(?:image|[^/?#]+\.(?:png|jpe?g|webp|gif))(?:[?#]|$)/i.test(file.preview_url||file.url||''));}
+  function gpImageFile(jobId){return gpJobFiles(jobId).find(gpImageLike)||null;}
   window.graphicPreviewFallback=function(img){
     if(!img?.isConnected)return;const link=img.dataset.previewLink||'',large=img.classList.contains('gp-cover-lg'),file=img.classList.contains('gp-file-preview');
     const box=document.createElement(link?'a':'div');box.className=`gp-image-unavailable ${large?'is-large':''} ${file?'is-file':''}`;box.textContent=file?'ดูไฟล์':'ภาพเดิมจาก Trello เปิดไม่ได้';
@@ -61,7 +62,8 @@
   gpJobCard=function(job){
     let html=originalGpJobCard(job);if(job.cover_url)return html;
     const file=gpImageFile(job.id);if(!file)return html;
-    const image=`<img class="gp-cover" data-graphic-storage="${esc(file.id)}" data-preview-link="${esc(file.url||'')}" alt="ภาพอ้างอิง ${esc(file.name||job.title)}" loading="lazy" onerror="graphicPreviewFallback(this)">`;
+    const source=file.storage_path?'':(file.preview_url||file.url||''),storage=file.storage_path?` data-graphic-storage="${esc(file.id)}"`:'';
+    const image=`<img class="gp-cover"${storage}${source?` src="${esc(source)}"`:''} data-preview-link="${esc(file.url||source)}" alt="ภาพอ้างอิง ${esc(file.name||job.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="graphicPreviewFallback(this)">`;
     return html.replace(/(<div class="gp-job"[^>]*>)/,`$1${image}`);
   };
   gpVisible=function(){const q=GF.q.toLowerCase();return gpGlobalVisible().filter(j=>(!GF.project||j.project_id===GF.project)&&(!GF.status||j.status===GF.status)&&(!q||[j.title,j.brief,j.requester_name,j.assignee_name,gpProject(j.project_id).name].join(' ').toLowerCase().includes(q)));};
@@ -154,7 +156,7 @@
     const job=GRAPHIC_JOBS.find(j=>j.id===id),files=gpJobFiles(id),editable=canEditJob(job),pad=document.querySelector('#modal .pad');if(!pad)return;
     const fileField=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent.startsWith('ไฟล์งาน'));
     if(fileField){
-      const rows=[...fileField.querySelectorAll('.gp-file-row')];rows.forEach((row,i)=>{const f=files[i];if(!f)return;const tag=row.querySelector('.tag');if(tag)tag.textContent=FILE_LABEL[f.file_type]||f.file_type;const link=row.querySelector('a');if(f.storage_path&&link){const b=document.createElement('button');b.className='gp-file-link';b.textContent=f.name||'เปิดภาพ';b.onclick=()=>openGraphicFile(f.id);link.replaceWith(b);const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.dataset.graphicStorage=f.id;row.prepend(img);}if(editable){const actions=document.createElement('div');actions.className='gp-file-actions';actions.innerHTML=`<button class="tbtn sm" onclick="editGraphicFile('${f.id}')">แก้ไข</button><button class="tbtn sm danger" onclick="deleteGraphicFile('${f.id}')">ลบ</button>`;row.append(actions);}});
+      const rows=[...fileField.querySelectorAll('.gp-file-row')];rows.forEach((row,i)=>{const f=files[i];if(!f)return;const tag=row.querySelector('.tag');if(tag)tag.textContent=FILE_LABEL[f.file_type]||f.file_type;const link=row.querySelector('a');if(f.storage_path&&link){const b=document.createElement('button');b.className='gp-file-link';b.textContent=f.name||'เปิดภาพ';b.onclick=()=>openGraphicFile(f.id);link.replaceWith(b);const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.dataset.graphicStorage=f.id;img.dataset.previewLink=f.url||'';img.onerror=()=>graphicPreviewFallback(img);row.prepend(img);}else if(gpImageLike(f)&&!row.querySelector('img')){const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.src=f.preview_url||f.url;img.alt=`ภาพตัวอย่าง ${f.name||'ไฟล์งาน'}`;img.referrerPolicy='no-referrer';img.dataset.previewLink=f.url||img.src;img.onerror=()=>graphicPreviewFallback(img);row.prepend(img);}if(editable){const actions=document.createElement('div');actions.className='gp-file-actions';actions.innerHTML=`<button class="tbtn sm" onclick="editGraphicFile('${f.id}')">แก้ไข</button><button class="tbtn sm danger" onclick="deleteGraphicFile('${f.id}')">ลบ</button>`;row.append(actions);}});
       fileField.querySelector('#gjFileType option[value="working"]')?.remove();
       const fileType=fileField.querySelector('#gjFileType');if(fileType)fileType.querySelectorAll('option').forEach(o=>o.textContent=FILE_LABEL[o.value]||o.textContent);
       if(editable){fileField.insertAdjacentHTML('beforeend',`<div class="gp-upload-box"><label>แนบภาพอ้างอิงเพิ่ม</label><input class="fin" id="gjImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple><button class="tbtn sm" onclick="uploadGraphicJobImages('${id}')">อัปโหลดภาพ</button></div>`);}

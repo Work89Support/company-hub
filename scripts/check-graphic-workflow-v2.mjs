@@ -22,6 +22,7 @@ assert.match(source,/gpFilterAssigneeSelect/,'graphic assignment includes name/e
 assert.match(source,/placeholder="พิมพ์ชื่อหรืออีเมล"/,'graphic assignment search is visible');
 assert.match(source,/graphicPreviewFallback/,'failed legacy previews remain visible with a source-file fallback');
 assert.match(source,/gpImageFile/,'uploaded Company Hub images can become board covers');
+assert.match(source,/gpImageLike/,'legacy image attachments without preview_url can still become previews');
 assert.match(source,/queueMicrotask\(hydratePrivatePreviews\)/,'private board images receive signed preview URLs after render');
 assert.doesNotMatch(source,/catch\{img\.remove\(\);?\}/,'private preview errors are not silently removed');
 assert.doesNotMatch(source,/<option value="working">/,'new links no longer offer unfinished working files');
