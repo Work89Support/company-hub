@@ -16,9 +16,14 @@ assert.match(frontend,/เปิดดู \/ แก้ไข/);
 assert.match(frontend,/รายการที่กรอกจริงวันนี้/);
 assert.match(frontend,/openDailyEntries/);
 assert.match(frontend,/กิจกรรม.*ปัญหา.*งานบอร์ด/);
-assert.match(index,/daily-supervision\.js\?v=20261025-supervision-links-1/);
+assert.match(index,/daily-supervision\.js\?v=20261025-supervision-responsive-1/);
 assert.match(css,/\.presence\.online/);
 assert.match(css,/\.supervision-entry-link/);
+assert.match(css,/body\.dark \.supervision-entry-link/,'dark mode must not leave a light entry card with light text');
+assert.match(css,/@media\(max-width:1360px\)/,'tablet layout must switch dense rows to responsive cards');
+assert.match(css,/\.supervision-table tbody tr\{display:grid/,'responsive rows must preserve readable action controls');
+assert.match(frontend,/supervision-table-wrap/);
+assert.match(frontend,/supervision-actions/);
 
 const db=new PGlite();
 await db.exec(`
