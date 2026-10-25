@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 const source=fs.readFileSync(new URL('../prototype/native-entry.js',import.meta.url),'utf8');
 new vm.Script(source);
-const context={NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false};
+let noticeCount=0,modalBusy=true;
+const context={NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
 vm.createContext(context);vm.runInContext(source,context);
 const valid={department_code:'ADMIN',employee_id:'me',activity_date:'2026-09-04',activity:'ตรวจรายการ',category:'ตรวจสอบ',start_time:'09:00',end_time:'10:00',status:'Completed',completed_date:'2026-09-04',result_note:'ตรวจครบ',overnight:false};
 assert.equal(Object.keys(context.entryValidate(valid)).length,0);
@@ -28,6 +29,8 @@ assert.ok(context.entryMissing({...verifiedProject,source_key:'gsheet:row:1'}).i
 assert.equal(context.entryCanEdit({employee_id:'other'}),false);
 assert.equal(context.entryCanEdit({employee_id:'me'}),true);
 assert.ok(context.issueEntryMissing({status:'Resolved',problem:'p',impact:'i',impactScope:'project',owner:'o',solution:'s',resmin:1,verified:false}).includes('หัวหน้ายืนยันผล'));
+context.entryNotice();assert.equal(noticeCount,0,'completeness reminder must not replace an active modal');
+modalBusy=false;context.ACCESS_PROFILE={id:'other'};context.ACTIVITY_ROWS=[{id:2,employee_id:'other',activity:'รอข้อมูล'}];context.entryNotice();assert.equal(noticeCount,1,'completeness reminder should show when no modal is active');
 console.log('PASS native entry validation, conditional requirements and ownership UI');
 
 assert.equal(context.entryOwnerPlaceholder('เฟิร์น'),'เฟิร์น');
