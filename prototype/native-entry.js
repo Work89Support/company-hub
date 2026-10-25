@@ -1,5 +1,5 @@
 /* Native input and actionable completeness queues, after activity-module.js. */
-let ENTRY_PEOPLE=[],ENTRY_SCOPE='mine',ENTRY_NOTICE_USER='';
+let ENTRY_PEOPLE=[],ENTRY_SCOPE='mine',ENTRY_NOTICE_USER='',ENTRY_PENDING_FILES=[];
 const ENTRY_STATUS={'In Progress':'กำลังทำ','Completed':'เสร็จแล้ว','Blocked':'ติดปัญหา'};
 NAV.completeness={ic:'i-warning',t:'ข้อมูลที่ต้องเติม'};
 NAVGROUPS[0].items.push('completeness');
@@ -68,9 +68,23 @@ function entryErrors(errors,prefix='entry-'){
 function entryField(key,label,value='',type='text',max=4000){return `<div class="field"><label for="entry-${key}">${label}</label>${type==='textarea'?`<textarea class="fin" id="entry-${key}" rows="3" maxlength="${max}">${esc(value)}</textarea>`:`<input class="fin" id="entry-${key}" type="${type}" maxlength="${max}" value="${esc(value)}">`}</div>`;}
 const ENTRY_FILE_ACCEPT='image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/csv,application/zip,.docx,.xlsx,.pptx';
 function entryFileSize(bytes){const n=Number(bytes||0);return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
+function entryFileKind(file){const type=String(file?.type||'');if(type.startsWith('image/'))return'รูปภาพ';if(type==='application/pdf')return'PDF';if(/spreadsheet|excel|csv/.test(type)||/\.(xlsx|csv)$/i.test(file?.name||''))return'ตาราง';if(/word|text/.test(type)||/\.(docx|txt)$/i.test(file?.name||''))return'เอกสาร';if(/presentation/.test(type)||/\.pptx$/i.test(file?.name||''))return'สไลด์';if(type==='application/zip'||/\.zip$/i.test(file?.name||''))return'ไฟล์ ZIP';return'ไฟล์';}
+function renderPendingActivityFiles(){
+ const box=document.getElementById('entry-pending-files');if(!box)return;
+ box.innerHTML=ENTRY_PENDING_FILES.length?`<div class="entry-file-section-title"><b>ไฟล์ที่เลือกไว้</b><span>${ENTRY_PENDING_FILES.length} ไฟล์ · จะอัปโหลดเมื่อกดบันทึก</span></div>${ENTRY_PENDING_FILES.map((file,index)=>`<div class="entry-file-row pending"><div class="entry-file-open"><span>📎</span><span><b>${esc(file.name)}</b><small>${entryFileKind(file)} · ${entryFileSize(file.size)} · พร้อมแนบ</small></span></div><button type="button" class="tbtn sm" onclick="removePendingActivityFile(${index})">เอาออก</button></div>`).join('')}`:'<div class="entry-file-empty">ยังไม่ได้เลือกไฟล์</div>';
+ const label=document.getElementById('entry-file-picker-label');if(label)label.textContent=ENTRY_PENDING_FILES.length?'เลือกไฟล์เพิ่ม':'เลือกไฟล์แนบในงาน';
+}
+function queueActivityFiles(fileList){
+ const incoming=[...(fileList||[])],oversized=incoming.filter(file=>file.size>10485760),accepted=incoming.filter(file=>file.size>0&&file.size<=10485760);
+ const keys=new Set(ENTRY_PENDING_FILES.map(file=>[file.name,file.size,file.lastModified].join('|')));
+ for(const file of accepted){const key=[file.name,file.size,file.lastModified].join('|');if(!keys.has(key)){ENTRY_PENDING_FILES.push(file);keys.add(key);}}
+ renderPendingActivityFiles();
+ const box=document.getElementById('entry-errors');if(oversized.length&&box){box.hidden=false;box.textContent='ไฟล์เกิน 10 MB: '+oversized.map(file=>file.name).join(', ');}else if(box&&!document.querySelector('[data-entry-error]')){box.hidden=true;box.textContent='';}
+}
+function removePendingActivityFile(index){ENTRY_PENDING_FILES.splice(index,1);renderPendingActivityFiles();}
 function entryActivityFiles(row){
  const files=typeof activityAttachmentRows==='function'?activityAttachmentRows(row):[];
- return `<div class="entry-files"><div class="entry-file-picker"><label for="entry-files">เลือกไฟล์แนบในงาน</label><input class="fin" id="entry-files" type="file" multiple accept="${ENTRY_FILE_ACCEPT}"><small>แนบได้หลายไฟล์ · ไฟล์ละไม่เกิน 10 MB · ไฟล์จะอัปโหลดพร้อมบันทึกงาน</small></div><div class="entry-file-list">${files.map(file=>`<div class="entry-file-row"><button type="button" class="entry-file-open" onclick="openActivityFile('${file.id}')"><span>📎</span><span><b>${esc(file.file_name)}</b><small>${entryFileSize(file.size_bytes)}</small></span></button>${file.uploaded_by===ACCESS_PROFILE?.id?`<button type="button" class="tbtn sm" onclick="deleteActivityFile('${file.id}','${row.id}')">ลบ</button>`:''}</div>`).join('')||'<div class="muted">ยังไม่มีไฟล์แนบ</div>'}</div></div>`;
+ return `<div class="entry-files"><div class="entry-file-picker" id="entry-files-picker"><label id="entry-file-picker-label" for="entry-files">เลือกไฟล์แนบในงาน</label><input class="fin" id="entry-files" type="file" multiple accept="${ENTRY_FILE_ACCEPT}" onchange="queueActivityFiles(this.files);this.value=''"><small>แนบได้หลายไฟล์ · ไฟล์ละไม่เกิน 10 MB · ตรวจชื่อไฟล์ก่อนกดบันทึกได้</small></div><div class="entry-file-list" id="entry-pending-files"></div><div class="entry-file-list"><div class="entry-file-section-title"><b>ไฟล์ที่แนบแล้ว</b><span>${files.length} ไฟล์</span></div>${files.map(file=>`<div class="entry-file-row"><button type="button" class="entry-file-open" onclick="openActivityFile('${file.id}')"><span>📎</span><span><b>${esc(file.file_name)}</b><small>${entryFileKind({name:file.file_name,type:file.mime_type})} · ${entryFileSize(file.size_bytes)}</small></span></button>${file.uploaded_by===ACCESS_PROFILE?.id?`<button type="button" class="tbtn sm" onclick="deleteActivityFile('${file.id}','${row.id}')">ลบ</button>`:''}</div>`).join('')||'<div class="entry-file-empty">ยังไม่มีไฟล์ที่แนบแล้ว</div>'}</div></div>`;
 }
 function entryFileRow(fileId){return ACTIVITY_FILES.find(file=>String(file.id)===String(fileId));}
 async function openActivityFile(fileId){
@@ -79,22 +93,25 @@ async function openActivityFile(fileId){
  if(result.error){toast('เปิดไฟล์ไม่สำเร็จ · '+result.error.message,'info');return;}window.open(result.data.signedUrl,'_blank','noopener');
 }
 async function uploadActivityFiles(activityId,files){
- for(const file of files){
-  if(file.size>10485760)throw new Error(file.name+' มีขนาดเกิน 10 MB');
-  const safe=file.name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'-').slice(-120)||'attachment';
-  const path=`${activityId}/${ACCESS_PROFILE.id}/${Date.now()}-${crypto.randomUUID().slice(0,8)}-${safe}`;
-  const uploaded=await SB.storage.from('activity-files').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false,cacheControl:'3600'});if(uploaded.error)throw uploaded.error;
-  const saved=await SB.rpc('add_activity_file',{p_activity:Number(activityId),p_path:path,p_name:file.name,p_mime:file.type||'',p_size:file.size});
-  if(saved.error){await SB.storage.from('activity-files').remove([path]);throw saved.error;}
- }
+ const result={uploaded:[],failed:[]};
+ for(const file of files){try{
+   if(file.size>10485760)throw new Error('ขนาดเกิน 10 MB');
+   const safe=file.name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'-').slice(-120)||'attachment';
+   const path=`${activityId}/${ACCESS_PROFILE.id}/${Date.now()}-${crypto.randomUUID().slice(0,8)}-${safe}`;
+   const uploaded=await SB.storage.from('activity-files').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false,cacheControl:'3600'});if(uploaded.error)throw uploaded.error;
+   const saved=await SB.rpc('add_activity_file',{p_activity:Number(activityId),p_path:path,p_name:file.name,p_mime:file.type||'',p_size:file.size});
+   if(saved.error){await SB.storage.from('activity-files').remove([path]);throw saved.error;}result.uploaded.push(file);
+  }catch(error){result.failed.push({file,error});}}
+ return result;
 }
 async function deleteActivityFile(fileId,activityId){
  const file=entryFileRow(fileId);if(!file)return;
  try{const removed=await SB.rpc('delete_my_activity_file',{p_file:fileId});if(removed.error)throw removed.error;const storage=await SB.storage.from('activity-files').remove([removed.data]);if(storage.error)throw storage.error;await loadActivities();toast('ลบไฟล์แล้ว');await openActivityEntry(activityId);}catch(error){toast('ลบไฟล์ไม่สำเร็จ · '+(error.message||error),'info');}
 }
-async function openActivityEntry(id){
+async function openActivityEntry(id,pendingFiles=[]){
  const r=id?ACTIVITY_ROWS.find(x=>String(x.id)===String(id)):null;
  if(!ACCESS_PROFILE||(id&&(!r||!entryCanEdit(r))))return;
+ ENTRY_PENDING_FILES=[...pendingFiles];
  const people=await SB.rpc('activity_entry_people');if(people.error){toast('เปิดแบบฟอร์มไม่ได้ · '+people.error.message,'info');return;}ENTRY_PEOPLE=people.data||[];
  const department=r?.department_code||currentDept(),state=r?entryState(r):'In Progress';
  const completionDate=r?.completed_date||(r&&state==='Completed'&&String(r.source||'').toLowerCase()!=='company hub'?r.activity_date:'');
@@ -102,6 +119,7 @@ async function openActivityEntry(id){
  const pending=r?entryMissing(r):[];
  showModal(`<div class="modal-h"><div><h3>${r?'เติมข้อมูล / แก้ไขกิจกรรม':'บันทึกกิจกรรมใหม่'}</h3><div class="muted">${r?'รายการ #'+esc(r.id):'เจ้าของรายการผูกกับบัญชีผู้ใช้'} · ${AUTH_DB_ROLE==='staff'?'แก้ไขได้เฉพาะของคุณ':'จัดการตามสิทธิ์แผนก'}</div></div><button class="x" onclick="closeModal()">×</button></div><form class="pad" id="native-activity-form"><div id="entry-errors" class="entry-error-summary" role="alert" hidden></div>${pending.length?`<div class="ai-note"><b>ข้อมูลที่ต้องเติม:</b> ${pending.map(esc).join(' · ')}</div>`:''}<h4>1 · เจ้าของและรายละเอียดงาน</h4><div class="two"><div class="field"><label for="entry-department_code">แผนก *</label><select id="entry-department_code" class="fin" ${r?'disabled':''} onchange="entryOwnerOptions()">${departments.map(d=>`<option value="${esc(d.code)}" ${d.code===department?'selected':''}>${esc(d.name)}</option>`).join('')}</select></div><div class="field"><label for="entry-employee_id">เจ้าของงาน *</label><select class="fin" id="entry-employee_id" data-owner-name="${esc(r?.employee_name||'')}"></select>${r&&!r.employee_id?`<small class="entry-owner-help">${r.employee_name?.trim()?'มีชื่อเจ้าของงานจากข้อมูลเดิมแล้ว':'ยังไม่มีชื่อเจ้าของงาน'} เลือกบัญชีของคนนี้เพื่อให้เจ้าของเห็นและแก้ไขงานเมื่อเข้าสู่ระบบ</small>`:''}<div id="entry-owner-actions" class="entry-owner-actions"></div></div></div>${entryField('activity_date','วันที่ทำงาน *',r?.activity_date||bangkokTodayISO(),'date')}${entryField('activity','รายละเอียดกิจกรรม *',r?.activity||'','textarea')}${entryField('category','ประเภทงาน *',r?.category||'','text',200)}${entryField('worksite','เว็บ / สถานที่ / โครงการ (ถ้ามี)',r?.worksite||'','text',500)}<h4>2 · เวลาและความคืบหน้า</h4><div class="two">${entryField('start_time','เวลาเริ่ม *',(r?.start_time||'').slice(0,5),'time')}${entryField('end_time','เวลาจบ (บังคับเมื่องานเสร็จ)',(r?.end_time||'').slice(0,5),'time')}</div><label><input type="checkbox" id="entry-overnight" ${r?.end_time&&r.end_time<r.start_time?'checked':''}> เวลาจบเป็นวันถัดไป</label><div class="field"><label for="entry-status">สถานะ *</label><select class="fin" id="entry-status"><option value="">เลือกสถานะ</option>${Object.entries(ENTRY_STATUS).map(([k,v])=>`<option value="${k}" ${state===k?'selected':''}>${v}</option>`).join('')}</select></div><h4>3 · ผลลัพธ์และปัญหา</h4>${entryField('completed_date','วันที่เสร็จ (บังคับเมื่องานเสร็จ)',completionDate,'date')}${entryField('result_note','ผลลัพธ์ / หลักฐานการทำงาน (บังคับเมื่องานเสร็จ)',r?.result_note||'','textarea')}${entryField('operational_issue','ปัญหาที่ติดขัด (บังคับเมื่อเลือกติดปัญหา)',r?.operational_issue||'','textarea')}<h4>4 · ไฟล์และหลักฐาน</h4>${entryActivityFiles(r)}<button class="tbtn primary" id="entry-save" type="submit">ตรวจข้อมูลและบันทึก</button></form>`);
  entryOwnerOptions(r?.employee_id||(!r?ACCESS_PROFILE.id:''));
+ renderPendingActivityFiles();
  if(r&&canManageActivity(r)){const b=document.createElement('button');b.type='button';b.className='tbtn';b.textContent='เชื่อมบัญชีและให้เจ้าของเติมข้อมูล';b.onclick=async()=>{const owner=val('entry-employee_id');if(!owner){entryErrors({employee_id:'เลือกบัญชีที่จะให้เติมข้อมูลก่อน'});return;}b.disabled=true;try{const result=await SB.rpc('assign_activity_owner',{p_id:r.id,p_expected_revision:r.entry_revision,p_owner:owner});if(result.error)throw result.error;closeModal();await loadActivities();if(VIEW==='completeness')RENDER.completeness();toast('มอบหมายแล้ว เจ้าของจะเห็นรายการที่ต้องเติมเมื่อเปิดระบบ');}catch(e){b.disabled=false;const box=document.getElementById('entry-errors');box.hidden=false;box.textContent=e.message;}};document.getElementById('entry-owner-actions').append(b);}
 
  entryFormLayout();
@@ -132,10 +150,10 @@ function entryOwnerOptions(selected=''){
 async function saveActivityEntry(row,requestId){
  const v={request_id:requestId};for(const k of ['department_code','employee_id','activity_date','activity','category','start_time','end_time','status','completed_date','result_note','worksite','operational_issue'])v[k]=val('entry-'+k).trim();v.overnight=!!document.getElementById('entry-overnight').checked;
  if(entryErrors(entryValidate(v)))return;
- const files=[...(document.getElementById('entry-files')?.files||[])];
+ const files=[...ENTRY_PENDING_FILES];
  const oversized=files.find(file=>file.size>10485760);if(oversized){entryErrors({files:oversized.name+' มีขนาดเกิน 10 MB'});return;}
  const btn=document.getElementById('entry-save');btn.disabled=true;
- try{const r=await SB.rpc('save_activity_entry',{p_id:row?.id||null,p_expected_revision:row?.entry_revision??null,p_entry:v});if(r.error)throw r.error;const saved=Array.isArray(r.data)?r.data[0]:r.data;let uploadError=null;if(saved?.id&&files.length){btn.textContent='กำลังแนบไฟล์…';try{await uploadActivityFiles(saved.id,files);}catch(error){uploadError=error;}}closeModal();await loadActivities();if(VIEW==='completeness')RENDER.completeness();else if(VIEW==='activity')RENDER.activity();toast(uploadError?'บันทึกงานแล้ว · แนบไฟล์ไม่สำเร็จ: '+(uploadError.message||uploadError):files.length?'บันทึกงานและแนบไฟล์แล้ว':'บันทึกข้อมูลครบแล้ว',uploadError?'info':undefined);if(saved?.id&&typeof openWorkKpis==='function')await openWorkKpis('activity',saved.id,saved.department_code);}
+ try{const r=await SB.rpc('save_activity_entry',{p_id:row?.id||null,p_expected_revision:row?.entry_revision??null,p_entry:v});if(r.error)throw r.error;const saved=Array.isArray(r.data)?r.data[0]:r.data;let uploads={uploaded:[],failed:[]};if(saved?.id&&files.length){btn.textContent=`กำลังแนบไฟล์ 0/${files.length}…`;uploads=await uploadActivityFiles(saved.id,files);}ENTRY_PENDING_FILES=uploads.failed.map(item=>item.file);closeModal();await loadActivities();if(uploads.failed.length){await openActivityEntry(saved.id,ENTRY_PENDING_FILES);const b=document.getElementById('entry-errors');if(b){b.hidden=false;b.textContent=`บันทึกงานแล้ว · แนบสำเร็จ ${uploads.uploaded.length} ไฟล์ · ไม่สำเร็จ ${uploads.failed.length} ไฟล์: ${uploads.failed.map(item=>item.file.name+' ('+(item.error.message||item.error)+')').join(', ')}`;}toast('บันทึกงานแล้ว แต่มีไฟล์แนบไม่สำเร็จ กรุณาตรวจรายการที่เลือกไว้','info');return;}if(VIEW==='completeness')RENDER.completeness();else if(VIEW==='activity')RENDER.activity();toast(files.length?`บันทึกงานและแนบไฟล์แล้ว ${files.length} ไฟล์`:'บันทึกข้อมูลครบแล้ว');if(saved?.id&&typeof openWorkKpis==='function')await openWorkKpis('activity',saved.id,saved.department_code);}
  catch(e){btn.disabled=false;const b=document.getElementById('entry-errors');b.hidden=false;b.textContent=e.message||'บันทึกไม่สำเร็จ กรุณาลองใหม่';}
 }
 function issueEntryMissing(p){const m=[];if(!p.problem?.trim())m.push('รายละเอียดปัญหา');if(!p.impact?.trim())m.push('สรุปผลกระทบ');if(!p.impactScope||p.impactScope==='unknown')m.push('ขอบเขตผลกระทบ');if(!p.owner?.trim())m.push('ทีมรับผิดชอบ');if(p.status==='Resolved'){if(!p.solution?.trim())m.push('วิธีแก้');if(p.resmin==null)m.push('ระยะเวลาแก้ไข');if(!p.verified)m.push('หัวหน้ายืนยันผล');}return m;}
