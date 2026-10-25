@@ -96,6 +96,7 @@ function openTask(id){
     <div class="field" style="margin-top:6px"><label>${progress?'สถานะ (ผู้รับงานอัปเดตความคืบหน้า / หัวหน้าปิดงาน)':'สถานะ'}</label>${sSel}</div>
     <div class="field"><label>ความสำคัญ</label>${pSel}</div>
     <div class="field"><label>ผู้รับผิดชอบ (${assigneesOf(t).length} คน)</label>${aBox}</div>
+    ${taskAcknowledgementUi(t)}
     <div class="two">
       <div class="field"><label>กำหนดส่ง</label>
         <input type="date" class="fin" value="${d2(t.due)}" ${edit?'':'disabled'} onchange="setDue('${t.id}',this.value)">
@@ -357,7 +358,7 @@ async function cloudLoadTasks(){
   try{
     const [tasks,assignments,profiles,timeEntries,comments,people]=await Promise.all([
       integrityReadAll(()=>SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,prototype_payload,created_at,updated_at'),["id"]),
-      integrityReadAll(()=>SB.from('task_assignees').select('task_id,user_id,assigned_at'),["task_id", "user_id"]),
+      integrityReadAll(()=>SB.from('task_assignees').select('task_id,user_id,assigned_at,acknowledged_at'),["task_id", "user_id"]),
       integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('active',true),["id"]),
       integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
       integrityReadAll(()=>SB.from('task_comments').select('task_id,author_id,body,created_at'),["id"]),
@@ -370,10 +371,10 @@ async function cloudLoadTasks(){
     TASK_PROFILES.push(...directory.values());
     TASK_PROFILES.forEach((p,i)=>{const name=p.display_name||p.email||'ผู้ใช้',colors=['#2563eb','#0f766e','#7c3aed','#c2410c','#be185d','#0369a1'];USERS[p.id]={n:name,s:name.slice(0,1).toUpperCase(),c:colors[i%colors.length]};});
     ASSIGNABLE=TASK_PROFILES.filter(p=>canAdminAccess()||(p.department_codes||[p.department_code]).some(d=>MANAGE_DEPTS.includes(d))||p.id===ACCESS_PROFILE?.id).map(p=>p.id);
-    const byTask=new Map();(assignments.data||[]).forEach(a=>{if(!byTask.has(a.task_id))byTask.set(a.task_id,[]);byTask.get(a.task_id).push(a.user_id);});
+    const byTask=new Map(),taskAck=new Map();(assignments.data||[]).forEach(a=>{if(!byTask.has(a.task_id))byTask.set(a.task_id,[]);byTask.get(a.task_id).push(a.user_id);if(!taskAck.has(a.task_id))taskAck.set(a.task_id,{});taskAck.get(a.task_id)[a.user_id]=a.acknowledged_at||'';});
     const spent=new Map();if(!timeEntries.error)(timeEntries.data||[]).forEach(x=>spent.set(x.task_id,(spent.get(x.task_id)||0)+Number(x.minutes||0)));
     const taskLog=new Map();if(!comments.error)(comments.data||[]).forEach(x=>{if(!taskLog.has(x.task_id))taskLog.set(x.task_id,[]);taskLog.get(x.task_id).push({who:x.author_id,txt:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
-    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,status:row.status,prio:row.priority,createdAt:row.created_at,startAt:row.start_at,dueAt:row.due_at,completedAt:row.closed_at,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
+    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,acknowledgements:taskAck.get(row.id)||{},status:row.status,prio:row.priority,createdAt:row.created_at,startAt:row.start_at,dueAt:row.due_at,completedAt:row.closed_at,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
     TASKS_READY=true;
   }catch(e){console.warn('task load:',e.message||e);TASKS.length=0;TASKS_READY=false;throw e;}
 }

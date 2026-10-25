@@ -63,6 +63,25 @@ function canManageTaskUi(t){return !!t&&(canAdminAccess()||(AUTH_DB_ROLE==='lead
 function isMyTaskAssignee(t){return !!t&&!!ACCESS_PROFILE&&assigneesOf(t).includes(ACCESS_PROFILE.id);}
 function canProgressTaskUi(t){return canManageTaskUi(t)||isMyTaskAssignee(t);}
 function canEditTaskDetails(t){return !!t&&(!CLOUD||ACCESS_PROFILE?.id===t.creator);}
+function taskAcknowledgements(t){return t?.acknowledgements&&typeof t.acknowledgements==='object'?t.acknowledgements:{};}
+function taskAcknowledgementUi(t){
+  const assignees=assigneesOf(t),acks=taskAcknowledgements(t),mine=ACCESS_PROFILE?.id&&acks[ACCESS_PROFILE.id],acked=assignees.filter(id=>acks[id]);
+  const rows=assignees.map(id=>`<span class="task-ack-person ${acks[id]?'is-acked':''}">${acks[id]?'✓':'○'} ${esc(shortName(id))}${acks[id]?` <small>${new Date(acks[id]).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small>`:''}</span>`).join('');
+  const action=isMyTaskAssignee(t)?(mine?`<span class="task-ack-mine">✓ คุณรับทราบแล้ว ${new Date(mine).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</span>`:`<button class="tbtn primary task-ack-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">✓ รับทราบงาน</button>`):'';
+  return `<div class="task-ack-box"><div class="task-ack-head"><div><b>การรับทราบงาน</b><small>${acked.length}/${assignees.length} คนรับทราบแล้ว</small></div>${action}</div><div class="task-ack-people">${rows||'<span class="muted">ยังไม่มีผู้รับผิดชอบ</span>'}</div></div>`;
+}
+async function acknowledgeTask(id){
+  const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)){toast('รับทราบได้เฉพาะผู้ที่ได้รับมอบหมาย','info');return;}
+  if(taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('คุณรับทราบงานนี้แล้ว','info');return;}
+  const button=document.getElementById('taskAckButton');if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
+  try{
+    let acknowledgedAt=new Date().toISOString();
+    if(CLOUD&&t.dbId){const result=await SB.rpc('acknowledge_my_task',{p_task:t.dbId});if(result.error)throw result.error;acknowledgedAt=result.data||acknowledgedAt;}
+    t.acknowledgements={...taskAcknowledgements(t),[ACCESS_PROFILE.id]:acknowledgedAt};
+    (t.log=t.log||[]).unshift({who:ACCESS_PROFILE.id,txt:'รับทราบงาน',time:new Date(acknowledgedAt).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});
+    toast('รับทราบงานแล้ว');refresh();openTask(id);
+  }catch(e){toast('บันทึกรับทราบไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='✓ รับทราบงาน';}}
+}
 function openTaskDetailsEditor(id){
   const t=TASKS.find(x=>x.id===id);if(!t)return;
   if(!canEditTaskDetails(t)){toast('แก้ไขชื่อและรายละเอียดได้เฉพาะผู้สร้างงาน','info');return;}
