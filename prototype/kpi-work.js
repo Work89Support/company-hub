@@ -26,15 +26,17 @@ function workKpiButton(kind,id,department){
  const host=document.querySelector('.modal-h');if(!host||host.querySelector('[data-work-kpi]'))return;
  const button=document.createElement('button');button.type='button';button.className='tbtn';button.dataset.workKpi='true';button.textContent='แท็ก KPI';button.onclick=()=>{if(document.getElementById('native-activity-form')){toast('บันทึกกิจกรรมก่อน แล้วระบบจะเปิดหน้าแท็ก KPI ให้','info');return;}openWorkKpis(kind,id,department);};host.append(button);
 }
-function kpiAddActivityCandidate(rows,seen,r){
- if(!r?.id||!r.department_code||seen.has(`activity:${r.id}`))return;
- seen.add(`activity:${r.id}`);
- rows.push({kind:'activity',id:r.id,department:r.department_code,title:r.activity||'กิจกรรม',meta:`กิจกรรม · ${r.activity_date||'-'} · ${r.employee_name||'-'}`,date:r.updated_at||r.activity_date||''});
+function kpiAddActivityCandidate(rows,seen,r,mine=false){
+ if(!r?.id||!r.department_code)return;
+ const key=`activity:${r.id}`,existing=rows.find(row=>row.key===key);
+ if(existing){if(mine)existing.mine=true;return;}
+ seen.add(key);
+ rows.push({key,kind:'activity',id:r.id,department:r.department_code,title:r.activity||'กิจกรรม',meta:`กิจกรรม · ${r.activity_date||'-'} · ${r.employee_name||'-'}`,date:r.updated_at||r.activity_date||'',mine});
 }
 async function kpiEvidenceCandidates(){
  const rows=[];
  const seen=new Set();
- if(typeof ACTIVITY_ROWS!=='undefined')for(const r of ACTIVITY_ROWS){if(typeof entryCanEdit==='function'&&entryCanEdit(r))kpiAddActivityCandidate(rows,seen,r);}
+ if(typeof ACTIVITY_ROWS!=='undefined')for(const r of ACTIVITY_ROWS){if(typeof entryCanEdit==='function'&&entryCanEdit(r))kpiAddActivityCandidate(rows,seen,r,String(r.employee_id||'')===String(ACCESS_PROFILE?.id||''));}
  // The shared activity loader is capped and can omit the signed-in person's older work.
  // Always fetch that person's activities explicitly so "My work" can be used as KPI evidence.
  if(SB&&ACCESS_PROFILE?.id){
@@ -42,12 +44,12 @@ async function kpiEvidenceCandidates(){
   const requests=[SB.from('daily_activities').select(select).eq('employee_id',ACCESS_PROFILE.id).order('activity_date',{ascending:false}).limit(300)];
   if(ACCESS_PROFILE.department_code)requests.push(SB.from('daily_activities').select(select).eq('department_code',ACCESS_PROFILE.department_code).order('activity_date',{ascending:false}).limit(300));
   const results=await Promise.all(requests);
-  for(const result of results){if(result.error)throw result.error;for(const r of result.data||[]){if(String(r.employee_id||'')===String(ACCESS_PROFILE.id)||typeof entryCanEdit!=='function'||entryCanEdit(r))kpiAddActivityCandidate(rows,seen,r);}}
+  for(const result of results){if(result.error)throw result.error;for(const r of result.data||[]){const mine=String(r.employee_id||'')===String(ACCESS_PROFILE.id);if(mine||typeof entryCanEdit!=='function'||entryCanEdit(r))kpiAddActivityCandidate(rows,seen,r,mine);}}
  }
  if(typeof TASKS!=='undefined')for(const t of TASKS){if(t?.dbId&&t.dept&&(typeof canManageTaskUi!=='function'||canManageTaskUi(t)||isMyTaskAssignee(t)))rows.push({kind:'task',id:t.dbId,department:t.dept,title:t.title||'งาน',meta:`งานมอบหมาย · ${t.due||'ยังไม่ระบุกำหนด'}`,date:t.updatedAt||t.dueAt||t.due||''});}
  if(typeof GRAPHIC_JOBS!=='undefined')for(const j of GRAPHIC_JOBS){if(j?.id&&j.department_code&&(j.assignee_id===ACCESS_PROFILE?.id||j.created_by===ACCESS_PROFILE?.id||canManageGraphic()))rows.push({kind:'graphic',id:j.id,department:j.department_code,title:j.title||j.job_no||'งานกราฟิก',meta:`Graphic · ${j.job_no||'-'} · ${j.status||'-'}`,date:j.updated_at||j.created_at||''});}
  if(typeof PROBLEMS!=='undefined')for(const p of PROBLEMS){if(p?.id&&p.dept&&typeof issueEntryCanEdit==='function'&&issueEntryCanEdit(p))rows.push({kind:'issue',id:p.id,department:p.dept,title:p.problem||p.id,meta:`ปัญหา · ${p.project||'-'} · ${p.status||'-'}`,date:p.updatedAt||p.date||''});}
- return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,300);
+ return rows.sort((a,b)=>Number(!!b.mine)-Number(!!a.mine)||String(b.date).localeCompare(String(a.date))).slice(0,300);
 }
 async function openKpiEvidencePicker(){
  let candidates=[];
