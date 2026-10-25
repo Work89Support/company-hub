@@ -24,10 +24,15 @@ for(const token of [
 for(const token of [
   "id=\"entry-files\" type=\"file\" multiple",
   "SB.storage.from('activity-files').upload",
+  'queueActivityFiles(this.files)',
+  'ไฟล์ที่เลือกไว้',
+  'ไฟล์ที่แนบแล้ว',
+  'removePendingActivityFile',
+  'uploads.failed.length',
   "SB.rpc('add_activity_file'",
   "SB.rpc('delete_my_activity_file'",
   "createSignedUrl(file.storage_path,300",
-  "files.length?'\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e07\u0e32\u0e19\u0e41\u0e25\u0e30\u0e41\u0e19\u0e1a\u0e44\u0e1f\u0e25\u0e4c\u0e41\u0e25\u0e49\u0e27'",
+  "`บันทึกงานและแนบไฟล์แล้ว ${files.length} ไฟล์`",
 ]) assert.ok(native.includes(token),`missing activity file UI: ${token}`);
 
 for(const token of [
