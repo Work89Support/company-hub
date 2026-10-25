@@ -6,7 +6,7 @@ const source=fs.readFileSync(new URL('../prototype/native-entry.js',import.meta.
 new vm.Script(source);
 let noticeCount=0,modalBusy=true;
 const window=new Window();
-const context={window,document:window.document,esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
+const context={window,document:window.document,crypto:{randomUUID:()=> '123e4567-e89b-12d3-a456-426614174000'},esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
 vm.createContext(context);vm.runInContext(source,context);
 const valid={department_code:'ADMIN',employee_id:'me',activity_date:'2026-09-04',activity:'ตรวจรายการ',category:'ตรวจสอบ',start_time:'09:00',end_time:'10:00',status:'Completed',completed_date:'2026-09-04',result_note:'ตรวจครบ',overnight:false};
 assert.equal(Object.keys(context.entryValidate(valid)).length,0);
@@ -45,3 +45,6 @@ assert.match(context.document.getElementById('entry-pending-files').textContent,
 assert.match(context.document.getElementById('entry-pending-files').textContent,/พร้อมแนบ/);
 context.removePendingActivityFile(0);
 assert.match(context.document.getElementById('entry-pending-files').textContent,/ยังไม่ได้เลือกไฟล์/);
+const thaiDocxPath=context.activityStoragePath(21611,{name:'CRM ข้อมูลบ้าน FR.docx',type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+assert.match(thaiDocxPath,/^21611\/other\/[0-9]+-[a-f0-9]+\.docx$/);
+assert.doesNotMatch(thaiDocxPath,/[^\x20-\x7E]/,'storage path must remain ASCII even when the display name is Thai');
