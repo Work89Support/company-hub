@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
-const match=html.match(/const ORG=([\s\S]*?);\s*\nconst FEED/);
+const data=fs.readFileSync(new URL('../prototype/core-app-data.js',import.meta.url),'utf8');
+const match=data.match(/const ORG=([\s\S]*?);\s*\nconst FEED/);
 assert.ok(match,'Missing organization chart data');
 const groups=Function(`"use strict";return (${match[1]})`)();
 
@@ -23,7 +24,7 @@ assert.match(match[1],/ออดิทระบบ \(ส่วนกลาง\)/
 assert.match(match[1],/AI Automation/,'AI Automation must be represented in Technology & Customer');
 assert.match(match[1],/Data provider \(BC\)/,'Data provider (BC) must use the approved organization name');
 
-const departments=Function(`"use strict";return (${html.match(/const DEPTS = (\[[\s\S]*?\]);/)[1]})`)();
+const departments=Function(`"use strict";return (${data.match(/const DEPTS = (\[[\s\S]*?\]);/)[1]})`)();
 assert.equal(departments.length,14,'Sidebar and forms must expose fourteen active departments');
 assert.equal(departments.filter(department=>department.code==='AIAUTO').length,1,'AI Automation must use one stable department code');
 

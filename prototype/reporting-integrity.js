@@ -201,11 +201,11 @@ RENDER.tracker=function(){
 const trackerDashboardBase=RENDER.dash;RENDER.dash=function(...args){trackerDashboardBase(...args);const heading=[...main.querySelectorAll('h3')].find(n=>n.textContent.includes('Go-live Control'));if(heading){heading.textContent='แผนเปิดระบบเดิม · สถานะบันทึกด้วยคน';const card=heading.closest('.card');const link=card?.querySelector('.act');if(link){link.textContent='ตรวจแผนเดิม →';link.onclick=()=>{TRACKER_MODE='plan';go('tracker');};}const note=document.createElement('p');note.className='muted';note.style.padding='0 16px';note.textContent='สถานะ Action เดิมไม่ใช่ผลตรวจระบบอัตโนมัติ · 3X และ SOP อ่านจากข้อมูลต้นทาง';card?.append(note);}};
 
 // Load the common presentation layer after all feature modules have registered.
-if(!document.querySelector('script[data-company-ux]')){const script=document.createElement('script');script.src='ux-system.js?v=20261021-activity-assignees-1';script.dataset.companyUx='1';document.head.append(script);}
+if(!document.querySelector('script[data-company-ux]')){const script=document.createElement('script');script.src='ux-system.js?v=20261025-mobile-390-1';script.dataset.companyUx='1';document.head.append(script);}
 
 // Department history and shared support room release (15 Oct 2026).
 if(!document.querySelector('link[data-staff-mobility]')){const link=document.createElement('link');link.rel='stylesheet';link.href='staff-mobility-chat.css?v=20261016-chat-layout-3';link.dataset.staffMobility='1';document.head.append(link);}
 if(!document.querySelector('script[data-staff-mobility]')){const script=document.createElement('script');script.src='staff-mobility-chat.js?v=20261016-chat-layout-3';script.dataset.staffMobility='1';document.head.append(script);}
 
 // KPI department navigation and centralised Graphic account administration.
-if(!document.querySelector('script[data-access-consolidation]')){const script=document.createElement('script');script.src='access-consolidation.js?v=20261016-readiness-4';script.dataset.accessConsolidation='1';document.head.append(script);}
+if(!document.querySelector('script[data-access-consolidation]')){const script=document.createElement('script');script.src='access-consolidation.js?v=20261025-account-speed-1';script.dataset.accessConsolidation='1';document.head.append(script);}

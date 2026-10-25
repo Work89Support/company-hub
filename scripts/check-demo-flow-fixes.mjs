@@ -1,6 +1,6 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
-const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
-const fn=html.slice(html.indexOf('function graphicCompletionMissing('),html.indexOf('async function moveGraphicJob('));const g={gpSafeHttpUrl:v=>{try{const u=new URL(v);return /https?:/.test(u.protocol)?u.href:'';}catch{return'';}}};vm.createContext(g);vm.runInContext(fn,g);
+const source=fs.readFileSync(new URL('../prototype/core-app-views.js',import.meta.url),'utf8');
+const fn=source.slice(source.indexOf('function graphicCompletionMissing('),source.indexOf('async function moveGraphicJob('));const g={gpSafeHttpUrl:v=>{try{const u=new URL(v);return /https?:/.test(u.protocol)?u.href:'';}catch{return'';}}};vm.createContext(g);vm.runInContext(fn,g);
 assert.equal(g.graphicCompletionMissing({},[{done:false}],[]).length,3);
 assert.equal(g.graphicCompletionMissing({assignee_id:'a'},[{done:true}],[{file_type:'final',url:'https://example.com/final'}]).length,0);
 assert.equal(g.graphicCompletionMissing({},[],[{file_type:'final',url:'https://example.com/final'}],[{linked_profile_id:'a'}]).length,0);

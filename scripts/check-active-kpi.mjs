@@ -1,10 +1,10 @@
 import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
-const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
-const depts=html.match(/const DEPTS = \[[\s\S]*?\n\];/)[0];
+const data=fs.readFileSync(new URL('../prototype/core-app-data.js',import.meta.url),'utf8'),cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta.url),'utf8');
+const depts=data.match(/const DEPTS = \[[\s\S]*?\n\];/)[0];
 assert.ok(!depts.includes('SECRET'));
 let definitions=[],results=[];
 const ctx={console,KPI:{},integrityReadAll:async build=>await build(),integrityKpiAchievement:(actual,target,payload={})=>actual==null||!target?null:Math.min(actual/target*100,Number(payload.achievement_cap||Infinity)*100),SB:{from(table){return {select(){return this;},eq(){return this;},order(){return this;},then(resolve){resolve({data:table==='kpi_definitions'?definitions:results});}};}}};
-vm.createContext(ctx);vm.runInContext(depts+html.match(/let KPI_CATALOG=\{\};[\s\S]*?(?=async function cloudLoadIssues)/)[0],ctx);
+vm.createContext(ctx);vm.runInContext(depts+cloud.match(/let KPI_CATALOG=\{\};[\s\S]*?(?=async function cloudLoadIssues)/)[0],ctx);
 definitions=[{id:'one',department_code:'GRAPHIC',name:'A',target:.95,weight:.5,prototype_payload:{unit:'ratio'}},{id:'two',department_code:'GRAPHIC',name:'B',target:.98,weight:.5}];
 await ctx.cloudLoadKpis();assert.equal(Object.keys(ctx.KPI).length,0,'missing results must not produce zero score');assert.equal(vm.runInContext('KPI_CATALOG.GRAPHIC.length',ctx),2);
 results=[{definition_id:'one',actual:.9,status:'approved',period_start:'2026-09-01',period_end:'2026-09-30'}];

@@ -8,7 +8,7 @@ const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'u
 window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
-const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
+const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-data','core-app-data','core-app-shell','core-app-views','core-app-admin','core-app-runtime','core-app-cloud','activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
 window.eval(source+`\nwindow.reviewAPI={trackerEvidenceURLs,checkTracker:()=>{
  for(const key of ['tasks','issues','graphic'])DATA_HEALTH[key]={state:'ready'};IMPLEMENTATION_ACTIONS.splice(0,IMPLEMENTATION_ACTIONS.length,{id:'AP-01',title:'แผนตั้งต้น',department_code:'CRM',due_date:'2026-09-01',status:'not_started'});
  TASKS.splice(0,TASKS.length,{id:42,dept:'CRM',title:'งานจริงจากต้นทาง',status:'doing',assignees:[]});GRAPHIC_JOBS=[];PROBLEMS.splice(0,PROBLEMS.length);TRACKER_MODE='actual';TRACKER_SOURCE='';TRACKER_WORK_STATUS='open';TRACKER_WORK_DEPT='';VIEW='tracker';RENDER.tracker();

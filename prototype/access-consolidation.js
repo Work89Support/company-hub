@@ -123,13 +123,12 @@
 
   const baseTeamAccounts=RENDER.teamAccounts;
   RENDER.teamAccounts=async function(){
-    if(canAdminAccess())await loadAccessUsers(true);
-    await baseTeamAccounts();
+    const accessPromise=canAdminAccess()?loadAccessUsers(true):Promise.resolve();
+    const graphicPromise=canAdminAccess()&&!GRAPHIC_READY?loadGraphic():Promise.resolve();
+    await Promise.all([accessPromise,graphicPromise,baseTeamAccounts()]);
     if(VIEW!=='teamAccounts'||!canAdminAccess())return;
     try{
       mergeFullAccountRegistry();renderAccountRegistrySummary();renderAccountDirectory();
-      if(!GRAPHIC_READY)await loadGraphic();
-      if(VIEW!=='teamAccounts')return;
       const directory=document.getElementById('account-directory');
       if(directory&&!document.getElementById('team-graphic-account-links')){
         const section=document.createElement('section');section.id='team-graphic-account-links';

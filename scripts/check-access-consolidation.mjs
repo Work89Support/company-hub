@@ -29,6 +29,7 @@ assert.equal(context.gpMemberAccounts(),'','Graphic Production no longer renders
 assert.equal(context.navBuilds,3,'refreshes navigation when the module loads after login');
 
 assert.match(source,/const baseTeamAccounts=RENDER\.teamAccounts/,'wraps the central Team Accounts screen');
+assert.match(source,/Promise\.all\(\[accessPromise,graphicPromise,baseTeamAccounts\(\)\]\)/,'loads account, access and Graphic sources concurrently');
 assert.match(source,/team-graphic-account-links/,'places Graphic account linking in Team Accounts');
 assert.match(source,/saveGraphicMemberLinkFromAccounts/,'keeps Trello-to-account linking available centrally');
 assert.match(source,/mergeFullAccountRegistry/,'merges every created profile into the Team Accounts register');

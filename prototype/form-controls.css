@@ -1,0 +1,15 @@
+.smart-field{position:relative}
+.smart-field>.fin[type=number],.smart-field>.fin[type=time]{font-variant-numeric:tabular-nums}
+.smart-field>.fin[type=number]{padding-right:38px}
+.smart-field>.fin[type=time]{min-height:46px;color-scheme:light}
+.smart-choice-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.smart-choice-row button{min-height:32px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--blue-700);font:inherit;font-size:11px;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.smart-choice-row button:hover,.smart-choice-row button:focus-visible{border-color:var(--blue-500);background:var(--blue-50);outline:2px solid color-mix(in srgb,var(--blue-500) 25%,transparent);outline-offset:1px}
+.smart-choice-row button:active{transform:translateY(1px)}
+.smart-input-hint{display:block;margin-top:6px;color:var(--muted);font-size:10.5px;line-height:1.6}
+.smart-number-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;align-items:center}
+.smart-number-stepper{display:grid;grid-template-columns:36px 36px;gap:5px}
+.smart-number-stepper button{width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--blue-700);font:600 18px/1 Kanit,sans-serif;cursor:pointer}
+.smart-number-stepper button:hover,.smart-number-stepper button:focus-visible{border-color:var(--blue-500);background:var(--blue-50);outline:0}
+body.dark .smart-field>.fin[type=time]{color-scheme:dark}
+@media(max-width:600px){.smart-choice-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.smart-choice-row button{padding:6px 4px}.smart-number-stepper{grid-template-columns:38px 38px}.smart-number-stepper button{width:38px;height:38px}}

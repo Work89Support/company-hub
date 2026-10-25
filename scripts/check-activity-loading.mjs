@@ -35,7 +35,7 @@ function context(overrides={}){
   const {ctx}=context({location:{protocol:'https:'},VIEW:'dash',SB:{},sbAllRows:async()=>{calls++;return pending;}});
   const first=ctx.loadActivities();
   const second=ctx.loadActivities();
-  assert.equal(calls,1,'concurrent renders must share one activity request');
+  assert.equal(calls,2,'one activity and one assignee request are shared across concurrent renders');
   resolveRows({data:[],error:null});
   await Promise.all([first,second]);
 }

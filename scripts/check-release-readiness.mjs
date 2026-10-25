@@ -2,11 +2,14 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
+const data=fs.readFileSync(new URL('../prototype/core-app-data.js',import.meta.url),'utf8');
+const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
+const app=[html,data,shell].join('\n');
 const ux=fs.readFileSync(new URL('../prototype/ux-system.css',import.meta.url),'utf8');
 const workflows=fs.readFileSync(new URL('../prototype/department-workflows.css',import.meta.url),'utf8');
 
 function literal(name){
-  const match=html.match(new RegExp(`const\\s+${name}\\s*=\\s*([\\s\\S]*?);\\s*\\n`));
+  const match=app.match(new RegExp(`const\\s+${name}\\s*=\\s*([\\s\\S]*?);\\s*\\n`));
   assert.ok(match,`Missing ${name}`);
   return Function(`"use strict";return (${match[1]})`)();
 }
@@ -41,8 +44,8 @@ assert.ok(!roleAllow.staff.includes('users'),'Staff must not see employee admini
 assert.ok(roleAllow.lead.includes('kpi')&&roleAllow.lead.includes('reports'),'Lead needs KPI and reporting');
 assert.ok(!roleAllow.lead.includes('users'),'Lead must not see employee administration by default');
 assert.ok(roleAllow.exec.includes('users'),'Executive/admin shell needs employee administration');
-assert.match(html,/if\(!CLOUD\|\|!canAdminAccess\(\)\)allow=allow\.filter\(k=>k!==['"]users['"]\)/,'User administration needs a live admin gate');
-assert.match(html,/if\(!canViewDept\(['"]GRAPHIC['"]\)\)allow=allow\.filter\(k=>k!==['"]graphic['"]\)/,'Graphic navigation needs a department gate');
+assert.match(app,/if\(!CLOUD\|\|!canAdminAccess\(\)\)allow=allow\.filter\(k=>k!==['"]users['"]\)/,'User administration needs a live admin gate');
+assert.match(app,/if\(!canViewDept\(['"]GRAPHIC['"]\)\)allow=allow\.filter\(k=>k!==['"]graphic['"]\)/,'Graphic navigation needs a department gate');
 
 assert.ok(contrast('#182338','#ffffff')>=7,'Primary light text contrast regressed');
 assert.ok(contrast('#53617a','#ffffff')>=4.5,'Secondary light text contrast regressed');

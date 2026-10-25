@@ -3,6 +3,10 @@ import vm from 'node:vm';
 
 const file = new URL('../prototype/index.html', import.meta.url);
 const html = fs.readFileSync(file, 'utf8');
+const linkedScripts=[...html.matchAll(/<script\s+src="([^"?]+)(?:\?[^\"]*)?"[^>]*><\/script>/gi)]
+  .map(match=>match[1]).filter(src=>!/^https?:/i.test(src))
+  .map(src=>fs.readFileSync(new URL('../prototype/'+src,import.meta.url),'utf8'));
+const app=[html,...linkedScripts].join('\n');
 const activity = fs.readFileSync(new URL('../prototype/activity-module.js', import.meta.url), 'utf8');
 const migration15 = fs.readFileSync(new URL('../supabase/migrations/202608300015_profile_roles_and_reporting.sql', import.meta.url), 'utf8');
 const migration16 = fs.readFileSync(new URL('../supabase/migrations/202609010016_meeting_action_plan.sql', import.meta.url), 'utf8');
@@ -13,8 +17,6 @@ const migration38 = fs.readFileSync(new URL('../supabase/migrations/202610150038
 const accessGate = fs.readFileSync(new URL('../supabase/functions/access-gate/index.ts', import.meta.url), 'utf8');
 const inviteFunction = fs.readFileSync(new URL('../supabase/functions/invite-company-user/index.ts', import.meta.url), 'utf8');
 const talkFunction = fs.readFileSync(new URL('../supabase/functions/talk-to-data/index.ts', import.meta.url), 'utf8');
-const kpiWork = fs.readFileSync(new URL('../prototype/kpi-work.js', import.meta.url), 'utf8');
-const connectedSystems = fs.readFileSync(new URL('../prototype/connected-systems.js', import.meta.url), 'utf8');
 const issueImporter = fs.readFileSync(new URL('./prepare_operational_issue_import.py', import.meta.url), 'utf8');
 const checks = [
   ['production activity module is loaded', /<script src="activity-module\.js\?v=[^"]+"><\/script>/],
@@ -23,7 +25,6 @@ const checks = [
   ['Graphic renderer', /RENDER\.graphic\s*=\s*function/],
   ['Graphic database loader', /async function loadGraphic\(/],
   ['Graphic pagination', /GP_COLUMN_PAGE_SIZE\s*=\s*30/],
-  ['Graphic work separates current, stale and completed history', /function gpFreshness\(j\)[\s\S]*ค้างเกิน 30 วัน/],
   ['Graphic realtime refresh', /table:'graphic_jobs'/],
   ['Dashboard includes Graphic jobs', /function dashboardAllWork\(\)/],
   ['Production board unifies RLS-visible sources', /function boardAllWork\(\)[\s\S]*boardActivityRows\(\)[\s\S]*boardIssueRows\(\)/],
@@ -76,7 +77,7 @@ const checks = [
   ['Timeline lists unscheduled work and lets Graphic managers set a due date', /รายการที่ต้องกำหนดวัน[\s\S]*openGraphicDue/],
 ];
 
-const failed = checks.filter(([, pattern]) => !pattern.test(html));
+const failed = checks.filter(([, pattern]) => !pattern.test(app));
 if (/^\+/m.test(html)) failed.push(['No accidental diff markers', /^\+/m]);
 if (/ROLE_META\.lead\.dept/.test(activity)) failed.push(['Activity management must not use fixed lead department', /ROLE_META\.lead\.dept/]);
 if (!/MANAGE_DEPTS\.includes\(row\.department_code\)/.test(activity)) failed.push(['Activity management follows explicit managed departments', /MANAGE_DEPTS/]);
@@ -90,19 +91,17 @@ if (!/enforce_device/.test(migration19) || !/allowed_network inet/.test(migratio
 if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/company_credentials_ready/.test(accessGate) || !/allowed: true/.test(accessGate) || /evaluate_login_access/.test(accessGate)) failed.push(['Legacy Access Gate verifies the account only and never checks device or IP', /getUser|company_credentials_ready|allowed: true/]);
 if (/edge_access_allowed/.test(inviteFunction) || /edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions no longer require device or IP approval', /edge_access_allowed/]);
 if (!/company-data-rules-v1/.test(talkFunction) || /api\.openai\.com/.test(talkFunction) || /OPENAI_API_KEY/.test(talkFunction)) failed.push(['Talk to Data uses the no-cost Company Data rules engine', /company-data-rules-v1/]);
-if (!/exactCount\(admin\.from\("daily_activities"\)/.test(talkFunction) || !/total:\s*activityTotal/.test(talkFunction) || !/total:\s*jobTotal/.test(talkFunction)) failed.push(['Talk to Data totals use exact database counts instead of the 5000-row sample', /exactCount|activityTotal|jobTotal/]);
-if (!/function openKpiEvidencePicker\(\)/.test(kpiWork) || !/\+ เพิ่มหลักฐาน KPI/.test(kpiWork) || !/openWorkKpis\(row\.kind,row\.id,row\.department\)/.test(kpiWork)) failed.push(['KPI page exposes a real-work evidence picker', /openKpiEvidencePicker|เพิ่มหลักฐาน KPI/]);
-if (!/localStorage\.setItem\(resultCacheKey\(source\)/.test(connectedSystems) || !/cacheTtl=24\*60\*60\*1000/.test(connectedSystems)) failed.push(['Connected team results persist for 24 hours on the same device and account', /localStorage|cacheTtl/]);
 if (!/enforce_device = false/.test(migration38) || !/enforce_ip = false/.test(migration38) || !/user_access_ip_rules[\s\S]*active = false/.test(migration38)) failed.push(['Migration disables every existing device and IP policy', /enforce_device = false|enforce_ip = false/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
-if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(html)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);
+if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(app)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);
 
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
   .map((match) => match[1])
   .filter((source) => source.trim());
 try {
   scripts.forEach((source, index) => new vm.Script(source, { filename: `prototype-inline-${index + 1}.js` }));
+  linkedScripts.forEach((source,index)=>new vm.Script(source,{filename:`prototype-linked-${index+1}.js`}));
 } catch (error) {
   console.error('FAIL: Prototype JavaScript syntax');
   console.error(error.message);

@@ -8,8 +8,8 @@ const migration=fs.readFileSync(new URL('../supabase/migrations/202610230042_gra
 
 new vm.Script(source,{filename:'graphic-production-v2.js'});
 assert.match(source,/GF\.scope=GF\.scope\|\|''/,'graphic filter state includes personal scope');
-assert.match(html,/graphic-production-v2\.js\?v=20261024-trello-board-3/,'production page loads the workflow enhancement');
-assert.match(html,/department-workflows\.css\?v=20261024-trello-board-3/,'production page loads the compact Trello-style board');
+assert.match(html,/graphic-production-v2\.js\?v=[^"']+/,'production page loads the workflow enhancement');
+assert.match(html,/department-workflows\.css\?v=[^"']+/,'production page loads the compact Trello-style board');
 assert.match(source,/gp-filter-drawer/,'advanced filters are tucked into a compact drawer');
 assert.match(source,/main\.classList\.toggle\('graphic-board-view',GF\.tab==='board'\)/,'board mode activates compact board styles');
 assert.match(source,/งานของฉัน/);
