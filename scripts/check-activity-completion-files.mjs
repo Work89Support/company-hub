@@ -28,6 +28,8 @@ for(const token of [
   'ไฟล์ที่เลือกไว้',
   'ไฟล์ที่แนบแล้ว',
   'removePendingActivityFile',
+  'activityStoragePath(activityId,file)',
+  "replace(/-/g,'').slice(0,20)",
   'uploads.failed.length',
   "SB.rpc('add_activity_file'",
   "SB.rpc('delete_my_activity_file'",
