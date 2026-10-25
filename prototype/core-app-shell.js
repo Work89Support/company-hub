@@ -62,6 +62,28 @@ function canCreateTask(dept){return !!SB&&!!ACCESS_PROFILE&&(canAdminAccess()||(
 function canManageTaskUi(t){return !!t&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(t.dept)));}
 function isMyTaskAssignee(t){return !!t&&!!ACCESS_PROFILE&&assigneesOf(t).includes(ACCESS_PROFILE.id);}
 function canProgressTaskUi(t){return canManageTaskUi(t)||isMyTaskAssignee(t);}
+function canEditTaskDetails(t){return !!t&&(!CLOUD||ACCESS_PROFILE?.id===t.creator);}
+function openTaskDetailsEditor(id){
+  const t=TASKS.find(x=>x.id===id);if(!t)return;
+  if(!canEditTaskDetails(t)){toast('แก้ไขชื่อและรายละเอียดได้เฉพาะผู้สร้างงาน','info');return;}
+  showModal(`<div class="modal-h"><div><h3>แก้ไขข้อมูลงาน</h3><div class="muted" style="font-size:11.5px">${esc(t.id)} · เฉพาะผู้สร้างงานเท่านั้น</div></div><button class="x" onclick="openTask('${t.id}')">×</button></div>
+    <div class="pad"><div class="field"><label for="taskEditTitle">ชื่องาน *</label><input class="fin" id="taskEditTitle" maxlength="300" value="${esc(t.title)}"></div>
+    <div class="field"><label for="taskEditDescription">รายละเอียดงาน</label><textarea class="fin" id="taskEditDescription" rows="9" maxlength="20000">${esc(t.desc||'')}</textarea></div>
+    <div class="ux-modal-actions"><button class="tbtn" onclick="openTask('${t.id}')">ยกเลิก</button><button class="tbtn primary" id="taskDetailSave" onclick="saveTaskDetails('${t.id}')">บันทึกการแก้ไข</button></div></div>`);
+}
+async function saveTaskDetails(id){
+  const t=TASKS.find(x=>x.id===id);if(!t)return;
+  if(!canEditTaskDetails(t)){toast('แก้ไขชื่อและรายละเอียดได้เฉพาะผู้สร้างงาน','info');return;}
+  const title=val('taskEditTitle').trim(),description=val('taskEditDescription').trim(),button=document.getElementById('taskDetailSave');
+  if(!title){toast('กรุณาระบุชื่องาน','info');document.getElementById('taskEditTitle')?.focus();return;}
+  if(title.length>300||description.length>20000){toast('ข้อมูลยาวเกินขนาดที่กำหนด','info');return;}
+  if(title===t.title&&description===(t.desc||'')){toast('ข้อมูลยังไม่มีการเปลี่ยนแปลง','info');return;}
+  if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
+  try{
+    if(CLOUD&&t.dbId){const result=await SB.rpc('update_own_task_details',{p_task:t.dbId,p_title:title,p_description:description});if(result.error)throw result.error;}
+    t.title=title;t.desc=description;toast('บันทึกชื่อและรายละเอียดงานแล้ว');refresh();openTask(id);
+  }catch(e){toast('แก้ไขรายละเอียดไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='บันทึกการแก้ไข';}}
+}
 function taskSlaMinutes(s){if(!s)return null;return Math.max(1,Number(s.n)||1)*(s.unit==='hr'?60:1440);}
 async function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);

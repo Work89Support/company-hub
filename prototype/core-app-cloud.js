@@ -90,9 +90,9 @@ function openTask(id){
   const _sla=slaOf(t);
   const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)}</div>
-    <h3>${t.title}</h3><div class="muted" style="font-size:11.5px">${t.id} · สั่งโดย ${shortName(t.creator)}</div></div><button class="x" onclick="closeModal()">×</button></div>
+    <h3>${esc(t.title)}</h3><div class="muted" style="font-size:11.5px">${esc(t.id)} · สั่งโดย ${esc(shortName(t.creator))}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
-    <div class="field"><label>รายละเอียดงาน</label><div class="v">${t.desc||'-'}</div></div>
+    <div class="field"><div class="task-detail-heading"><label>รายละเอียดงาน</label>${canEditTaskDetails(t)?`<button class="tbtn sm" onclick="openTaskDetailsEditor('${t.id}')">แก้ไขรายละเอียด</button>`:''}</div><div class="v task-description">${esc(t.desc||'-')}</div>${!canEditTaskDetails(t)?'<small class="muted">ชื่อและรายละเอียดแก้ไขได้เฉพาะผู้สร้างงาน</small>':''}</div>
     <div class="field" style="margin-top:6px"><label>${progress?'สถานะ (ผู้รับงานอัปเดตความคืบหน้า / หัวหน้าปิดงาน)':'สถานะ'}</label>${sSel}</div>
     <div class="field"><label>ความสำคัญ</label>${pSel}</div>
     <div class="field"><label>ผู้รับผิดชอบ (${assigneesOf(t).length} คน)</label>${aBox}</div>
