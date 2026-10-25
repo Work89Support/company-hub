@@ -69,6 +69,13 @@ function entryField(key,label,value='',type='text',max=4000){return `<div class=
 const ENTRY_FILE_ACCEPT='image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/csv,application/zip,.docx,.xlsx,.pptx';
 function entryFileSize(bytes){const n=Number(bytes||0);return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';}
 function entryFileKind(file){const type=String(file?.type||'');if(type.startsWith('image/'))return'รูปภาพ';if(type==='application/pdf')return'PDF';if(/spreadsheet|excel|csv/.test(type)||/\.(xlsx|csv)$/i.test(file?.name||''))return'ตาราง';if(/word|text/.test(type)||/\.(docx|txt)$/i.test(file?.name||''))return'เอกสาร';if(/presentation/.test(type)||/\.pptx$/i.test(file?.name||''))return'สไลด์';if(type==='application/zip'||/\.zip$/i.test(file?.name||''))return'ไฟล์ ZIP';return'ไฟล์';}
+function activityFileExtension(file){
+ const name=String(file?.name||''),matched=name.match(/\.([A-Za-z0-9]{1,12})$/);if(matched)return matched[1].toLowerCase();
+ return({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','application/pdf':'pdf','text/plain':'txt','text/csv':'csv','application/zip':'zip','application/vnd.openxmlformats-officedocument.wordprocessingml.document':'docx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'xlsx','application/vnd.openxmlformats-officedocument.presentationml.presentation':'pptx'})[String(file?.type||'').toLowerCase()]||'bin';
+}
+function activityStoragePath(activityId,file){
+ const token=crypto.randomUUID().replace(/-/g,'').slice(0,20);return`${Number(activityId)}/${ACCESS_PROFILE.id}/${Date.now()}-${token}.${activityFileExtension(file)}`;
+}
 function renderPendingActivityFiles(){
  const box=document.getElementById('entry-pending-files');if(!box)return;
  box.innerHTML=ENTRY_PENDING_FILES.length?`<div class="entry-file-section-title"><b>ไฟล์ที่เลือกไว้</b><span>${ENTRY_PENDING_FILES.length} ไฟล์ · จะอัปโหลดเมื่อกดบันทึก</span></div>${ENTRY_PENDING_FILES.map((file,index)=>`<div class="entry-file-row pending"><div class="entry-file-open"><span>📎</span><span><b>${esc(file.name)}</b><small>${entryFileKind(file)} · ${entryFileSize(file.size)} · พร้อมแนบ</small></span></div><button type="button" class="tbtn sm" onclick="removePendingActivityFile(${index})">เอาออก</button></div>`).join('')}`:'<div class="entry-file-empty">ยังไม่ได้เลือกไฟล์</div>';
@@ -96,8 +103,7 @@ async function uploadActivityFiles(activityId,files){
  const result={uploaded:[],failed:[]};
  for(const file of files){try{
    if(file.size>10485760)throw new Error('ขนาดเกิน 10 MB');
-   const safe=file.name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'-').slice(-120)||'attachment';
-   const path=`${activityId}/${ACCESS_PROFILE.id}/${Date.now()}-${crypto.randomUUID().slice(0,8)}-${safe}`;
+   const path=activityStoragePath(activityId,file);
    const uploaded=await SB.storage.from('activity-files').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false,cacheControl:'3600'});if(uploaded.error)throw uploaded.error;
    const saved=await SB.rpc('add_activity_file',{p_activity:Number(activityId),p_path:path,p_name:file.name,p_mime:file.type||'',p_size:file.size});
    if(saved.error){await SB.storage.from('activity-files').remove([path]);throw saved.error;}result.uploaded.push(file);
