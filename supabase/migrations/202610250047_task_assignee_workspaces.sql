@@ -29,6 +29,10 @@ create table if not exists public.task_assignee_files (
 create index if not exists task_assignee_workspaces_user_idx on public.task_assignee_workspaces(user_id,updated_at desc);
 create index if not exists task_assignee_files_workspace_idx on public.task_assignee_files(task_id,user_id,created_at desc);
 
+insert into public.task_assignee_workspaces(task_id,user_id,acknowledged_at)
+select task_id,user_id,acknowledged_at from public.task_assignees where acknowledged_at is not null
+on conflict(task_id,user_id) do nothing;
+
 create or replace function public.can_view_assignee_workspace(p_task uuid,p_user uuid)
 returns boolean language sql stable security definer set search_path=public
 as $$

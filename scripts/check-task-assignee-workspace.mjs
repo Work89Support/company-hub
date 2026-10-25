@@ -10,6 +10,7 @@ const cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta
 assert.match(shell,/function taskAssigneeWorkspaceUi\(t\)/);
 assert.match(shell,/function saveTaskAssigneeWorkspace\(id\)/);
 assert.match(shell,/function uploadTaskAssigneeFile\(id\)/);
+assert.match(shell,/taskAcknowledgements\(t\)\[ACCESS_PROFILE\.id\]&&taskWorkspaces\(t\)\[ACCESS_PROFILE\.id\]/);
 assert.match(shell,/SB\.storage\.from\('task-assignee-files'\)/);
 assert.match(cloud,/task_assignee_workspaces/);
 assert.match(cloud,/task_assignee_files/);

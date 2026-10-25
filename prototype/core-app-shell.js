@@ -68,9 +68,9 @@ function taskWorkspaces(t){return t?.assigneeWorkspaces&&typeof t.assigneeWorksp
 function taskWorkspaceFiles(t){return Array.isArray(t?.assigneeFiles)?t.assigneeFiles:[];}
 const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา'};
 function taskAcknowledgementUi(t){
-  const assignees=assigneesOf(t),acks=taskAcknowledgements(t),mine=ACCESS_PROFILE?.id&&acks[ACCESS_PROFILE.id],acked=assignees.filter(id=>acks[id]);
+  const assignees=assigneesOf(t),acks=taskAcknowledgements(t),mine=ACCESS_PROFILE?.id&&acks[ACCESS_PROFILE.id],myWorkspace=ACCESS_PROFILE?.id&&taskWorkspaces(t)[ACCESS_PROFILE.id],acked=assignees.filter(id=>acks[id]);
   const rows=assignees.map(id=>`<span class="task-ack-person ${acks[id]?'is-acked':''}">${acks[id]?'✓':'○'} ${esc(shortName(id))}${acks[id]?` <small>${new Date(acks[id]).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small>`:''}</span>`).join('');
-  const action=isMyTaskAssignee(t)?(mine?`<span class="task-ack-mine">✓ คุณรับทราบแล้ว ${new Date(mine).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</span>`:`<button class="tbtn primary task-ack-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">✓ รับทราบงาน</button>`):'';
+  const action=isMyTaskAssignee(t)?(mine&&myWorkspace?`<span class="task-ack-mine">✓ คุณรับทราบแล้ว ${new Date(mine).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</span>`:`<button class="tbtn primary task-ack-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">${mine?'เปิดงานย่อยส่วนตัว':'✓ รับทราบงาน'}</button>`):'';
   return `<div class="task-ack-box"><div class="task-ack-head"><div><b>การรับทราบงาน</b><small>${acked.length}/${assignees.length} คนรับทราบแล้ว</small></div>${action}</div><div class="task-ack-people">${rows||'<span class="muted">ยังไม่มีผู้รับผิดชอบ</span>'}</div></div>`;
 }
 function taskAssigneeWorkspaceUi(t){
@@ -90,7 +90,7 @@ function taskAssigneeWorkspaceUi(t){
 }
 async function acknowledgeTask(id){
   const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)){toast('รับทราบได้เฉพาะผู้ที่ได้รับมอบหมาย','info');return;}
-  if(taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('คุณรับทราบงานนี้แล้ว','info');return;}
+  if(taskAcknowledgements(t)[ACCESS_PROFILE.id]&&taskWorkspaces(t)[ACCESS_PROFILE.id]){toast('คุณรับทราบงานนี้แล้ว','info');return;}
   const button=document.getElementById('taskAckButton');if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
   try{
     let acknowledgedAt=new Date().toISOString();
