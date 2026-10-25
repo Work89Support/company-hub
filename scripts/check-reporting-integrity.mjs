@@ -1,4 +1,8 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';
+const reportingSource=fs.readFileSync(new URL('../prototype/reporting-integrity.js',import.meta.url),'utf8');
+assert.match(reportingSource,/INTEGRITY_KPI_PERIOD=this\.value/,'monthly KPI month must survive rerender');
+assert.match(reportingSource,/INTEGRITY_KPI_DEFINITION=this\.value/,'monthly KPI definition must survive rerender');
+assert.match(reportingSource,/onclick="integrityOpenKpiResult/,'monthly KPI open action must survive DOM rearrangement');
 const {Window}=await import(process.env.DOM_MODULE||'happy-dom');const window=new Window({url:'https://example.test/'});
 const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
 window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
