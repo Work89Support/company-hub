@@ -4,12 +4,13 @@ import vm from 'node:vm';
 let html='',closed=false,stored=[],fail=false,lastRpc;
 const elements={'work-kpi-form':{},'work-kpi-save':{disabled:false},'work-kpi-error':{textContent:''}};
 const ownActivity={id:'own-activity',department_code:'AIAUTO',activity:'Audit Reconciliation Control',activity_date:'2026-09-29',employee_name:'AMM',updated_at:'2026-09-29T10:00:00Z'};
-const ctx={console,ACCESS_PROFILE:{id:'amm-profile'},ACTIVITY_ROWS:[],TASKS:[],GRAPHIC_JOBS:[],PROBLEMS:[],entryCanEdit:()=>true,canManageGraphic:()=>false,SB:{from(table){return {select(){return this;},eq(){return this;},order(){return this;},limit(){return this;},then(resolve){resolve({data:table==='kpi_definitions'?[{id:'kpi-1',name:'<img src=x>',target:95,source:'Sheet'}]:table==='daily_activities'?[ownActivity]:stored.map(definition_id=>({definition_id}))});}};},async rpc(name,args){lastRpc={name,args};if(fail)return {error:{message:'permission denied'}};stored=[...args.p_definitions];return {data:stored};}},
+const ctx={console,ACCESS_PROFILE:{id:'amm-profile',department_code:'AIAUTO'},ACTIVITY_ROWS:[],TASKS:[],GRAPHIC_JOBS:[],PROBLEMS:[],entryCanEdit:()=>true,canManageGraphic:()=>false,SB:{from(table){return {select(){return this;},eq(){return this;},order(){return this;},limit(){return this;},then(resolve){resolve({data:table==='kpi_definitions'?[{id:'kpi-1',name:'<img src=x>',target:95,source:'Sheet'}]:table==='daily_activities'?[ownActivity]:stored.map(definition_id=>({definition_id}))});}};},async rpc(name,args){lastRpc={name,args};if(fail)return {error:{message:'permission denied'}};stored=[...args.p_definitions];return {data:stored};}},
  document:{getElementById:id=>elements[id],querySelectorAll:()=>[{value:'kpi-1'}]},showModal:s=>{html=s;},closeModal:()=>{closed=true;},toast(){},esc:x=>String(x??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'),deptName:x=>x,
  openActivityEntry(){},openTask(){},openGraphicJob(){},openProblem(){},RENDER:{},VIEW:'activity'};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(new URL('../prototype/kpi-work.js',import.meta.url),'utf8'),ctx);
 const candidates=await ctx.kpiEvidenceCandidates();
 assert.equal(candidates.length,1,'signed-in person activity must be fetched even when shared activity cache is empty');
+assert.equal(new Set(candidates.map(row=>row.id)).size,candidates.length,'profile and department reads must not duplicate evidence');
 assert.equal(candidates[0].department,'AIAUTO');assert.equal(candidates[0].title,'Audit Reconciliation Control');
 for(const kind of ['activity','task','graphic','issue']){
  closed=false;stored=[];await ctx.openWorkKpis(kind,'work-1','ADMIN');
