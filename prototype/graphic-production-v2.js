@@ -8,6 +8,20 @@
   GF.profileId=GF.profileId||'';
   function gpProfile(id){return GRAPHIC_PEOPLE.find(p=>p.id===id)||{};}
   function gpProfileName(id){const p=gpProfile(id);return p.display_name||p.email||'';}
+  function gpAssigneeSearchText(profile){
+    return [profile.display_name,profile.email,profile.position_title,profile.department_code,deptName(profile.department_code)].filter(Boolean).join(' ').normalize('NFKC').toLowerCase();
+  }
+  function gpAssigneeOptions(selected=''){
+    return `<option value="">ยังไม่มอบหมาย</option>${GRAPHIC_PEOPLE.map(p=>{const name=p.display_name||p.email;return `<option value="${p.id}" data-name="${esc(name)}" data-assignee-search="${esc(gpAssigneeSearchText(p))}" ${selected===p.id?'selected':''}>${esc(name)}${p.email&&p.email!==name?` · ${esc(p.email)}`:''}</option>`;}).join('')}`;
+  }
+  function gpAssigneeControl(selectId,selected='',change=''){
+    return `<div class="gp-assignee-search"><label for="${selectId}Search">ค้นหาชื่อผู้รับผิดชอบ</label><small id="${selectId}SearchResult">ทั้งหมด ${GRAPHIC_PEOPLE.length} คน</small><input class="fin" type="search" id="${selectId}Search" placeholder="พิมพ์ชื่อหรืออีเมล" autocomplete="off" oninput="gpFilterAssigneeSelect('${selectId}',this.value)"></div><select class="fin" id="${selectId}" ${change?`onchange="${change}"`:''}>${gpAssigneeOptions(selected)}</select>`;
+  }
+  window.gpFilterAssigneeSelect=function(selectId,query=''){
+    const select=document.getElementById(selectId);if(!select)return;const q=String(query||'').normalize('NFKC').toLowerCase().trim();let visible=0;
+    [...select.options].forEach(option=>{if(!option.value)return;const show=!q||String(option.dataset.assigneeSearch||'').includes(q);option.hidden=!show;if(show)visible++;});
+    const result=document.getElementById(selectId+'SearchResult');if(result)result.textContent=q?`พบ ${visible} คน`:`ทั้งหมด ${visible} คน`;
+  };
   function gpNormalizePerson(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/\([^)]*\)/g,'').replace(/[^\p{L}\p{N}]+/gu,'');}
   function gpJobAssignedToProfile(job,id){if(!id)return false;if(job.assignee_id===id)return true;return gpJobMemberRows(job.id).some(m=>(m.profile_id||m.linked_profile_id)===id);}
   const jobFreshness=typeof gpFreshness==='function'?gpFreshness:function(job){if(job.status==='done')return'history';const updated=Date.parse(job.trello_last_activity_at||job.updated_at||job.created_at||'');return Number.isFinite(updated)&&Date.now()-updated>30*86400000?'stale':'current';};
@@ -82,6 +96,8 @@
   openGraphicBrief=function(){
     originalOpenGraphicBrief();
     const brief=document.getElementById('gbBrief')?.closest('.field');if(!brief)return;
+    const assignee=document.getElementById('gbAssignee'),assigneeField=assignee?.closest('.field');
+    if(assigneeField)assigneeField.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeControl('gbAssignee',assignee.value)}`;
     const images=document.createElement('div');images.className='field';images.innerHTML=`<label>ภาพตัวอย่างประกอบบรีฟ</label><input class="fin" id="gbImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onchange="gpBriefImagePreview()"><small>แนบได้สูงสุด 6 ภาพ ภาพละไม่เกิน 10 MB ผู้รับบรีฟจะเห็นภาพในการ์ดได้ทันที</small><div id="gbImagePreview" class="gp-brief-previews"></div>`;brief.after(images);
   };
 
@@ -130,7 +146,7 @@
     }
     if(canManageGraphic()){
       const owner=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent==='ผู้รับผิดชอบ');
-      if(owner)owner.innerHTML=`<label>ผู้รับผิดชอบ</label><select class="fin" onchange="updateGraphicAssignee('${id}',this.value)"><option value="">ยังไม่มอบหมาย</option>${GRAPHIC_PEOPLE.map(p=>`<option value="${p.id}" ${job.assignee_id===p.id?'selected':''}>${esc(p.display_name||p.email)}</option>`).join('')}</select><small>มอบหมายด้วยบัญชีจริง เพื่อให้ปรากฏใน “งานของฉัน”</small>`;
+      if(owner)owner.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeControl('gjAssignee',job.assignee_id||'',`updateGraphicAssignee('${id}',this.value)`)}<small>มอบหมายด้วยบัญชีจริง เพื่อให้ปรากฏใน “งานของฉัน”</small>`;
     }
     hydratePrivatePreviews();
   }

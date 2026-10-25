@@ -192,7 +192,7 @@ function openCompose(){
 function aiCompose(defDept){
   const raw=normSp(val('cmpIn'))||'งานใหม่';
   const a=analyzeCommand(raw); if(defDept&&!/แบนเนอร์|ออกแบบ|โทร|คอนเทนต์|เบิก|แชท|ตรวจ/.test(raw.toLowerCase()))a.dept=defDept;
-  PICK=new Set([a.assignee]);
+  PICK=new Set([a.assignee]);PICK_QUERY='';
   document.getElementById('cmpOut').innerHTML=`
     <div class="ai-note"><b>${sic('i-chat')} AI วิเคราะห์ให้แล้ว:</b> แผนก <b>${deptName(a.dept)}</b> · ความสำคัญ <b>${PRIO[a.prio].t}</b> · กำหนดส่ง <b>${fmtDate(a.due)}</b> · แนะนำ <b>${shortName(a.assignee)}</b> (ว่างสุดในทีม)</div>
     <div class="two" style="margin-top:12px">

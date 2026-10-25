@@ -18,6 +18,8 @@ assert.match(source,/accept="image\/jpeg,image\/png,image\/webp,image\/gif"/);
 assert.match(source,/deleteGraphicFile/);
 assert.match(source,/saveGraphicFileEdit/);
 assert.match(source,/updateGraphicAssignee/);
+assert.match(source,/gpFilterAssigneeSelect/,'graphic assignment includes name/email search');
+assert.match(source,/placeholder="พิมพ์ชื่อหรืออีเมล"/,'graphic assignment search is visible');
 assert.doesNotMatch(source,/<option value="working">/,'new links no longer offer unfinished working files');
 assert.match(migration,/create or replace function public\.can_edit_graphic_job/);
 assert.match(migration,/graphic_job_members/,'linked Trello members are valid editors');

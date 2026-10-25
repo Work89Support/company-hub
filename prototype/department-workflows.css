@@ -19,6 +19,7 @@
 .gp-file-actions{display:flex;gap:5px;flex:0 0 auto}.tbtn.danger{color:var(--red);border-color:#fecaca;background:#fff}.gp-file-link{display:block;padding:0;border:0;background:none;color:var(--blue);font:inherit;text-align:left;text-decoration:underline;cursor:pointer}
 .gp-file-preview-large{width:88px!important;height:66px!important;object-fit:cover;border-radius:9px}.gp-upload-box{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;padding:10px;border:1px dashed var(--border);border-radius:12px;background:var(--surface)}
 .gp-upload-box label{width:100%;font-weight:700}.gp-upload-box input{flex:1;min-width:220px}
+.assignee-search,.gp-assignee-search{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:center;margin:10px 0}.assignee-search label,.gp-assignee-search label{font-size:12px;font-weight:700}.assignee-search input,.gp-assignee-search input{grid-column:1/-1}.assignee-search small,.gp-assignee-search small{grid-column:2;grid-row:1;color:var(--muted);text-align:right}select option[hidden]{display:none}
 @media(max-width:700px){.gp-scope-switch{display:flex}.gp-scope-switch button{flex:1;padding-inline:9px}.gp-file-row{align-items:flex-start;flex-wrap:wrap}.gp-file-actions{width:100%;justify-content:flex-end}}
 
 /* Trello-inspired Graphic Production workspace: compact chrome, board first. */
