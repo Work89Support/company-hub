@@ -34,5 +34,9 @@ const first=(await db.query('select acknowledge_my_task($1) acknowledged_at',[ta
 const second=(await db.query('select acknowledge_my_task($1) acknowledged_at',[task])).rows[0].acknowledged_at;
 assert.equal(String(second),String(first),'acknowledgement timestamp must be stable');
 assert.equal((await db.query("select count(*)::int n from task_events where event_type='assignment_acknowledged'")).rows[0].n,1,'event must be written once');
-console.log('PASS assigned user can acknowledge once; unassigned users are rejected and the event is audited');
+await db.query('delete from task_assignees where task_id=$1 and user_id=$2',[task,assignee]);
+await db.query('insert into task_assignees(task_id,user_id,assigned_by) values($1,$2,$2)',[task,assignee]);
+await db.query('select acknowledge_my_task($1)',[task]);
+assert.equal((await db.query("select count(*)::int n from task_events where event_type='assignment_acknowledged'")).rows[0].n,2,'a new assignment cycle must create a new event');
+console.log('PASS assigned user can acknowledge once per assignment cycle; unassigned users are rejected and every cycle is audited');
 await db.close();

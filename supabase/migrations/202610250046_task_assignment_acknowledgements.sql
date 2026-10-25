@@ -15,7 +15,7 @@ language plpgsql
 security definer
 set search_path=public
 as $$
-declare result timestamptz;
+declare result timestamptz; did_ack boolean:=false;
 begin
   if auth.uid() is null then raise exception using errcode='42501',message='authentication required'; end if;
   if not exists(select 1 from public.profiles where id=auth.uid() and active) then
@@ -23,18 +23,22 @@ begin
   end if;
 
   update public.task_assignees
-     set acknowledged_at=coalesce(acknowledged_at,clock_timestamp())
-   where task_id=p_task and user_id=auth.uid()
+     set acknowledged_at=clock_timestamp()
+   where task_id=p_task and user_id=auth.uid() and acknowledged_at is null
    returning acknowledged_at into result;
+
+  if result is null then
+    select acknowledged_at into result from public.task_assignees
+     where task_id=p_task and user_id=auth.uid();
+  else
+    did_ack:=true;
+  end if;
 
   if result is null then
     raise exception using errcode='42501',message='task assignment required';
   end if;
 
-  if not exists(
-    select 1 from public.task_events
-     where task_id=p_task and actor_id=auth.uid() and event_type='assignment_acknowledged'
-  ) then
+  if did_ack then
     insert into public.task_events(task_id,actor_id,event_type,payload)
     values(p_task,auth.uid(),'assignment_acknowledged',jsonb_build_object('acknowledged_at',result));
   end if;
