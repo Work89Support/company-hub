@@ -64,11 +64,29 @@ function isMyTaskAssignee(t){return !!t&&!!ACCESS_PROFILE&&assigneesOf(t).includ
 function canProgressTaskUi(t){return canManageTaskUi(t)||isMyTaskAssignee(t);}
 function canEditTaskDetails(t){return !!t&&(!CLOUD||ACCESS_PROFILE?.id===t.creator);}
 function taskAcknowledgements(t){return t?.acknowledgements&&typeof t.acknowledgements==='object'?t.acknowledgements:{};}
+function taskWorkspaces(t){return t?.assigneeWorkspaces&&typeof t.assigneeWorkspaces==='object'?t.assigneeWorkspaces:{};}
+function taskWorkspaceFiles(t){return Array.isArray(t?.assigneeFiles)?t.assigneeFiles:[];}
+const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา'};
 function taskAcknowledgementUi(t){
   const assignees=assigneesOf(t),acks=taskAcknowledgements(t),mine=ACCESS_PROFILE?.id&&acks[ACCESS_PROFILE.id],acked=assignees.filter(id=>acks[id]);
   const rows=assignees.map(id=>`<span class="task-ack-person ${acks[id]?'is-acked':''}">${acks[id]?'✓':'○'} ${esc(shortName(id))}${acks[id]?` <small>${new Date(acks[id]).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small>`:''}</span>`).join('');
   const action=isMyTaskAssignee(t)?(mine?`<span class="task-ack-mine">✓ คุณรับทราบแล้ว ${new Date(mine).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</span>`:`<button class="tbtn primary task-ack-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">✓ รับทราบงาน</button>`):'';
   return `<div class="task-ack-box"><div class="task-ack-head"><div><b>การรับทราบงาน</b><small>${acked.length}/${assignees.length} คนรับทราบแล้ว</small></div>${action}</div><div class="task-ack-people">${rows||'<span class="muted">ยังไม่มีผู้รับผิดชอบ</span>'}</div></div>`;
+}
+function taskAssigneeWorkspaceUi(t){
+  const acks=taskAcknowledgements(t),spaces=taskWorkspaces(t),files=taskWorkspaceFiles(t),canOverview=canManageTaskUi(t)||t.creator===ACCESS_PROFILE?.id;
+  if(!assigneesOf(t).length)return '';
+  const cards=assigneesOf(t).map(uid=>{
+    const space=spaces[uid],mine=uid===ACCESS_PROFILE?.id,visible=mine||canOverview;
+    if(!visible)return '';
+    if(!acks[uid]||!space)return `<div class="task-work-card is-pending"><div class="task-work-title"><b>${esc(shortName(uid))}</b><span>รอรับทราบ</span></div><small>งานย่อยส่วนตัวจะเปิดหลังผู้รับกดรับทราบงาน</small></div>`;
+    const personFiles=files.filter(f=>f.user_id===uid),status=space.status||'todo',progress=Number(space.progress_percent||0);
+    const editor=mine?`<div class="task-work-editor"><label>สถานะ<select class="fin" id="taskWorkStatus_${t.id}">${Object.entries(TASK_WORK_STATUS).map(([k,v])=>`<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}</select></label><label>ความคืบหน้า<div class="task-progress-entry"><input class="fin" id="taskWorkProgress_${t.id}" type="number" min="0" max="100" step="5" value="${progress}"><span>%</span></div></label><label class="task-work-note">อัปเดตงาน<textarea class="fin" id="taskWorkNote_${t.id}" maxlength="5000" rows="3" placeholder="สรุปสิ่งที่ทำ ปัญหา หรือสิ่งที่รอตรวจ">${esc(space.update_note||'')}</textarea></label><button class="tbtn primary" id="taskWorkSave_${t.id}" onclick="saveTaskAssigneeWorkspace('${t.id}')">บันทึกอัปเดต</button></div>`:`<div class="task-work-note-read">${esc(space.update_note||'ยังไม่มีข้อความอัปเดต')}</div>`;
+    const fileRows=personFiles.map(f=>`<div class="task-work-file"><button class="gp-file-link" onclick="openTaskAssigneeFile('${f.id}')">📎 ${esc(f.file_name)}</button><small>${Math.max(1,Math.round(Number(f.size_bytes||0)/1024))} KB</small>${mine?`<button class="tbtn sm danger" onclick="deleteTaskAssigneeFile('${t.id}','${f.id}')">ลบ</button>`:''}</div>`).join('')||'<small class="muted">ยังไม่มีไฟล์แนบ</small>';
+    const uploader=mine?`<div class="task-work-upload"><input type="file" id="taskWorkFile_${t.id}" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/csv,application/zip,.docx,.xlsx,.pptx"><button class="tbtn" id="taskWorkUpload_${t.id}" onclick="uploadTaskAssigneeFile('${t.id}')">แนบไฟล์</button></div>`:'';
+    return `<div class="task-work-card"><div class="task-work-title"><div><b>${esc(shortName(uid))}</b><small>รับทราบ ${new Date(space.acknowledged_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div><span class="task-work-status is-${status}">${TASK_WORK_STATUS[status]||status}</span></div><div class="task-work-progress"><i style="width:${progress}%"></i></div><small class="task-work-percent">${progress}%</small>${editor}<div class="task-work-files"><b>ไฟล์ของ ${esc(shortName(uid))}</b>${fileRows}${uploader}</div></div>`;
+  }).join('');
+  return `<div class="field task-workspaces"><div class="task-workspace-head"><div><label>งานย่อยรายคน</label><small>ผู้รับแต่ละคนอัปเดตและแนบไฟล์ของตัวเองหลังรับทราบงาน</small></div></div><div class="task-work-grid">${cards||'<div class="muted">คุณไม่มีสิทธิ์ดูงานย่อยของผู้รับคนอื่น</div>'}</div></div>`;
 }
 async function acknowledgeTask(id){
   const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)){toast('รับทราบได้เฉพาะผู้ที่ได้รับมอบหมาย','info');return;}
@@ -79,8 +97,40 @@ async function acknowledgeTask(id){
     if(CLOUD&&t.dbId){const result=await SB.rpc('acknowledge_my_task',{p_task:t.dbId});if(result.error)throw result.error;acknowledgedAt=result.data||acknowledgedAt;}
     t.acknowledgements={...taskAcknowledgements(t),[ACCESS_PROFILE.id]:acknowledgedAt};
     (t.log=t.log||[]).unshift({who:ACCESS_PROFILE.id,txt:'รับทราบงาน',time:new Date(acknowledgedAt).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});
-    toast('รับทราบงานแล้ว');refresh();openTask(id);
+    if(CLOUD)await cloudLoadTasks();toast('รับทราบงานแล้ว และเปิดงานย่อยส่วนตัวให้แล้ว');refresh();openTask(id);
   }catch(e){toast('บันทึกรับทราบไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='✓ รับทราบงาน';}}
+}
+async function saveTaskAssigneeWorkspace(id){
+  const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)||!taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('ต้องรับทราบงานก่อนอัปเดตงานย่อย','info');return;}
+  const status=val('taskWorkStatus_'+id),progress=Number(val('taskWorkProgress_'+id)),note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkSave_'+id);
+  if(!TASK_WORK_STATUS[status]||!Number.isInteger(progress)||progress<0||progress>100){toast('กรุณาระบุสถานะและความคืบหน้า 0–100%','info');return;}
+  if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
+  try{
+    if(CLOUD&&t.dbId){const result=await SB.rpc('update_my_task_workspace',{p_task:t.dbId,p_status:status,p_progress:progress,p_note:note});if(result.error)throw result.error;await cloudLoadTasks();}
+    else t.assigneeWorkspaces={...taskWorkspaces(t),[ACCESS_PROFILE.id]:{...(taskWorkspaces(t)[ACCESS_PROFILE.id]||{}),status,progress_percent:progress,update_note:note,acknowledged_at:taskAcknowledgements(t)[ACCESS_PROFILE.id]}};
+    toast('อัปเดตงานย่อยแล้ว');refresh();openTask(id);
+  }catch(e){toast('อัปเดตงานย่อยไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='บันทึกอัปเดต';}}
+}
+function taskFileRowById(fileId){for(const t of TASKS){const row=taskWorkspaceFiles(t).find(f=>f.id===fileId);if(row)return row;}return null;}
+async function openTaskAssigneeFile(fileId){
+  const row=taskFileRowById(fileId);if(!row)return;
+  const result=await SB.storage.from('task-assignee-files').createSignedUrl(row.storage_path,300,{download:row.file_name});
+  if(result.error){toast('เปิดไฟล์ไม่สำเร็จ · '+result.error.message,'info');return;}window.open(result.data.signedUrl,'_blank','noopener');
+}
+async function uploadTaskAssigneeFile(id){
+  const t=TASKS.find(x=>x.id===id),input=document.getElementById('taskWorkFile_'+id),file=input?.files?.[0],button=document.getElementById('taskWorkUpload_'+id);
+  if(!t||!file)return toast('กรุณาเลือกไฟล์','info');if(file.size>10485760)return toast('ไฟล์ต้องไม่เกิน 10 MB','info');
+  const safe=file.name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'-').slice(-120)||'attachment';const path=`${t.dbId}/${ACCESS_PROFILE.id}/${Date.now()}-${safe}`;
+  if(button){button.disabled=true;button.textContent='กำลังแนบ…';}
+  try{
+    const uploaded=await SB.storage.from('task-assignee-files').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false,cacheControl:'3600'});if(uploaded.error)throw uploaded.error;
+    const saved=await SB.rpc('set_my_task_file',{p_task:t.dbId,p_path:path,p_name:file.name,p_mime:file.type||'',p_size:file.size});if(saved.error){await SB.storage.from('task-assignee-files').remove([path]);throw saved.error;}
+    await cloudLoadTasks();toast('แนบไฟล์ในงานย่อยแล้ว');openTask(id);
+  }catch(e){toast('แนบไฟล์ไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='แนบไฟล์';}}
+}
+async function deleteTaskAssigneeFile(taskId,fileId){
+  const row=taskFileRowById(fileId);if(!row)return;
+  try{const removed=await SB.rpc('delete_my_task_file',{p_file:fileId});if(removed.error)throw removed.error;const storage=await SB.storage.from('task-assignee-files').remove([removed.data]);if(storage.error)throw storage.error;await cloudLoadTasks();toast('ลบไฟล์แล้ว');openTask(taskId);}catch(e){toast('ลบไฟล์ไม่สำเร็จ · '+(e.message||e),'info');}
 }
 function openTaskDetailsEditor(id){
   const t=TASKS.find(x=>x.id===id);if(!t)return;
