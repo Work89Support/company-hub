@@ -66,7 +66,7 @@ function canEditTaskDetails(t){return !!t&&(!CLOUD||ACCESS_PROFILE?.id===t.creat
 function taskAcknowledgements(t){return t?.acknowledgements&&typeof t.acknowledgements==='object'?t.acknowledgements:{};}
 function taskWorkspaces(t){return t?.assigneeWorkspaces&&typeof t.assigneeWorkspaces==='object'?t.assigneeWorkspaces:{};}
 function taskWorkspaceFiles(t){return Array.isArray(t?.assigneeFiles)?t.assigneeFiles:[];}
-const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา'};
+const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา',done:'ตรวจแล้ว · เสร็จแล้ว'};
 function taskAcknowledgementUi(t){
   const assignees=assigneesOf(t),acks=taskAcknowledgements(t),mine=ACCESS_PROFILE?.id&&acks[ACCESS_PROFILE.id],myWorkspace=ACCESS_PROFILE?.id&&taskWorkspaces(t)[ACCESS_PROFILE.id],acked=assignees.filter(id=>acks[id]);
   const rows=assignees.map(id=>`<span class="task-ack-person ${acks[id]?'is-acked':''}">${acks[id]?'✓':'○'} ${esc(shortName(id))}${acks[id]?` <small>${new Date(acks[id]).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small>`:''}</span>`).join('');
@@ -102,7 +102,7 @@ async function acknowledgeTask(id){
 }
 async function saveTaskAssigneeWorkspace(id){
   const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)||!taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('ต้องรับทราบงานก่อนอัปเดตงานย่อย','info');return;}
-  const status=val('taskWorkStatus_'+id),progress=Number(val('taskWorkProgress_'+id)),note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkSave_'+id);
+  const status=val('taskWorkStatus_'+id);let progress=Number(val('taskWorkProgress_'+id));const note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkSave_'+id);if(status==='done')progress=100;
   if(!TASK_WORK_STATUS[status]||!Number.isInteger(progress)||progress<0||progress>100){toast('กรุณาระบุสถานะและความคืบหน้า 0–100%','info');return;}
   if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
   try{
@@ -177,7 +177,7 @@ async function cloudUpdateTask(t,changes){if(!CLOUD||!t.dbId)return;const r=awai
 async function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.status===st)return;
   if(CLOUD&&!canProgressTaskUi(t)){toast('คุณไม่มีสิทธิ์อัปเดตงานนี้','info');return;}
   if(CLOUD&&!canManageTaskUi(t)&&st==='done'){toast('ผู้รับงานส่งตรวจได้ แต่การปิดงานต้องให้หัวหน้าอนุมัติ','info');return;}
-  try{if(CLOUD&&!canManageTaskUi(t)){const r=await SB.rpc('update_my_task_progress',{p_task:t.dbId,p_status:st});if(r.error)throw r.error;}else await cloudUpdateTask(t,{status:st,closed_at:st==='done'?new Date().toISOString():null});}catch(e){toast('อัปเดตสถานะไม่สำเร็จ · '+(e.message||e),'info');return;}
+  try{if(CLOUD&&!canManageTaskUi(t)){const r=await SB.rpc('update_my_task_progress',{p_task:t.dbId,p_status:st});if(r.error)throw r.error;}else{const changes={status:st,closed_at:st==='done'?new Date().toISOString():null};if(st!=='done'&&t._payload?.auto_closed)changes.prototype_payload={...t._payload,auto_closed:false};await cloudUpdateTask(t,changes);}}catch(e){toast('อัปเดตสถานะไม่สำเร็จ · '+(e.message||e),'info');return;}
   t.status=st;(t.log=t.log||[]).unshift({who:ROLE_META[ROLE].u,txt:'เปลี่ยนสถานะเป็น '+STATUS[st].t,time:'เมื่อสักครู่'});
   logFeed('🔄','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> เปลี่ยน <b>${id}</b> เป็น ${STATUS[st].t}`);
   toast('อัปเดต '+id+' → '+STATUS[st].t);refresh();openTask(id);}

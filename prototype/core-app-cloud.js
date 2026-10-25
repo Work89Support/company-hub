@@ -89,7 +89,7 @@ function openTask(id){
   const dueColor=t.status==='done'?'var(--green)':dl<0?'var(--red)':dl===0?'var(--amber)':'var(--muted)';
   const _sla=slaOf(t);
   const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
-  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)}</div>
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)} ${t._payload?.auto_closed?'<span class="pill task-auto-close-pill">⏱ ปิดอัตโนมัติตามกำหนด</span>':''}</div>
     <h3>${esc(t.title)}</h3><div class="muted" style="font-size:11.5px">${esc(t.id)} · สั่งโดย ${esc(shortName(t.creator))}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><div class="task-detail-heading"><label>รายละเอียดงาน</label>${canEditTaskDetails(t)?`<button class="tbtn sm" onclick="openTaskDetailsEditor('${t.id}')">แก้ไขรายละเอียด</button>`:''}</div><div class="v task-description">${esc(t.desc||'-')}</div>${!canEditTaskDetails(t)?'<small class="muted">ชื่อและรายละเอียดแก้ไขได้เฉพาะผู้สร้างงาน</small>':''}</div>
@@ -101,7 +101,7 @@ function openTask(id){
     <div class="two">
       <div class="field"><label>กำหนดส่ง</label>
         <input type="date" class="fin" value="${d2(t.due)}" ${edit?'':'disabled'} onchange="setDue('${t.id}',this.value)">
-        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}</div></div>
+        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}${t.autoCloseEnabled&&t.status!=='done'?' · ระบบจะปิดงานอัตโนมัติเมื่อครบกำหนด':''}</div></div>
       <div class="field"><label>เวลาที่ใช้ (ชม.)</label>
         <div style="display:flex;gap:6px;align-items:center"><b>${t.spent||0}</b><span class="muted">ชม. รวม</span>
           ${logTime?`<input type="number" min="0.1" step="0.5" class="fin" id="spent_${t.id}" placeholder="เพิ่มครั้งนี้" style="max-width:105px"><button class="tbtn sm" onclick="setSpent('${t.id}')">+ บันทึก</button><button class="tbtn sm" onclick="addSpent('${t.id}',1)">+1 ชม.</button>`:'<span class="muted" style="font-size:11px">ผู้รับงานเป็นผู้ลงเวลา</span>'}</div></div>
@@ -358,7 +358,7 @@ async function cloudLoadTasks(){
   TASKS_READY=false;TASKS.length=0;TASK_PROFILES.length=0;
   try{
     const [tasks,assignments,profiles,timeEntries,comments,people,workspaces,workspaceFiles]=await Promise.all([
-      integrityReadAll(()=>SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,prototype_payload,created_at,updated_at'),["id"]),
+      integrityReadAll(()=>SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,auto_close_enabled,prototype_payload,created_at,updated_at'),["id"]),
       integrityReadAll(()=>SB.from('task_assignees').select('task_id,user_id,assigned_at,acknowledged_at'),["task_id", "user_id"]),
       integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('active',true),["id"]),
       integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
@@ -378,7 +378,7 @@ async function cloudLoadTasks(){
     const workByTask=new Map(),filesByTask=new Map();(workspaces.data||[]).forEach(w=>{if(!workByTask.has(w.task_id))workByTask.set(w.task_id,{});workByTask.get(w.task_id)[w.user_id]=w;});(workspaceFiles.data||[]).forEach(f=>{if(!filesByTask.has(f.task_id))filesByTask.set(f.task_id,[]);filesByTask.get(f.task_id).push(f);});
     const spent=new Map();if(!timeEntries.error)(timeEntries.data||[]).forEach(x=>spent.set(x.task_id,(spent.get(x.task_id)||0)+Number(x.minutes||0)));
     const taskLog=new Map();if(!comments.error)(comments.data||[]).forEach(x=>{if(!taskLog.has(x.task_id))taskLog.set(x.task_id,[]);taskLog.get(x.task_id).push({who:x.author_id,txt:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
-    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,acknowledgements:taskAck.get(row.id)||{},assigneeWorkspaces:workByTask.get(row.id)||{},assigneeFiles:filesByTask.get(row.id)||[],status:row.status,prio:row.priority,createdAt:row.created_at,startAt:row.start_at,dueAt:row.due_at,completedAt:row.closed_at,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
+    (tasks.data||[]).forEach(row=>{const people=byTask.get(row.id)||[],payload=row.prototype_payload||{},start=row.start_at?String(row.start_at).slice(0,10):'',due=row.due_at?String(row.due_at).slice(0,10):'';TASKS.push({id:'T-'+row.task_no,dbId:row.id,dept:row.department_code,title:row.title,creator:row.creator_id,assignee:people[0]||'',assignees:people,acknowledgements:taskAck.get(row.id)||{},assigneeWorkspaces:workByTask.get(row.id)||{},assigneeFiles:filesByTask.get(row.id)||[],status:row.status,prio:row.priority,autoCloseEnabled:!!row.auto_close_enabled,createdAt:row.created_at,startAt:row.start_at,dueAt:row.due_at,completedAt:row.closed_at,start,due,spent:Math.round((spent.get(row.id)||0)/6)/10,ontime:!!row.closed_at&&!!row.due_at&&new Date(row.closed_at)<=new Date(row.due_at),sla:row.sla_minutes?{n:row.sla_minutes%1440===0?row.sla_minutes/1440:row.sla_minutes/60,unit:row.sla_minutes%1440===0?'day':'hr'}:null,tags:Array.isArray(payload.tags)?payload.tags:[],sop:payload.sop||sopForDept(row.department_code),desc:row.description||'',sub:Array.isArray(payload.sub)?payload.sub:[],solution:payload.solution_proposal||'',log:taskLog.get(row.id)||[],_payload:payload,_source:'task'});});
     TASKS_READY=true;
   }catch(e){console.warn('task load:',e.message||e);TASKS.length=0;TASKS_READY=false;throw e;}
 }
