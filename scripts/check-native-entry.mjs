@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import {Window} from 'happy-dom';
 const source=fs.readFileSync(new URL('../prototype/native-entry.js',import.meta.url),'utf8');
 new vm.Script(source);
 let noticeCount=0,modalBusy=true;
-const context={NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
+const window=new Window();
+const context={window,document:window.document,esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
 vm.createContext(context);vm.runInContext(source,context);
 const valid={department_code:'ADMIN',employee_id:'me',activity_date:'2026-09-04',activity:'ตรวจรายการ',category:'ตรวจสอบ',start_time:'09:00',end_time:'10:00',status:'Completed',completed_date:'2026-09-04',result_note:'ตรวจครบ',overnight:false};
 assert.equal(Object.keys(context.entryValidate(valid)).length,0);
@@ -36,3 +38,10 @@ console.log('PASS native entry validation, conditional requirements and ownershi
 assert.equal(context.entryOwnerPlaceholder('เฟิร์น'),'เฟิร์น');
 assert.equal(context.entryOwnerPlaceholder('  '),'เลือกเจ้าของงาน');
 assert.ok(context.entryMissing({...valid,employee_id:null,employee_name:'เฟิร์น'}).includes('เชื่อมบัญชีเข้าใช้งานของ เฟิร์น'));
+context.document.body.innerHTML='<div id="entry-errors" hidden></div><label id="entry-file-picker-label"></label><div id="entry-pending-files"></div>';
+context.queueActivityFiles([{name:'หลักฐานงาน.pdf',size:2048,lastModified:1,type:'application/pdf'}]);
+assert.match(context.document.getElementById('entry-pending-files').textContent,/หลักฐานงาน\.pdf/);
+assert.match(context.document.getElementById('entry-pending-files').textContent,/2 KB/);
+assert.match(context.document.getElementById('entry-pending-files').textContent,/พร้อมแนบ/);
+context.removePendingActivityFile(0);
+assert.match(context.document.getElementById('entry-pending-files').textContent,/ยังไม่ได้เลือกไฟล์/);
