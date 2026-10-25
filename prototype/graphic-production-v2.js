@@ -3,6 +3,7 @@
   const FILE_LABEL={reference:'ภาพอ้างอิง / บรีฟ',final:'ไฟล์ Final'};
   const originalOpenGraphicJob=openGraphicJob;
   const originalOpenGraphicBrief=openGraphicBrief;
+  const originalGpJobCard=gpJobCard;
 
   GF.scope=GF.scope||'';
   GF.profileId=GF.profileId||'';
@@ -50,6 +51,19 @@
     return true;
   };
   gpGlobalVisible=function(){return GRAPHIC_JOBS.filter(gpMatchesGlobal);};
+  function gpImageFile(jobId){return gpJobFiles(jobId).find(f=>f.storage_path&&(!f.mime_type||f.mime_type.startsWith('image/')))||null;}
+  window.graphicPreviewFallback=function(img){
+    if(!img?.isConnected)return;const link=img.dataset.previewLink||'',large=img.classList.contains('gp-cover-lg'),file=img.classList.contains('gp-file-preview');
+    const box=document.createElement(link?'a':'div');box.className=`gp-image-unavailable ${large?'is-large':''} ${file?'is-file':''}`;box.textContent=file?'ดูไฟล์':'ภาพเดิมจาก Trello เปิดไม่ได้';
+    if(link){box.href=link;box.target='_blank';box.rel='noopener';box.title='เปิดไฟล์ต้นทาง';box.onclick=e=>e.stopPropagation();}
+    img.replaceWith(box);
+  };
+  gpJobCard=function(job){
+    let html=originalGpJobCard(job);if(job.cover_url)return html;
+    const file=gpImageFile(job.id);if(!file)return html;
+    const image=`<img class="gp-cover" data-graphic-storage="${esc(file.id)}" data-preview-link="${esc(file.url||'')}" alt="ภาพอ้างอิง ${esc(file.name||job.title)}" loading="lazy" onerror="graphicPreviewFallback(this)">`;
+    return html.replace(/(<div class="gp-job"[^>]*>)/,`$1${image}`);
+  };
   gpVisible=function(){const q=GF.q.toLowerCase();return gpGlobalVisible().filter(j=>(!GF.project||j.project_id===GF.project)&&(!GF.status||j.status===GF.status)&&(!q||[j.title,j.brief,j.requester_name,j.assignee_name,gpProject(j.project_id).name].join(' ').toLowerCase().includes(q)));};
   window.gpSetScope=function(scope){GF.scope=scope;GF.person='';GF.project='';GF.status='';GF.q='';GP_VISIBLE_LIMITS={};RENDER.graphic();};
   gpFilterBar=function(){
@@ -65,6 +79,7 @@
     const tabs=[['dashboard','ภาพรวม'],['board','บอร์ดงาน'],['monthly','งานรายเดือน'],['projects','ทีม / ผู้รับผิดชอบ']];
     main.innerHTML=`${crumb('หน้าแรก','Graphic Production')}<div class="page-h gp-page-h"><div><div class="gp-page-kicker">GRAPHIC WORKSPACE</div><h1>Graphic Production</h1><p>รับบรีฟ · ผลิต · ตรวจงาน · แก้ไข · ส่งมอบ</p>${sourceBadge('live','LIVE',`${nf(all.length)} งานในมุมมองนี้`)}</div><div class="gp-page-actions"><button class="tbtn primary" onclick="openGraphicBrief()">+ เพิ่มการ์ด</button></div></div><div class="gp-tabs">${tabs.map(x=>`<button class="${GF.tab===x[0]?'active':''}" onclick="gpTab('${x[0]}')">${x[1]}</button>`).join('')}</div>${gpFilterBar()}<div class="gp-kpis"><div class="gp-kpi"><span>กำลังเดิน</span><b>${active.length}</b></div><div class="gp-kpi"><span>รอตรวจ</span><b>${review.length}</b></div><div class="gp-kpi"><span>เกินกำหนด</span><b style="color:${late.length?'var(--red)':'inherit'}">${late.length}</b></div><div class="gp-kpi"><span>เสร็จเดือนนี้</span><b>${monthDone.length}</b></div><div class="gp-kpi"><span>รอบแก้</span><b>${revs}</b></div></div><div id="gpBody"></div>`;
     if(GF.tab==='dashboard')renderGraphicDashboard();else if(GF.tab==='monthly')renderGraphicMonthly();else if(GF.tab==='projects')renderGraphicProjects();else renderGraphicBoard();
+    queueMicrotask(hydratePrivatePreviews);
   };
 
   function canEditJob(job){
@@ -133,7 +148,7 @@
   }
   window.openGraphicFile=async function(id){const file=GRAPHIC_FILES.find(f=>f.id===id);if(!file)return;try{const url=await signedFileUrl(file,true);if(url)window.open(url,'_blank','noopener');}catch(e){toast('เปิดไฟล์ไม่สำเร็จ · '+(e.message||e),'info');}};
   async function hydratePrivatePreviews(){
-    for(const img of document.querySelectorAll('[data-graphic-storage]')){const file=GRAPHIC_FILES.find(f=>f.id===img.dataset.graphicStorage);if(!file)continue;try{img.src=await signedFileUrl(file);}catch{img.remove();}}
+    for(const img of document.querySelectorAll('[data-graphic-storage]')){const file=GRAPHIC_FILES.find(f=>f.id===img.dataset.graphicStorage);if(!file)continue;try{img.src=await signedFileUrl(file);if(!img.src)graphicPreviewFallback(img);}catch{graphicPreviewFallback(img);}}
   }
   function enhanceJobModal(id){
     const job=GRAPHIC_JOBS.find(j=>j.id===id),files=gpJobFiles(id),editable=canEditJob(job),pad=document.querySelector('#modal .pad');if(!pad)return;
