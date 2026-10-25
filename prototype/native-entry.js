@@ -119,7 +119,7 @@ function entryNotice(){
  if(!ACCESS_PROFILE||!ACTIVITY_READY)return;
  const previous=ENTRY_SCOPE;ENTRY_SCOPE='mine';const q=entryQueue();ENTRY_SCOPE=previous;
  const total=q.activities.length+q.issues.length;NAV.completeness.t='ข้อมูลที่ต้องเติม'+(total?' ('+total+')':'');buildNav();
- if(total&&ENTRY_NOTICE_USER!==ACCESS_PROFILE.id){ENTRY_NOTICE_USER=ACCESS_PROFILE.id;showModal(`<div class="modal-h"><h3>มีข้อมูลที่ต้องเติม ${nf(total)} รายการ</h3></div><div class="pad"><p>กิจกรรม ${nf(q.activities.length)} รายการ และปัญหา ${nf(q.issues.length)} เคส ยังมีข้อมูลไม่ครบ กรุณาตรวจและเติมในส่วนที่คุณรับผิดชอบ</p><button class="tbtn primary" onclick="closeModal();ENTRY_SCOPE='mine';go('completeness')">เปิดรายการที่ต้องเติม</button><button class="tbtn" onclick="closeModal()">รับทราบ — ติดตามต่อที่เมนูข้อมูลที่ต้องเติม</button></div>`);}
+ if(total&&ENTRY_NOTICE_USER!==ACCESS_PROFILE.id){ENTRY_NOTICE_USER=ACCESS_PROFILE.id;if(typeof overlay!=='undefined'&&overlay.classList.contains('show'))return;showModal(`<div class="modal-h"><h3>มีข้อมูลที่ต้องเติม ${nf(total)} รายการ</h3></div><div class="pad"><p>กิจกรรม ${nf(q.activities.length)} รายการ และปัญหา ${nf(q.issues.length)} เคส ยังมีข้อมูลไม่ครบ กรุณาตรวจและเติมในส่วนที่คุณรับผิดชอบ</p><button class="tbtn primary" onclick="closeModal();ENTRY_SCOPE='mine';go('completeness')">เปิดรายการที่ต้องเติม</button><button class="tbtn" onclick="closeModal()">รับทราบ — ติดตามต่อที่เมนูข้อมูลที่ต้องเติม</button></div>`);}
 }
 const entryLoadActivities=loadActivities;
 loadActivities=async function(){await entryLoadActivities();entryNotice();};
