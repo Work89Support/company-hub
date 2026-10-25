@@ -26,16 +26,31 @@ function workKpiButton(kind,id,department){
  const host=document.querySelector('.modal-h');if(!host||host.querySelector('[data-work-kpi]'))return;
  const button=document.createElement('button');button.type='button';button.className='tbtn';button.dataset.workKpi='true';button.textContent='แท็ก KPI';button.onclick=()=>{if(document.getElementById('native-activity-form')){toast('บันทึกกิจกรรมก่อน แล้วระบบจะเปิดหน้าแท็ก KPI ให้','info');return;}openWorkKpis(kind,id,department);};host.append(button);
 }
-function kpiEvidenceCandidates(){
+function kpiAddActivityCandidate(rows,seen,r){
+ if(!r?.id||!r.department_code||seen.has(`activity:${r.id}`))return;
+ seen.add(`activity:${r.id}`);
+ rows.push({kind:'activity',id:r.id,department:r.department_code,title:r.activity||'กิจกรรม',meta:`กิจกรรม · ${r.activity_date||'-'} · ${r.employee_name||'-'}`,date:r.updated_at||r.activity_date||''});
+}
+async function kpiEvidenceCandidates(){
  const rows=[];
- if(typeof ACTIVITY_ROWS!=='undefined')for(const r of ACTIVITY_ROWS){if(r?.id&&r.department_code&&typeof entryCanEdit==='function'&&entryCanEdit(r))rows.push({kind:'activity',id:r.id,department:r.department_code,title:r.activity||'กิจกรรม',meta:`กิจกรรม · ${r.activity_date||'-'} · ${r.employee_name||'-'}`,date:r.updated_at||r.activity_date||''});}
+ const seen=new Set();
+ if(typeof ACTIVITY_ROWS!=='undefined')for(const r of ACTIVITY_ROWS){if(typeof entryCanEdit==='function'&&entryCanEdit(r))kpiAddActivityCandidate(rows,seen,r);}
+ // The shared activity loader is capped and can omit the signed-in person's older work.
+ // Always fetch that person's activities explicitly so "My work" can be used as KPI evidence.
+ if(SB&&ACCESS_PROFILE?.id){
+  const own=await SB.from('daily_activities').select('id,department_code,activity,activity_date,employee_name,updated_at').eq('employee_id',ACCESS_PROFILE.id).order('activity_date',{ascending:false}).limit(300);
+  if(own.error)throw own.error;
+  for(const r of own.data||[])kpiAddActivityCandidate(rows,seen,r);
+ }
  if(typeof TASKS!=='undefined')for(const t of TASKS){if(t?.dbId&&t.dept&&(typeof canManageTaskUi!=='function'||canManageTaskUi(t)||isMyTaskAssignee(t)))rows.push({kind:'task',id:t.dbId,department:t.dept,title:t.title||'งาน',meta:`งานมอบหมาย · ${t.due||'ยังไม่ระบุกำหนด'}`,date:t.updatedAt||t.dueAt||t.due||''});}
  if(typeof GRAPHIC_JOBS!=='undefined')for(const j of GRAPHIC_JOBS){if(j?.id&&j.department_code&&(j.assignee_id===ACCESS_PROFILE?.id||j.created_by===ACCESS_PROFILE?.id||canManageGraphic()))rows.push({kind:'graphic',id:j.id,department:j.department_code,title:j.title||j.job_no||'งานกราฟิก',meta:`Graphic · ${j.job_no||'-'} · ${j.status||'-'}`,date:j.updated_at||j.created_at||''});}
  if(typeof PROBLEMS!=='undefined')for(const p of PROBLEMS){if(p?.id&&p.dept&&typeof issueEntryCanEdit==='function'&&issueEntryCanEdit(p))rows.push({kind:'issue',id:p.id,department:p.dept,title:p.problem||p.id,meta:`ปัญหา · ${p.project||'-'} · ${p.status||'-'}`,date:p.updatedAt||p.date||''});}
  return rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,300);
 }
-function openKpiEvidencePicker(){
- const candidates=kpiEvidenceCandidates(),departments=[...new Set(candidates.map(row=>row.department))].sort((a,b)=>deptName(a).localeCompare(deptName(b),'th'));
+async function openKpiEvidencePicker(){
+ let candidates=[];
+ try{candidates=await kpiEvidenceCandidates();}catch(error){toast('โหลดงานสำหรับหลักฐาน KPI ไม่สำเร็จ · '+error.message,'info');return;}
+ const departments=[...new Set(candidates.map(row=>row.department))].sort((a,b)=>deptName(a).localeCompare(deptName(b),'th'));
  showModal(`<div class="modal-h"><div><h3>เพิ่มหลักฐาน KPI จากงานจริง</h3><p class="muted">เลือกกิจกรรม งาน กราฟิก หรือปัญหาที่คุณรับผิดชอบ แล้วผูกกับตัวชี้วัดของแผนก</p></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="two"><label class="field"><span>ค้นหา</span><input class="fin" id="kpi-evidence-query" placeholder="ชื่องาน ผู้รับผิดชอบ หรือรหัส"></label><label class="field"><span>แผนก</span><select class="fin" id="kpi-evidence-dept"><option value="">ทุกแผนกที่มีสิทธิ์</option>${departments.map(code=>`<option value="${esc(code)}">${esc(deptName(code))}</option>`).join('')}</select></label></div><p class="muted">การผูกงานเป็นหลักฐานประกอบเท่านั้น ยังไม่เพิ่มคะแนนจนกว่าหัวหน้าจะตรวจและรับรองผล</p><div id="kpi-evidence-list"></div></div>`);
  const render=()=>{
   const query=(document.getElementById('kpi-evidence-query')?.value||'').trim().toLowerCase(),department=document.getElementById('kpi-evidence-dept')?.value||'';
