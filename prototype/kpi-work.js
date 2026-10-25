@@ -38,9 +38,11 @@ async function kpiEvidenceCandidates(){
  // The shared activity loader is capped and can omit the signed-in person's older work.
  // Always fetch that person's activities explicitly so "My work" can be used as KPI evidence.
  if(SB&&ACCESS_PROFILE?.id){
-  const own=await SB.from('daily_activities').select('id,department_code,activity,activity_date,employee_name,updated_at').eq('employee_id',ACCESS_PROFILE.id).order('activity_date',{ascending:false}).limit(300);
-  if(own.error)throw own.error;
-  for(const r of own.data||[])kpiAddActivityCandidate(rows,seen,r);
+  const select='id,department_code,employee_id,activity,activity_date,employee_name,updated_at';
+  const requests=[SB.from('daily_activities').select(select).eq('employee_id',ACCESS_PROFILE.id).order('activity_date',{ascending:false}).limit(300)];
+  if(ACCESS_PROFILE.department_code)requests.push(SB.from('daily_activities').select(select).eq('department_code',ACCESS_PROFILE.department_code).order('activity_date',{ascending:false}).limit(300));
+  const results=await Promise.all(requests);
+  for(const result of results){if(result.error)throw result.error;for(const r of result.data||[]){if(String(r.employee_id||'')===String(ACCESS_PROFILE.id)||typeof entryCanEdit!=='function'||entryCanEdit(r))kpiAddActivityCandidate(rows,seen,r);}}
  }
  if(typeof TASKS!=='undefined')for(const t of TASKS){if(t?.dbId&&t.dept&&(typeof canManageTaskUi!=='function'||canManageTaskUi(t)||isMyTaskAssignee(t)))rows.push({kind:'task',id:t.dbId,department:t.dept,title:t.title||'งาน',meta:`งานมอบหมาย · ${t.due||'ยังไม่ระบุกำหนด'}`,date:t.updatedAt||t.dueAt||t.due||''});}
  if(typeof GRAPHIC_JOBS!=='undefined')for(const j of GRAPHIC_JOBS){if(j?.id&&j.department_code&&(j.assignee_id===ACCESS_PROFILE?.id||j.created_by===ACCESS_PROFILE?.id||canManageGraphic()))rows.push({kind:'graphic',id:j.id,department:j.department_code,title:j.title||j.job_no||'งานกราฟิก',meta:`Graphic · ${j.job_no||'-'} · ${j.status||'-'}`,date:j.updated_at||j.created_at||''});}
