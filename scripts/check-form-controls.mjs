@@ -12,7 +12,7 @@ const context={window,document,MutationObserver:window.MutationObserver,Event:wi
 assert.equal(document.getElementById('issueResolutionMinutes').inputMode,'numeric');
 assert.equal(document.querySelectorAll('#minutes .smart-choice-row button').length,4);
 document.querySelector('#minutes .smart-choice-row button').click();assert.equal(document.getElementById('issueResolutionMinutes').value,'15');
-assert.equal(document.getElementById('start').step,'300');assert.equal(document.querySelectorAll('#clock .smart-choice-row button').length,4);
+assert.equal(document.getElementById('start').step,'60','time inputs must accept every minute, including values such as 16:58');assert.equal(document.querySelectorAll('#clock .smart-choice-row button').length,4);
 assert.match(css,/smart-number-stepper/);assert.match(css,/@media\(max-width:600px\)/);
 assert.match(ux,/grid-template-columns:minmax\(0,1fr\)/,'mobile grid track must be allowed to shrink below intrinsic toolbar width');
 console.log('PASS responsive 390px guard and friendly time/number controls');
