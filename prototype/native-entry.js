@@ -36,6 +36,16 @@ function entryMissing(r){
  if(activityQualityFlags(r).some(f=>['corrected_date','unexpected_year'].includes(f)))m.push('ยืนยันวันที่');
  return [...new Set(m)];
 }
+function entryDateLabel(value){
+ const parts=String(value||'').split('-').map(Number);if(parts.length!==3||parts.some(n=>!Number.isFinite(n)))return String(value||'');
+ const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+ return`${parts[2]} ${months[parts[1]-1]} ${parts[0]+543}`;
+}
+function entryAddDays(value,days){
+ const matched=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!matched)return String(value||'');
+ const date=new Date(Date.UTC(Number(matched[1]),Number(matched[2])-1,Number(matched[3])+Number(days||0)));return date.toISOString().slice(0,10);
+}
+function entryMinimumCompletedDate(v){return v.activity_date?entryAddDays(v.activity_date,v.overnight?1:0):'';}
 function entryValidate(v){
  const e={};
  for(const [key,label] of Object.entries({department_code:'แผนก',employee_id:'เจ้าของรายการ',activity_date:'วันที่ทำงาน',activity:'รายละเอียดกิจกรรม',category:'ประเภทงาน',start_time:'เวลาเริ่ม',status:'สถานะ'}))if(!String(v[key]||'').trim())e[key]='กรุณาระบุ'+label;
@@ -43,7 +53,12 @@ function entryValidate(v){
  if(v.activity_date&&v.activity_date>bangkokTodayISO())e.activity_date='วันที่ทำงานต้องไม่เป็นอนาคต';
  if(v.status==='Completed')for(const [k,label] of Object.entries({end_time:'เวลาจบ',completed_date:'วันที่เสร็จ',result_note:'ผลลัพธ์'}))if(!String(v[k]||'').trim())e[k]='งานเสร็จต้องระบุ'+label;
  if(v.status==='Blocked'&&!String(v.operational_issue||'').trim())e.operational_issue='กรุณาบอกปัญหาที่ทำให้งานติดขัด';
- if(v.completed_date&&(v.completed_date<v.activity_date||v.completed_date>bangkokTodayISO()||(v.overnight&&v.completed_date===v.activity_date)))e.completed_date='วันที่เสร็จต้องอยู่ระหว่างวันที่ทำงานและวันนี้';
+ if(v.completed_date){
+  const today=bangkokTodayISO(),minimum=entryMinimumCompletedDate(v);
+  if(v.overnight&&minimum&&v.completed_date<minimum)e.completed_date=`งานข้ามวันต้องเลือกวันที่เสร็จตั้งแต่ ${entryDateLabel(minimum)}`;
+  else if(v.activity_date&&v.completed_date<v.activity_date)e.completed_date=`วันที่เสร็จต้องไม่ก่อนวันที่ทำงาน (${entryDateLabel(v.activity_date)})`;
+  else if(v.completed_date>today)e.completed_date=`วันที่เสร็จต้องไม่เกินวันนี้ (${entryDateLabel(today)})`;
+ }
  const time=t=>/^([01]\d|2[0-3]):[0-5]\d$/.test(t||'');
  if(v.start_time&&!time(v.start_time))e.start_time='เวลาเริ่มไม่ถูกต้อง';
  if(v.end_time&&!time(v.end_time))e.end_time='เวลาจบไม่ถูกต้อง';
@@ -140,7 +155,14 @@ function entryFormLayout(){
  const categories=()=>{const dept=val('entry-department_code');const values=[...new Set(ACTIVITY_ROWS.filter(r=>r.department_code===dept).map(r=>r.category?.trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th'));list.innerHTML=values.map(v=>`<option value="${esc(v)}"></option>`).join('');};
  categories();document.getElementById('entry-department_code').addEventListener('change',categories);
  const hint=document.createElement('small');hint.className='muted';hint.textContent='เลือกประเภทที่เคยใช้ในแผนก หรือพิมพ์ประเภทใหม่';category.after(hint);
- const toggle=document.createElement('button');toggle.type='button';toggle.className='tbtn ux-entry-more';toggle.textContent='แสดงรายละเอียดเพิ่มเติม';toggle.setAttribute('aria-expanded','false');document.getElementById('entry-completed_date').closest('.field').before(toggle);
+ const activityDate=document.getElementById('entry-activity_date'),completedDate=document.getElementById('entry-completed_date'),overnight=document.getElementById('entry-overnight');
+ const completedHint=document.createElement('small');completedHint.className='entry-date-help muted';completedHint.id='entry-completed-date-help';completedDate.after(completedHint);
+ const dateActions=document.createElement('div');dateActions.className='entry-date-actions';dateActions.innerHTML='<button type="button" class="tbtn sm" data-entry-date="work">ใช้วันที่ทำงาน</button><button type="button" class="tbtn sm" data-entry-date="today">ใช้วันนี้</button>';completedHint.after(dateActions);
+ const syncCompletedDate=({fill=false}={})=>{const minimum=entryMinimumCompletedDate({activity_date:activityDate.value,overnight:overnight.checked}),today=bangkokTodayISO();completedDate.min=minimum;completedDate.max=today;completedHint.textContent=minimum?`เลือกได้ตั้งแต่ ${entryDateLabel(minimum)} ถึง ${entryDateLabel(today)}${overnight.checked?' · เพราะเลือกงานข้ามวัน':''}`:`เลือกได้ไม่เกินวันนี้ ${entryDateLabel(today)}`;if(fill&&status.value==='Completed'&&!completedDate.value&&minimum&&minimum<=today)completedDate.value=minimum;};
+ dateActions.querySelector('[data-entry-date="work"]').onclick=()=>{const minimum=entryMinimumCompletedDate({activity_date:activityDate.value,overnight:overnight.checked});if(minimum&&minimum<=bangkokTodayISO())completedDate.value=minimum;syncCompletedDate();};
+ dateActions.querySelector('[data-entry-date="today"]').onclick=()=>{completedDate.value=bangkokTodayISO();syncCompletedDate();};
+ activityDate.addEventListener('change',()=>syncCompletedDate());overnight.addEventListener('change',()=>syncCompletedDate());status.addEventListener('change',()=>syncCompletedDate({fill:true}));syncCompletedDate();
+ const toggle=document.createElement('button');toggle.type='button';toggle.className='tbtn ux-entry-more';toggle.textContent='แสดงรายละเอียดเพิ่มเติม';toggle.setAttribute('aria-expanded','false');completedDate.closest('.field').before(toggle);
  const update=()=>{const all=toggle.getAttribute('aria-expanded')==='true';for(const [key,wanted] of [['completed_date','Completed'],['result_note','Completed'],['operational_issue','Blocked']]){const field=document.getElementById('entry-'+key);field.closest('.field').hidden=!(all||status.value===wanted||field.value.trim());}toggle.textContent=all?'แสดงเฉพาะช่องที่เกี่ยวข้อง':'แสดงรายละเอียดเพิ่มเติม';};
  toggle.onclick=()=>{toggle.setAttribute('aria-expanded',String(toggle.getAttribute('aria-expanded')!=='true'));update();};status.addEventListener('change',update);update();
  const note=document.createElement('p');note.className='ux-form-note';note.textContent='กำลังทำ: ระบุงานและเวลาเริ่ม · เสร็จแล้ว: เติมเวลาจบ วันที่เสร็จ และผลลัพธ์ · ติดปัญหา: ระบุสิ่งที่ติดขัด';status.closest('.field').after(note);
