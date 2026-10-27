@@ -208,7 +208,7 @@ RENDER.tracker=function(){
     <div class="fsel"><label>เดือนกำหนดเสร็จ</label><select onchange="TRACK_MONTH=this.value;RENDER.tracker()">${opt(TRACK_MONTH,'','ทุกเดือน')}${opt(TRACK_MONTH,'09','กันยายน 2569')}</select></div>
     <div class="fsel"><label>กลุ่มงาน (แผนผัง)</label><select onchange="TRACK_GROUP=this.value;TRACK_DEPT='';RENDER.tracker()">${opt(TRACK_GROUP,'','ทุกกลุ่ม')}${Object.keys(GROUP_NAME).map(g=>opt(TRACK_GROUP,g,GROUP_NAME[g])).join('')}</select></div>
     <div class="fsel"><label>แผนก</label><select onchange="TRACK_DEPT=this.value;RENDER.tracker()">${opt(TRACK_DEPT,'','ทุกแผนก')}${DEPTS.filter(x=>!TRACK_GROUP||deptGroup(x.code)===TRACK_GROUP).map(x=>opt(TRACK_DEPT,x.code,x.name)).join('')}</select></div>
-    <div class="fsel"><label>ระดับตำแหน่ง</label><select onchange="TRACK_LEVEL=this.value;RENDER.tracker()">${opt(TRACK_LEVEL,'','ทุกระดับ')}${opt(TRACK_LEVEL,'head','หัวหน้างาน')}${opt(TRACK_LEVEL,'staff','พนักงาน')}</select></div>
+    <div class="fsel"><label>ประเภทผู้ใช้งาน</label><select onchange="TRACK_LEVEL=this.value;RENDER.tracker()">${opt(TRACK_LEVEL,'','ทั้งหมด')}${opt(TRACK_LEVEL,'head','หัวหน้า')}${opt(TRACK_LEVEL,'staff','พนักงาน')}</select></div>
     ${(TRACK_GROUP||TRACK_DEPT||TRACK_LEVEL)?`<button class="tbtn sm" onclick="TRACK_GROUP='';TRACK_DEPT='';TRACK_LEVEL='';RENDER.tracker()">ล้าง</button>`:''}</div>
   <div class="resultline">แสดง ${rows.length} Action จากรายงานประชุม${TRACK_GROUP?' · '+GROUP_NAME[TRACK_GROUP]:''}${TRACK_DEPT?' · '+reportingDeptName(TRACK_DEPT):''}</div>
   ${(!rows.length)?`<div class="card pad" style="text-align:center;color:var(--muted);padding:36px">${IMPLEMENTATION_ACTIONS_READY?'ไม่พบ Action ตามตัวกรอง':'กำลังโหลด Action Plan หรือยังไม่ได้รัน Migration 016'}</div>`:`

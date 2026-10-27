@@ -26,7 +26,7 @@ const deptGroup=c=>DEPT_GROUP[c]||'01';
 const REPORTING_PARENT={GRAPHIC:'MKT'};
 const reportingDeptName=c=>REPORTING_PARENT[c]?`${deptName(c)} (รายงานภายใต้ ${deptName(REPORTING_PARENT[c])})`:deptName(c);
 const userLevel=id=>(String(id).startsWith('lead')||id==='boss')?'head':'staff';
-const levelName=l=>l==='head'?'หัวหน้างาน':'พนักงาน';
+const levelName=l=>l==='head'?'หัวหน้า':'พนักงาน';
 
 const USERS = {
   boss:{n:'คุณธนกร (ผู้บริหาร)',s:'ธ',c:'#0b2a6b'},
