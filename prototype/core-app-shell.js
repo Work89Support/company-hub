@@ -357,15 +357,12 @@ let PICK_POSITION='';
 function assigneeProfile(id){return TASK_PROFILES.find(x=>x.id===id)||{};}
 function assigneeDepartments(id){const p=assigneeProfile(id);return [...new Set((p.department_codes||[p.department_code]).filter(Boolean))];}
 function assigneePositionKey(id){
-  const p=assigneeProfile(id),level=typeof accessPersonLevel==='function'?accessPersonLevel(p):'';
-  if(level)return 'level:'+level;
-  const base=(typeof accessPositionBase==='function'?accessPositionBase(p.position_title):String(p.position_title||'')).trim();
-  return 'position:'+(base||((typeof ACCESS_ROLE_LABEL==='object'&&ACCESS_ROLE_LABEL[p.role])||p.role||'พนักงาน'));
+  const p=assigneeProfile(id);
+  return typeof accessPersonLevel==='function'?accessPersonLevel(p):(['lead','exec','admin'].includes(p.role)?'lead':'staff');
 }
 function assigneePositionLabel(id){
-  const p=assigneeProfile(id),level=typeof accessPersonLevel==='function'?accessPersonLevel(p):'',base=(typeof accessPositionBase==='function'?accessPositionBase(p.position_title):String(p.position_title||'')).trim();
-  const levelLabel=level&&typeof accessLevelLabel==='function'?accessLevelLabel(level):'';
-  return [base||((typeof ACCESS_ROLE_LABEL==='object'&&ACCESS_ROLE_LABEL[p.role])||p.role||'พนักงาน'),levelLabel].filter(Boolean).join(' · ');
+  const type=assigneePositionKey(id);
+  return type==='lead'?'หัวหน้า':'พนักงาน';
 }
 function assigneeDepartmentOptions(){
   const present=new Set(ASSIGNABLE.flatMap(assigneeDepartments));
@@ -400,7 +397,7 @@ function renderPicker(){
     <div style="display:flex;gap:6px;margin:6px 0 8px"><input class="fin" id="grpName" placeholder="ตั้งชื่อกลุ่มจากคนที่เลือก" style="flex:1;padding:6px 10px"><button class="tbtn sm" onclick="saveGroupFromPick()">${sic('i-save')} บันทึกกลุ่ม</button></div>
     <div class="assignee-filterbar">
       <label>1. แผนก<select class="fin" id="assigneeDepartment" onchange="setAssigneeDepartment(this.value)"><option value="">ทุกแผนก</option>${assigneeDepartmentOptions()}</select></label>
-      <label>2. ตำแหน่ง / ระดับ<select class="fin" id="assigneePosition" onchange="setAssigneePosition(this.value)"><option value="">ทุกตำแหน่งและระดับ</option>${assigneePositionOptions()}</select></label>
+      <label>2. ประเภทผู้ใช้งาน<select class="fin" id="assigneePosition" onchange="setAssigneePosition(this.value)"><option value="">ทั้งหมด</option>${assigneePositionOptions()}</select></label>
     </div>
     <div class="assignee-search"><label for="assigneeSearch">3. ค้นหาชื่อหรืออีเมล</label><input class="fin" type="search" id="assigneeSearch" value="${esc(PICK_QUERY)}" placeholder="พิมพ์ชื่อหรืออีเมล" autocomplete="off" oninput="filterAssigneePicker(this.value)"><small id="pickerSearchResult"></small></div>
     <div class="assignee-person-grid">
