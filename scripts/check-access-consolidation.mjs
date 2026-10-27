@@ -41,5 +41,10 @@ assert.match(source,/ยังไม่มีอีเมลจริง/,'label
 assert.match(source,/พร้อมเข้าสู่ระบบ/,'separates enabled accounts from accounts ready to sign in');
 assert.match(source,/ความพร้อมบัญชีครบ 14 แผนก/,'shows department readiness even when a department has no account');
 assert.match(source,/exportPendingAccountActivation/,'exports the activation follow-up queue');
+assert.match(source,/telegram-team-settings/,'places Telegram configuration in Team Accounts');
+assert.match(source,/save_telegram_notification_settings/,'saves Telegram secrets through the protected RPC');
+assert.match(source,/test_telegram_notification_settings/,'provides an explicit Telegram test action');
+assert.match(source,/type=\"password\"/,'never renders the Telegram token as plain text');
+assert.match(source,/Supabase Vault/,'explains secure token storage to the administrator');
 
 console.log('PASS access consolidation: KPI staff navigation, non-KPI isolation, and one Graphic account administration location');

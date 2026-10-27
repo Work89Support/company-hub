@@ -92,6 +92,9 @@
   if(!document.querySelector('style[data-account-registry]')){
     const style=document.createElement('style');style.dataset.accountRegistry='1';style.textContent='.account-summary{grid-template-columns:repeat(6,minmax(112px,1fr))}.account-summary>button.account-summary-card{display:flex;align-items:baseline;gap:8px;padding:13px 15px;background:var(--surface);border:1px solid var(--line);border-radius:12px;text-align:left;cursor:pointer}.account-summary>button.account-summary-card:hover,.account-summary>button.account-summary-card.active{border-color:var(--blue-500);background:var(--blue-50);box-shadow:0 0 0 2px color-mix(in srgb,var(--blue-500) 12%,transparent)}.account-summary-card b{font-size:23px;color:var(--blue-800)}.account-summary-card span{font-size:11px;color:var(--muted)}.account-filters{grid-template-columns:minmax(240px,1.5fr) repeat(4,minmax(150px,.7fr))}.account-department-readiness{margin:14px 0 18px;padding:15px;background:var(--surface);border:1px solid var(--line);border-radius:14px}.account-readiness-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.account-readiness-head span{font-size:11px;color:var(--muted)}.account-readiness-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px}.account-readiness-grid button{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);background:var(--blue-50);padding:8px 10px;border-radius:9px;color:var(--ink)}.account-readiness-grid button.missing{border-color:#fecaca;background:#fff5f5;color:#b42318}.account-readiness-grid button b{color:inherit}@media(max-width:900px){.account-summary{grid-template-columns:repeat(2,1fr)}.account-filters{grid-template-columns:1fr}.account-readiness-head{align-items:flex-start;flex-direction:column}}';document.head.append(style);
   }
+  if(!document.querySelector('style[data-telegram-settings]')){
+    const style=document.createElement('style');style.dataset.telegramSettings='1';style.textContent='.telegram-settings{margin:18px 0}.telegram-settings-head{display:flex;gap:13px;align-items:flex-start;padding-bottom:15px;border-bottom:1px solid var(--line)}.telegram-settings-icon{width:44px;height:44px;display:grid;place-items:center;flex:none;border-radius:13px;background:#e9f5ff;color:#168bd2;font-size:22px}.telegram-settings-head h2{margin:2px 0 4px;font-size:18px}.telegram-settings-head p{margin:0;max-width:780px;color:var(--muted);font-size:12px;line-height:1.7}.telegram-settings-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 0 2px;color:var(--muted);font-size:11px}.telegram-settings-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.telegram-setting-field label{display:block;margin-top:10px;font-size:11px;color:var(--muted)}.telegram-setting-field .fin{margin-top:5px}.telegram-field-help{margin:5px 0 0;color:var(--muted);font-size:10.5px}.telegram-settings-actions{grid-column:1/-1;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.telegram-settings-actions [role=status]{color:var(--muted);font-size:11px}.dark .telegram-settings-icon{background:#15364c;color:#65c4ff}@media(max-width:900px){.telegram-settings-form{grid-template-columns:1fr}.telegram-settings-actions{grid-column:1}}';document.head.append(style);
+  }
 
   function teamGraphicAccountPanel(){
     return graphicAccountPanel()
@@ -121,6 +124,25 @@
     }catch(error){toast('สร้างบัญชีไม่สำเร็จ · '+(error.message||'ตรวจ Edge Function'),'info');}
   };
 
+  function telegramSettingsShell(){
+    return `<section class="telegram-settings card pad" id="telegram-team-settings"><div class="telegram-settings-head"><div class="telegram-settings-icon" aria-hidden="true">✈</div><div><span class="account-eyebrow">TEAM NOTIFICATIONS</span><h2>การแจ้งเตือน Telegram</h2><p>สำหรับส่งแจ้งเตือนเฉพาะกลุ่ม Company Hub เมื่อ CEO มอบหมายงาน งานเสร็จ และสรุปภาพรวมตามเวลา</p></div></div><div id="telegram-settings-body"><p class="muted">กำลังตรวจสอบการเชื่อมต่อ…</p></div></section>`;
+  }
+
+  function renderTelegramSettings(settings){
+    const host=document.getElementById('telegram-settings-body');if(!host)return;
+    const ready=!!settings?.enabled,tokenReady=!!settings?.token_configured,chatId=settings?.group_chat_id||'';
+    host.innerHTML=`<div class="telegram-settings-status"><span class="account-status ${ready?'ready':'pending'}">${ready?'พร้อมส่งแจ้งเตือน':'ยังตั้งค่าไม่ครบ'}</span><span>สรุปรายวัน 06:00 และ 18:00 น. · เวลาไทย</span></div><form id="telegram-settings-form" class="telegram-settings-form"><div class="telegram-setting-field"><label>Telegram Bot Token<input class="fin" name="token" type="password" autocomplete="new-password" maxlength="120" placeholder="${tokenReady?'ตั้งค่าแล้ว · เว้นว่างเพื่อใช้ Token เดิม':'วาง Token ที่ได้จาก BotFather'}"></label><p class="telegram-field-help">Token จะส่งตรงเข้า Supabase Vault และจะไม่แสดงกลับมาบนหน้าระบบ</p></div><div class="telegram-setting-field"><label>Group Chat ID<input class="fin" name="chat_id" inputmode="numeric" maxlength="24" required value="${esc(chatId)}" placeholder="เช่น -5327928253"></label><p class="telegram-field-help">ใช้สำหรับกลุ่มรับแจ้งเตือนเท่านั้น ไม่ส่งเข้าห้องส่วนตัว</p></div><div class="telegram-settings-actions"><button class="tbtn primary" type="submit">บันทึกการเชื่อมต่อ</button><button class="tbtn" type="button" id="telegram-test-send" ${ready?'':'disabled'}>ส่งข้อความทดสอบ</button><span role="status" aria-live="polite"></span></div></form>`;
+    const form=document.getElementById('telegram-settings-form'),status=form.querySelector('[role=status]');
+    form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('[type=submit]');button.disabled=true;status.textContent='กำลังบันทึก…';try{const result=await SB.rpc('save_telegram_notification_settings',{p_bot_token:form.elements.token.value,p_group_chat_id:form.elements.chat_id.value});if(result.error)throw result.error;form.elements.token.value='';status.textContent='บันทึกแล้ว';toast('ตั้งค่า Telegram แล้ว');await loadTelegramSettings();}catch(error){status.textContent=error.message||'บันทึกไม่สำเร็จ';}finally{button.disabled=false;}};
+    document.getElementById('telegram-test-send').onclick=async event=>{const button=event.currentTarget;button.disabled=true;status.textContent='กำลังส่งข้อความทดสอบ…';try{const result=await SB.rpc('test_telegram_notification_settings');if(result.error)throw result.error;status.textContent='ส่งเข้าคิวแล้ว กรุณาตรวจกลุ่ม Company hub';toast('ส่งข้อความทดสอบแล้ว');}catch(error){status.textContent=error.message||'ส่งทดสอบไม่สำเร็จ';}finally{button.disabled=false;}};
+  }
+
+  async function loadTelegramSettings(){
+    const host=document.getElementById('telegram-settings-body');if(!host)return;
+    try{const result=await SB.rpc('get_telegram_notification_settings');if(result.error)throw result.error;renderTelegramSettings(result.data||{});}
+    catch(error){host.innerHTML=`<p class="entry-error" role="alert">โหลดการตั้งค่า Telegram ไม่สำเร็จ · ${esc(error.message||'')}</p>`;}
+  }
+
   const baseTeamAccounts=RENDER.teamAccounts;
   RENDER.teamAccounts=async function(){
     const accessPromise=canAdminAccess()?loadAccessUsers(true):Promise.resolve();
@@ -130,6 +152,10 @@
     try{
       mergeFullAccountRegistry();renderAccountRegistrySummary();renderAccountDirectory();
       const directory=document.getElementById('account-directory');
+      if(directory&&!document.getElementById('telegram-team-settings')){
+        directory.insertAdjacentHTML('beforebegin',telegramSettingsShell());
+        await loadTelegramSettings();
+      }
       if(directory&&!document.getElementById('team-graphic-account-links')){
         const section=document.createElement('section');section.id='team-graphic-account-links';
         section.innerHTML=`<div class="account-section-heading"><div><span>แหล่งข้อมูลภายนอก</span><h2>เชื่อมบัญชีทีมกราฟิก</h2><p>จัดการสมาชิกจาก Trello และบัญชี Company Hub ในหน้าบัญชีทีมเพียงจุดเดียว</p></div></div>${teamGraphicAccountPanel()}`;
