@@ -74,7 +74,10 @@ const integrityGo=go;go=function(v,arg){if(VIEW==='monthly'&&REPORT_DRAFT_DIRTY&
 const integrityDashboard=RENDER.dash;
 RENDER.dash=function(){integrityDashboard();
  const missing=dashboardAllWork().filter(t=>t.status!=='done'&&!dashboardDueAt(t)).length;
- const box=document.createElement('section');box.className='card pad';box.innerHTML=`<h3>ข้อมูลที่ยังใช้ประเมินไม่ได้</h3><p>งานมอบหมายและกราฟิกแยกจากกิจกรรมและปัญหา เพื่อไม่รวมรายการต่างชนิดเป็นผลงานซ้ำ</p><button class="tbtn" onclick="goBoardFiltered({source:'work',period:'missingDue'})">ยังไม่มีวันส่ง ${missing} งาน</button><p>${integrityOnTimeText(dashboardAllWork())}</p><button class="tbtn" onclick="go('completeness')">เปิดคิวเติมข้อมูล</button>`;main.prepend(box);
+ const timing=integrityOnTime(dashboardAllWork()),box=document.createElement('section');
+ box.className='dashboard-quality card';
+ box.innerHTML=`<div class="dashboard-quality-copy"><span>ความพร้อมของข้อมูล</span><strong>เติมข้อมูลให้ครบก่อนประเมินผล</strong><small>วันส่งและผลลัพธ์ที่ครบ ช่วยให้คะแนนความตรงเวลาแม่นยำ</small></div><div class="dashboard-quality-metrics"><button type="button" onclick="goBoardFiltered({source:'work',period:'missingDue'})"><b>${missing.toLocaleString('th-TH')}</b><span>ยังไม่มีวันส่ง</span></button><div><b>${timing.known.toLocaleString('th-TH')}</b><span>ข้อมูลครบ</span></div><div><b>${timing.rate===null?'—':timing.rate+'%'}</b><span>ตรงเวลา</span></div></div><button class="tbtn dashboard-quality-action" onclick="go('completeness')">ตรวจข้อมูล <span aria-hidden="true">→</span></button>`;
+ main.prepend(box);
  // Replace legacy on-time summaries with an explicit denominator; never interpret unknown as zero.
  main.querySelectorAll('.card').forEach(card=>{if(card.textContent.includes('Supabase')&&card.textContent.includes('ตรงเวลา')){for(const node of card.querySelectorAll('div,span'))if(!node.children.length&&/ตรงเวลา \d+%/.test(node.textContent))node.textContent=node.textContent.replace(/ตรงเวลา \d+%/,integrityOnTimeText(dashboardAllWork()));}});
  integrityRenderHealth();

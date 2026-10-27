@@ -14,8 +14,8 @@ function departmentStart(){
   ['บอร์ดทีม / รายคน','เลือกคน ดูการ์ด และเปิดงานเพื่ออัปเดต',()=>go('teamBoard')]
  ];
  actions.push(['ข้อมูลที่ต้องเติม','ตรวจรายการที่ยังไม่ครบตามสิทธิ์ของคุณ',()=>go('completeness')]);
- box.innerHTML=`<div><h2>เริ่มงาน · ${esc(deptName(code))}</h2><p>เลือกสิ่งที่ต้องการทำ</p></div><div class="department-actions"></div>`;
- for(const [title,description,action] of actions){const b=document.createElement('button');b.type='button';b.className='department-action';b.innerHTML=`<b>${esc(title)}</b><span>${esc(description)}</span>`;b.onclick=action;box.lastElementChild.append(b);}main.prepend(box);
+ box.innerHTML=`<div class="department-start-head"><div><span>เมนูลัด</span><h2>${esc(deptName(code))}</h2></div><p>งานที่ใช้บ่อย</p></div><div class="department-actions"></div>`;
+ for(const [title,description,action] of actions){const b=document.createElement('button');b.type='button';b.className='department-action';b.innerHTML=`<span class="department-action-copy"><b>${esc(title)}</b><small>${esc(description)}</small></span><i aria-hidden="true">→</i>`;b.onclick=action;box.lastElementChild.append(b);}main.prepend(box);
 }
 for(const view of ['dash','myTasks']){const render=RENDER[view];RENDER[view]=function(...args){const result=render(...args);departmentStart();return result;};}
 for(const role of Object.keys(SIMPLE_ALLOW))for(const view of ['activity','problems'])if(ROLE_ALLOW[role]?.includes(view)&&!SIMPLE_ALLOW[role].includes(view))SIMPLE_ALLOW[role].push(view);
