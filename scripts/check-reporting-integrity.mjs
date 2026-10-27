@@ -9,7 +9,7 @@ window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
 const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-data','core-app-data','core-app-shell','core-app-views','core-app-admin','core-app-runtime','core-app-cloud','activity-module','native-entry','kpi-work','department-workflows','team-board','company-accounts','reporting-integrity','ux-system'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
-window.eval(source+`\nwindow.reviewAPI={trackerEvidenceURLs,checkTracker:()=>{
+window.eval(source+`\nwindow.reviewAPI={trackerEvidenceURLs,integrityReportDepartments,integrityReportModel,setReportViewer:(role,dept,filter='')=>{AUTH_DB_ROLE=role;ACCESS_PROFILE={id:'me',department_code:dept,active:true};REP_DEPT=filter;},checkTracker:()=>{
  for(const key of ['tasks','issues','graphic'])DATA_HEALTH[key]={state:'ready'};IMPLEMENTATION_ACTIONS.splice(0,IMPLEMENTATION_ACTIONS.length,{id:'AP-01',title:'แผนตั้งต้น',department_code:'CRM',due_date:'2026-09-01',status:'not_started'});
  TASKS.splice(0,TASKS.length,{id:42,dept:'CRM',title:'งานจริงจากต้นทาง',status:'doing',assignees:[]});GRAPHIC_JOBS=[];PROBLEMS.splice(0,PROBLEMS.length);TRACKER_MODE='actual';TRACKER_SOURCE='';TRACKER_WORK_STATUS='open';TRACKER_WORK_DEPT='';VIEW='tracker';RENDER.tracker();
  if(!main.querySelector('#tracker-source option[value=task]'))throw new Error('Task source option missing');
@@ -24,7 +24,7 @@ window.eval(source+`\nwindow.reviewAPI={trackerEvidenceURLs,checkTracker:()=>{
  TRACKER_MODE='actual';TASKS.splice(0,TASKS.length);IMPLEMENTATION_ACTIONS.splice(0,IMPLEMENTATION_ACTIONS.length);
 },setCatalog:v=>{KPI_CATALOG=v;},renderKpiEvidencePanel,workOwner,integrityRange,integrityInRange,integrityDay,integrityOnTime,integrityReadAll,integrityKpiAchievement,dashboardDueAt,integrityReportRows,run:()=>{
  ACCESS_PROFILE={id:'me',department_code:'CRM',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=['CRM','GRAPHIC'];
- TASKS.length=0;GRAPHIC_JOBS=[];ACTIVITY_ROWS=[{id:1,department_code:'CRM',activity_date:'2020-01-01',activity:'old'},{id:2,department_code:'CRM',activity_date:bangkokTodayISO(),activity:'new'}];ACTIVITY_READY=true;PROBLEMS.length=0;
+ TASKS.splice(0,TASKS.length,{id:1,dept:'CRM',title:'งาน CRM',status:'doing',createdAt:bangkokTodayISO()},{id:2,dept:'GRAPHIC',title:'งานกราฟิกเดิม',status:'doing',createdAt:bangkokTodayISO()});GRAPHIC_JOBS=[];ACTIVITY_ROWS=[{id:1,department_code:'CRM',activity_date:'2020-01-01',activity:'old'},{id:2,department_code:'CRM',activity_date:bangkokTodayISO(),activity:'new'}];ACTIVITY_READY=true;PROBLEMS.length=0;
  KPI_CATALOG.CRM=[{id:'historical',tgt:10,w:1,metadata:{},period:'2026-09-01 – 2026-09-30',ac:5,pct:50,status:'approved'}];INTEGRITY_KPI_HISTORY=[{definition_id:'historical',period_start:'2026-08-01',period_end:'2026-08-31',actual:8,status:'approved'}];if(integrityScore(['CRM'],integrityRange('month','2026-08'))!==80)throw new Error('historical KPI period mismatch');KPI_CATALOG={};INTEGRITY_KPI_HISTORY=[];
  REP_PERIOD='today';const m=integrityReportModel();RENDER.reports();return m;
 }};`);
@@ -37,7 +37,7 @@ assert.equal(api.integrityDay('2026-09-04T18:00:00Z'),'2026-09-05');
 assert.equal(api.dashboardDueAt({due:'2026-09-05'}).toISOString(),'2026-09-05T16:59:59.999Z');assert.equal(api.dashboardDueAt({due:'09-05'}),null);
 assert.equal(api.integrityOnTime([{status:'done'}]).rate,null);assert.equal(api.integrityOnTime([{status:'done',dueAt:'2026-09-05T12:00:00Z',completedAt:'2026-09-05T11:00:00Z'},{status:'done'}]).rate,100);
 assert.equal(api.integrityKpiAchievement(.9,1),90);assert.equal(api.integrityKpiAchievement(null,1),null);assert.equal(api.integrityKpiAchievement(0,0),null);assert.equal(api.integrityKpiAchievement(2,1,{direction:'lower'}),50);
-const m=api.run();
+const m=api.run(),reportText=window.document.querySelector('#main').textContent;
 const preview=window.document.createElement('section');preview.className='card pad';window.document.querySelector('#main').append(preview);
 api.setCatalog({CRM:[{id:'crm1',n:'ความถูกต้องของข้อมูลลูกค้า',tg:'98%',w:.4},{id:'crm2',n:'การติดตามลูกค้าตรงเวลา',tg:'95%',w:.6}],GRAPHIC:[{id:'g1',n:'On-time Delivery Rate',tg:'95%',w:.3},{id:'g2',n:'Artwork Accuracy',tg:'98%',w:.3},{id:'g3',n:'First Approval / Revision Efficiency',tg:'90%',w:.2},{id:'g4',n:'File Archive Completion',tg:'100%',w:.2}]});
 api.renderKpiEvidencePanel(preview,[{definition_id:'g1',graphic_job_id:'sample'}]);
@@ -48,7 +48,8 @@ filter.checked=false;filter.dispatchEvent(new window.Event('change'));
 const search=preview.querySelector('input[type=search]');search.value='ไม่พบคำนี้';search.dispatchEvent(new window.Event('input'));assert.equal(preview.querySelectorAll('.ke-item').length,0);
 search.value='';search.dispatchEvent(new window.Event('input'));
 if(process.env.KPI_PREVIEW_PATH)fs.writeFileSync(process.env.KPI_PREVIEW_PATH,'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font-family:Tahoma,sans-serif;background:#f3f6fc;color:#1e2d48;padding:32px;line-height:1.5}.card{background:white;border:1px solid #e1e7f1;border-radius:18px;max-width:1160px;margin:auto}*{box-sizing:border-box}</style>'+[...window.document.querySelectorAll('style')].at(-1).outerHTML+'</head><body>'+preview.outerHTML+'</body></html>');
-assert.equal(m.activity.length,1);assert.equal(m.activity[0].id,2);assert.equal(m.score,null);assert.equal(api.integrityReportRows(m).filter(r=>r[0]==='activity').length,1);assert.ok(window.document.querySelector('#main').textContent.includes('รอรับรอง'));
+assert.equal(m.work.length,2);assert.equal(m.score,null);assert.ok(api.integrityReportRows(m).slice(3).every(r=>r[0]==='มอบหมายงาน'));assert.ok(reportText.includes('มอบหมายงาน'));assert.ok(!reportText.includes('งานมอบหมายและกราฟิก'));assert.ok(!reportText.includes('กิจกรรม'));assert.ok(!reportText.includes('ปัญหา'));assert.ok(reportText.includes('รอรับรอง'));
+api.setReportViewer('staff','CRM','GRAPHIC');const staffModel=api.integrityReportModel();assert.deepEqual(JSON.parse(JSON.stringify(staffModel.depts)),['CRM']);assert.equal(staffModel.work.length,1,'staff report remains locked to its own department even when another filter value is present');
 api.checkTracker();assert.equal(api.trackerEvidenceURLs('javascript:alert(1) https://example.com/proof').length,1);
 const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=await api.integrityReadAll(()=>({order(key){calls.push(key);return this;},range(a,b){return Promise.resolve({data:data.slice(a,b+1)});}}));assert.equal(r.data.length,1001);assert.equal(new Set(r.data.map(x=>x.id)).size,1001);assert.equal(calls.length,3);
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
