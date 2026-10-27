@@ -235,7 +235,7 @@ function accessPersonLevel(value){
 function accessLevelLabel(value){return ACCESS_LEVEL_LABELS[ACCESS_LEVEL_LABELS[value]?value:accessPersonLevel(value)]||'พนักงาน';}
 function accessPositionBase(value){return String(value||'').replace(/\s*·\s*(?:หัวหน้า|รอง)\s*[123]\s*$/,'').trim();}
 function accessPositionWithLevel(position){return accessPositionBase(position);}
-function accessLevelOptions(selected='',includeAll=false){const normalized=['lead','staff'].includes(selected)?selected:'staff';return `${includeAll?'<option value="">ทั้งหมด</option>':''}${Object.entries(ACCESS_LEVEL_LABELS).map(([value,label])=>`<option value="${value}" ${normalized===value?'selected':''}>${label}</option>`).join('')}`;}
+function accessLevelOptions(selected='',includeAll=false){const normalized=['lead','staff'].includes(selected)?selected:(includeAll?'':'staff');return `${includeAll?`<option value="" ${!normalized?'selected':''}>ทั้งหมด</option>`:''}${Object.entries(ACCESS_LEVEL_LABELS).map(([value,label])=>`<option value="${value}" ${normalized===value?'selected':''}>${label}</option>`).join('')}`;}
 function accessLevelMatches(value,filter){return !filter||accessPersonLevel(value)===filter;}
 function accessLevelBadge(value){const level=ACCESS_LEVEL_LABELS[value]?value:accessPersonLevel(value);return `<span class="staff-level-badge ${level==='lead'?'head':'staff'}">${esc(accessLevelLabel(level))}</span>`;}
 function accessRowsFor(id){return ACCESS_USER_DEPTS.filter(x=>x.profile_id===id);}
