@@ -28,7 +28,7 @@
   function errors(index=null){
    const out={};for(const id of required){const el=document.getElementById(id);if(el&&!el.disabled&&!el.value.trim())out[id]='กรุณากรอกช่องนี้';}
    for(const el of controls()){if(el.disabled||el.type==='checkbox'||!el.value)continue;if(!el.validity.valid)out[el.id]=el.validationMessage||'กรุณาตรวจรูปแบบข้อมูล';}
-   if(kind==='activity'){const v={};for(const el of controls())v[el.id.replace('entry-','')]=el.type==='checkbox'?el.checked:el.value;const activityErrors=entryValidate(v);if(index!==null&&!panels[index]?.querySelector('#entry-work-sessions')){delete activityErrors.start_time;delete activityErrors.end_time;}Object.assign(out,Object.fromEntries(Object.entries(activityErrors).map(([k,v])=>['entry-'+k,v])));}
+   if(kind==='activity'){const v={};for(const el of controls())v[el.id.replace('entry-','')]=el.type==='checkbox'?el.checked:el.value;const activityErrors=entryValidate(v);if(index===0){delete activityErrors.start_time;delete activityErrors.end_time;delete activityErrors.status;}if(index===1){for(const key of ['activity','category'])delete activityErrors[key];}Object.assign(out,Object.fromEntries(Object.entries(activityErrors).map(([k,v])=>['entry-'+k,v])));}
    if(kind==='issue'){const scope=document.getElementById('newIssueImpactScope');if(scope&&(!scope.value||scope.value==='unknown'))out.newIssueImpactScope='กรุณาเลือกขอบเขตผลกระทบ';}
    if(kind==='task'&&!PICK.size)out.pickerBox='กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน';
    return out;
