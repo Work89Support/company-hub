@@ -314,7 +314,7 @@ const NAV = {
 /* helper: SVG line icon */
 function sic(id){return `<svg class="svic"><use href="#${id}"></use></svg>`;}
 // Filter state
-let F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:'',group:'dept',sort:'due',dir:1};
+let F={q:'',source:'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:'',group:'dept',sort:'latest',dir:-1};
 let GRAPHIC_JOBS=[],GRAPHIC_PROJECTS=[],GRAPHIC_FILES=[],GRAPHIC_CHECKS=[],GRAPHIC_PEOPLE=[],GRAPHIC_MEMBERS=[],GRAPHIC_JOB_MEMBERS=[],GRAPHIC_READY=false;
 let TASK_PROFILES=[],TASKS_READY=false;
 let ACCESS_USERS=[],ACCESS_USER_DEPTS=[],ACCESS_USERS_READY=false,ACCESS_USERS_LOADING=false,ACCESS_USER_Q='',ACCESS_USER_LEVEL='';
