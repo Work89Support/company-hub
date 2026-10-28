@@ -242,10 +242,40 @@ RENDER.myTasks=function(){
 };
 
 let BOARD_PAGE=1,BOARD_FILTER_KEY='';
+const BOARD_PAGE_SIZE=50;
+function boardGoPage(page,totalPages){
+  BOARD_PAGE=Math.max(1,Math.min(Number(page)||1,totalPages||1));
+  RENDER.board(BOARD_DEPT);
+  document.querySelector('.resultline')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function boardJumpPage(event,totalPages){
+  event.preventDefault();
+  const field=event.currentTarget.elements.page;
+  boardGoPage(field.value,totalPages);
+}
+function boardPagination(total){
+  const pages=Math.max(1,Math.ceil(total/BOARD_PAGE_SIZE)),current=Math.max(1,Math.min(BOARD_PAGE,pages));
+  const wanted=new Set([1,pages,current-2,current-1,current,current+1,current+2].filter(n=>n>=1&&n<=pages));
+  const numbers=[...wanted].sort((a,b)=>a-b),tokens=[];
+  numbers.forEach((n,index)=>{if(index&&n-numbers[index-1]>1)tokens.push('<span class="muted" aria-hidden="true">…</span>');tokens.push(`<button class="tbtn sm ${n===current?'primary':''}" ${n===current?'aria-current="page"':''} onclick="boardGoPage(${n},${pages})">${nf(n)}</button>`);});
+  return `<nav class="filterbar board-pages" aria-label="เลือกหน้ารายการงาน" style="justify-content:center;gap:6px;flex-wrap:wrap">
+    <button class="tbtn sm" ${current<=1?'disabled':''} onclick="boardGoPage(1,${pages})">« หน้าแรก</button>
+    <button class="tbtn sm" ${current<=1?'disabled':''} onclick="boardGoPage(${current-1},${pages})">‹ ก่อนหน้า</button>
+    ${tokens.join('')}
+    <button class="tbtn sm" ${current>=pages?'disabled':''} onclick="boardGoPage(${current+1},${pages})">ถัดไป ›</button>
+    <button class="tbtn sm" ${current>=pages?'disabled':''} onclick="boardGoPage(${pages},${pages})">หน้าสุดท้าย »</button>
+    <form onsubmit="boardJumpPage(event,${pages})" style="display:flex;align-items:center;gap:6px;margin-left:6px">
+      <label for="board-page-jump" class="muted">ไปหน้า</label>
+      <input id="board-page-jump" class="fin" name="page" type="number" min="1" max="${pages}" value="${current}" inputmode="numeric" style="width:76px">
+      <button class="tbtn sm" type="submit">ไป</button>
+    </form>
+    <span class="muted">หน้า ${nf(current)} / ${nf(pages)}</span>
+  </nav>`;
+}
 RENDER.board=function(deptFilter){
   if(deptFilter)F.dept=deptFilter;
   const filterKey=JSON.stringify(F);if(filterKey!==BOARD_FILTER_KEY){BOARD_PAGE=1;BOARD_FILTER_KEY=filterKey;}
-  const selectedDept=deptFilter||F.dept,base=boardAllWork(),list=applyFilters(base);BOARD_PAGE=Math.min(BOARD_PAGE,Math.max(1,Math.ceil(list.length/50)));const shown=list.slice((BOARD_PAGE-1)*50,BOARD_PAGE*50);
+  const selectedDept=deptFilter||F.dept,base=boardAllWork(),list=applyFilters(base);BOARD_PAGE=Math.min(BOARD_PAGE,Math.max(1,Math.ceil(list.length/BOARD_PAGE_SIZE)));const shown=list.slice((BOARD_PAGE-1)*BOARD_PAGE_SIZE,BOARD_PAGE*BOARD_PAGE_SIZE);
   const sourceCount=Object.entries(BOARD_SOURCE_LABEL).map(([key,label])=>{const n=base.filter(t=>t._source===key).length;return n?`${label} ${nf(n)}`:'';}).filter(Boolean).join(' · ');
   main.innerHTML=`${crumb('หน้าแรก','บอร์ดงาน',selectedDept?deptName(selectedDept):'ทุกแผนก')}
   <div class="page-h"><div><h1>บอร์ดงาน ${selectedDept?'— '+deptName(selectedDept):''}</h1>
@@ -254,7 +284,7 @@ RENDER.board=function(deptFilter){
   ${filterBar(!!deptFilter)}${boardDateSummary(list)}${activeFilterChips()}
   ${sourceBadge('live','PRODUCTION BOARD',sourceCount||'ยังไม่พบข้อมูลตามสิทธิ์')}
   <div class="resultline">ตรงตัวกรอง ${list.length} จาก ${base.length} รายการ${list.length>shown.length?` · แสดง ${shown.length} รายการในหน้านี้`:''} · จัดกลุ่ม${{dept:'ตามแผนก',status:'ตามสถานะ',assignee:'ตามผู้รับผิดชอบ',none:'ปิด'}[F.group]}</div>
-  ${groupedBoards(shown)}<div class="filterbar"><button class="tbtn" ${BOARD_PAGE<=1?'disabled':''} onclick="BOARD_PAGE--;RENDER.board(BOARD_DEPT)">ก่อนหน้า</button><span>หน้า ${BOARD_PAGE} / ${Math.max(1,Math.ceil(list.length/50))}</span><button class="tbtn" ${BOARD_PAGE*50>=list.length?'disabled':''} onclick="BOARD_PAGE++;RENDER.board(BOARD_DEPT)">ถัดไป</button></div>`;
+  ${groupedBoards(shown)}${boardPagination(list.length)}`;
 };
 
 function groupedBoards(list){
