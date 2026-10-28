@@ -9,8 +9,8 @@ const sql=fs.readFileSync(new URL('../supabase/migrations/202610280057_file_libr
 
 assert.match(data,/files:\{ic:'i-folder',t:'คลังไฟล์จากงาน'\}/);
 assert.match(shell,/องค์กร & ความรู้'.*'files'/);
-assert.match(html,/file-library\.js\?v=20261028-file-library-1/);
-assert.match(html,/company-hub-release" content="20261028-file-library-1/);
+assert.match(html,/file-library\.js\?v=20261028-file-library-2/);
+assert.match(html,/company-hub-release" content="20261028-activity-step-time-2/);
 assert.match(js,/file_library_items/);
 assert.match(js,/ดึงข้อความจากไฟล์/);
 assert.match(js,/ไม่ส่ง AI ภายนอก/);
