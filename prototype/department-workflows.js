@@ -35,12 +35,35 @@ let ISSUE_WORK_VIEW='register',ISSUE_WORK_FILTER={from:'',to:'',owner:''},ISSUE_
 const ISSUE_REGISTER_COLUMNS=['รหัสเคส','วันที่','เวลา','โปรเจกต์','ประเภท','ปัญหา','ความสำคัญ','ผู้แจ้ง','สถานะ','ทีมรับผิดชอบ','วิธีแก้','สร้างเมื่อ','แก้ไขเมื่อ','ปิดเมื่อ','นาทีที่ใช้แก้'];
 function issueRegisterRows(){return probFiltered().filter(p=>(!ISSUE_WORK_FILTER.from||p.date>=ISSUE_WORK_FILTER.from)&&(!ISSUE_WORK_FILTER.to||p.date<=ISSUE_WORK_FILTER.to)&&(!ISSUE_WORK_FILTER.owner||p.owner===ISSUE_WORK_FILTER.owner)).sort((a,b)=>(b.date+' '+b.time).localeCompare(a.date+' '+a.time));}
 function issueWorkTabs(){return `<div class="gp-tabs"><button class="${ISSUE_WORK_VIEW==='register'?'active':''}" onclick="ISSUE_WORK_VIEW='register';RENDER.problems()">ทะเบียนปัญหา</button><button class="${ISSUE_WORK_VIEW==='analysis'?'active':''}" onclick="ISSUE_WORK_VIEW='analysis';RENDER.problems()">สรุปและวิเคราะห์</button></div>`;}
+function issueExcelEscape(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));}
+function issueExcelCell(value,type='String',style=''){return `<Cell${style?` ss:StyleID="${style}"`:''}><Data ss:Type="${type}">${issueExcelEscape(value)}</Data></Cell>`;}
+function downloadIssueExcel(){
+ const rows=issueRegisterRows();
+ if(!rows.length){toast('ไม่มีเคสตามตัวกรองสำหรับส่งออก','info');return;}
+ const header=ISSUE_REGISTER_COLUMNS.map(v=>issueExcelCell(v,'String','Header')).join('');
+ const body=rows.map(p=>'<Row>'+
+  issueExcelCell(p.id)+issueExcelCell(probDate(p.date))+issueExcelCell(p.time)+issueExcelCell(p.project)+issueExcelCell(p.cat)+issueExcelCell(p.problem)+
+  issueExcelCell(PROB_PRIO[p.prio]?.t||p.prio)+issueExcelCell(p.reporter)+issueExcelCell(PROB_ST[p.status]?.t||p.status)+issueExcelCell(p.owner||'ยังไม่ระบุ')+
+  issueExcelCell(p.solution||'ยังไม่มีวิธีแก้')+issueExcelCell(p.createdAt?gpDateTime(p.createdAt):'')+issueExcelCell(p.updatedAt?gpDateTime(p.updatedAt):'')+
+  issueExcelCell(p.resolvedAt?gpDateTime(p.resolvedAt):'')+issueExcelCell(p.resmin==null?'':Number(p.resmin),p.resmin==null?'String':'Number')+'</Row>').join('');
+ const widths=[150,80,70,90,90,360,85,110,90,110,300,120,120,120,90].map(w=>`<Column ss:AutoFitWidth="0" ss:Width="${w}"/>`).join('');
+ const xml=`<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<Styles><Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Top" ss:WrapText="1"/><Font ss:FontName="Tahoma" ss:Size="10"/></Style><Style ss:ID="Header"><Font ss:FontName="Tahoma" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#245BC8" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/></Style></Styles>
+<Worksheet ss:Name="ทะเบียนปัญหา"><Table>${widths}<Row ss:Height="28">${header}</Row>${body}</Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane><ProtectObjects>False</ProtectObjects><ProtectScenarios>False</ProtectScenarios></WorksheetOptions></Worksheet>
+</Workbook>`;
+ const blob=new Blob(['\ufeff'+xml],{type:'application/vnd.ms-excel;charset=utf-8'});
+ const link=document.createElement('a'),url=URL.createObjectURL(blob);
+ link.href=url;link.download=`issue-register-${String(TODAY_ISO).replaceAll('-','')}-${rows.length}.xls`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ toast('ส่งออก Excel '+rows.length+' เคสตามตัวกรองแล้ว');
+}
 const issueAnalysis=RENDER.problems;
 RENDER.problems=function(){
  if(ISSUE_WORK_VIEW==='analysis'){issueAnalysis();main.insertAdjacentHTML('afterbegin',issueWorkTabs());return;}
  const rows=issueRegisterRows(),pages=Math.max(1,Math.ceil(rows.length/50));ISSUE_WORK_PAGE=Math.max(1,Math.min(pages,ISSUE_WORK_PAGE));
  const options=(values,selected)=>'<option value="">ทั้งหมด</option>'+values.map(v=>`<option value="${esc(v)}" ${v===selected?'selected':''}>${esc(v)}</option>`).join('');
- main.innerHTML=`${crumb('หน้าแรก','ทะเบียนปัญหาหน้างาน')}<div class="page-h"><div><h1>ทะเบียนปัญหาหน้างาน</h1><p>ลำดับคอลัมน์ตามชีต Issues เดิม · เปิดรหัสเคสเพื่อติดตาม แก้ไข และยืนยันการปิดเคส</p></div><button class="tbtn primary" onclick="openNewIssue()">+ แจ้งปัญหาใหม่</button></div>${issueWorkTabs()}<div class="issue-work-filters">
+ main.innerHTML=`${crumb('หน้าแรก','ทะเบียนปัญหาหน้างาน')}<div class="page-h"><div><h1>ทะเบียนปัญหาหน้างาน</h1><p>ลำดับคอลัมน์ตามชีต Issues เดิม · เปิดรหัสเคสเพื่อติดตาม แก้ไข และยืนยันการปิดเคส</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" id="issue-work-export">${sic('i-export')} ส่งออก Excel</button><button class="tbtn primary" onclick="openNewIssue()">+ แจ้งปัญหาใหม่</button></div></div>${issueWorkTabs()}<div class="issue-work-filters">
  <label>วันที่เริ่ม<input class="fin" type="date" data-issue-date="from" value="${esc(ISSUE_WORK_FILTER.from)}"></label><label>ถึงวันที่<input class="fin" type="date" data-issue-date="to" value="${esc(ISSUE_WORK_FILTER.to)}"></label>
  <label>โปรเจกต์<select class="fin" data-issue-filter="project">${options([...new Set(PROBLEMS.map(p=>p.project))].sort(),PF.project)}</select></label>
  <label>สถานะ<select class="fin" data-issue-filter="status">${options(Object.keys(PROB_ST),PF.status)}</select></label>
@@ -52,6 +75,7 @@ RENDER.problems=function(){
  <div class="issue-register" tabindex="0" aria-label="ทะเบียนปัญหา เลื่อนแนวนอนเพื่อดูทุกคอลัมน์"><table><thead><tr>${ISSUE_REGISTER_COLUMNS.map(t=>`<th scope="col">${t}</th>`).join('')}</tr></thead><tbody>${rows.slice((ISSUE_WORK_PAGE-1)*50,ISSUE_WORK_PAGE*50).map(p=>`<tr><td><button class="issue-case-link" data-open-issue="${esc(p.id)}">${esc(p.id)}</button></td><td>${esc(probDate(p.date))}</td><td>${esc(p.time)}</td><td>${esc(p.project)}</td><td>${esc(p.cat)}</td><td class="issue-text">${esc(p.problem)}</td><td>${probPrio(p.prio)}</td><td>${esc(p.reporter)}</td><td>${probStatus(p.status)}</td><td>${esc(p.owner||'ยังไม่ระบุ')}</td><td class="issue-text">${esc(p.solution||'ยังไม่มีวิธีแก้')}</td><td>${p.createdAt?esc(gpDateTime(p.createdAt)):'—'}</td><td>${p.updatedAt?esc(gpDateTime(p.updatedAt)):'—'}</td><td>${p.resolvedAt?esc(gpDateTime(p.resolvedAt)):'—'}</td><td>${p.resmin==null?'—':esc(p.resmin)}</td></tr>`).join('')||'<tr><td colspan="15">ไม่พบเคสตามตัวกรอง</td></tr>'}</tbody></table></div>
  <div class="entry-scope"><button class="tbtn" ${ISSUE_WORK_PAGE<=1?'disabled':''} onclick="ISSUE_WORK_PAGE--;RENDER.problems()">ก่อนหน้า</button><button class="tbtn" ${ISSUE_WORK_PAGE>=pages?'disabled':''} onclick="ISSUE_WORK_PAGE++;RENDER.problems()">ถัดไป</button></div>`;
  const refresh=()=>{ISSUE_WORK_PAGE=1;RENDER.problems();};
+ document.getElementById('issue-work-export').onclick=downloadIssueExcel;
  main.querySelectorAll('[data-open-issue]').forEach(b=>b.onclick=()=>openProblem(b.dataset.openIssue));
  main.querySelectorAll('[data-issue-filter]').forEach(s=>s.onchange=()=>{PF[s.dataset.issueFilter]=s.value;refresh();});
  main.querySelectorAll('[data-issue-date]').forEach(s=>s.onchange=()=>{ISSUE_WORK_FILTER[s.dataset.issueDate]=s.value;if(ISSUE_WORK_FILTER.from&&ISSUE_WORK_FILTER.to&&ISSUE_WORK_FILTER.from>ISSUE_WORK_FILTER.to){ISSUE_WORK_FILTER[s.dataset.issueDate==='from'?'to':'from']=s.value;}refresh();});
