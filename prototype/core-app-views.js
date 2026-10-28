@@ -142,7 +142,8 @@ function openDashboardDepartment(code){if(code==='GRAPHIC'){GF.project='';GF.sta
 function execDash(){
   const all=dashboardAllWork(),done=all.filter(t=>t.status==='done').length,block=all.filter(t=>t.status==='block').length;
   const overdue=all.filter(dashboardIsOverdue).length,donePct=all.length?Math.round(done/all.length*100):0;
-  const graphicActive=GRAPHIC_JOBS.filter(j=>j.status!=='done'),graphicReview=GRAPHIC_JOBS.filter(j=>j.status==='review').length,graphicUnassigned=GRAPHIC_JOBS.filter(j=>j.status!=='done'&&!gpJobPeople(j).length).length;
+  const graphicActive=GRAPHIC_JOBS.filter(j=>j.status!=='done');
+  const activeWork=all.filter(t=>t.status!=='done'),reviewWork=all.filter(t=>t.status==='review'),unassignedWork=activeWork.filter(t=>!workOwner(t)||workOwner(t)==='-');
   const openIssues=PROBLEMS.filter(p=>p.status!=='Resolved'),verifiedIssues=PROBLEMS.filter(p=>p.verified).length;
   const activityRows=ACTIVITY_READY?ACTIVITY_ROWS:[],activityReview=activityRows.filter(r=>activityReviewFlags(r).length>0).length,activityTimeReview=activityRows.filter(r=>r.time_flag!=='ok').length;
   const rolloutOpen=IMPLEMENTATION_ACTIONS.filter(a=>a.status!=='done'),rolloutOverdue=rolloutOpen.filter(actionDaysOver),rolloutDone=IMPLEMENTATION_ACTIONS.length-rolloutOpen.length;
@@ -160,11 +161,11 @@ function execDash(){
   const doneT=all.filter(t=>t.status==='done');const ontimeRate=doneT.length?Math.round(doneT.filter(t=>t.ontime).length/doneT.length*100):0;
   main.innerHTML=`
   ${crumb('หน้าแรก','ภาพรวมองค์กร')}
-  <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p>${sourceBadge('live','SUPABASE LIVE',`${nf(all.length)} งานที่บัญชีนี้มีสิทธิ์เห็น · Graphic ${nf(GRAPHIC_JOBS.length)} งาน · Action Plan ${nf(IMPLEMENTATION_ACTIONS.length)} รายการ`)}</div>
+  <div class="page-h"><div><h1>ภาพรวมองค์กร</h1><p>สรุปสถานะงาน · แนวโน้ม KPI · สิ่งที่ผู้บริหารต้องรู้วันนี้ · ${new Date().toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}</p>${sourceBadge('live','SUPABASE LIVE',`${nf(all.length)} งานที่บัญชีนี้มีสิทธิ์เห็น · Action Plan ${nf(IMPLEMENTATION_ACTIONS.length)} รายการ`)}</div>
     <div style="display:flex;gap:8px"><button class="tbtn" onclick="go('reports')">${sic('i-report')} รายงานสรุป</button><button class="tbtn primary" onclick="openTalkPopup()">🤖 ถามข้อมูล</button></div></div>
   <div class="stats" style="margin-bottom:14px">
     <div class="stat accent click" onclick="go('kpi')"><div class="lbl">คะแนน KPI รวมบริษัท</div><div class="val">${overall==null?'รอตั้ง':overall+(overall==null?'':'')}<span style="font-size:14px">${overall==null?'':'/100'}</span></div><div class="sub">${nf(kpiCodes.length)} แผนกที่มี KPI จริง</div><div class="icn">${sic('i-target')}</div><span class="go">ดู KPI →</span></div>
-    <div class="stat click" onclick="openDashboardAllWork()"><div class="lbl">งานมอบหมายและกราฟิก</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${donePct}%)</div><div class="icn">${sic('i-board')}</div><span class="go">ดูรายการ →</span></div>
+    <div class="stat click" onclick="openDashboardAllWork()"><div class="lbl">งานทั้งหมดในระบบ</div><div class="val">${all.length}</div><div class="sub up">เสร็จแล้ว ${done} งาน (${donePct}%)</div><div class="icn">${sic('i-board')}</div><span class="go">ดูรายการ →</span></div>
     <div class="stat click" onclick="openDashboardStatus('block')"><div class="lbl">งานติดปัญหา / กำลังแก้</div><div class="val" style="color:var(--red)">${block}</div><div class="sub down">ต้องเข้าดูด่วน</div><div class="icn">${sic('i-block')}</div><span class="go">ดูงาน →</span></div>
     <div class="stat click" onclick="goBoardFiltered({source:'work',period:'overdue'})"><div class="lbl">งานเกินกำหนด</div><div class="val" style="color:var(--amber)">${overdue}</div><div class="sub muted">คำนวณจากกำหนดส่งจริง</div><div class="icn">${sic('i-clock')}</div><span class="go">ดูงาน →</span></div>
   </div>
@@ -179,13 +180,13 @@ function execDash(){
       <div class="bar"><i style="width:${s}%;background:${scoreColor(s)}"></i></div><div class="score" style="color:${scoreColor(s)}">${s==null?'รอรับรอง':s+'/100'}</div></div>`;}).join('')}${kpiLegend()}</div></div>
     <div class="card"><div class="card-h"><h3>${sic('i-pin')} ข้อมูลจริงที่ต้องติดตาม</h3></div><div class="pad">
       <div>${[
-        ['งานกราฟิกกำลังดำเนินการ',nf(graphicActive.length)+' งาน','var(--blue-700)',"go('graphic')"],
-        ['งานกราฟิกรอตรวจ',nf(graphicReview)+' งาน','var(--amber)',"GF.status='review';go('graphic')"],
-        ['งานกราฟิกยังไม่มอบหมาย',nf(graphicUnassigned)+' งาน',graphicUnassigned?'var(--red)':'var(--green)',"GF.person='__UNASSIGNED__';go('graphic')"],
+        ['งานที่กำลังดำเนินการ',nf(activeWork.length)+' งาน','var(--blue-700)',"openDashboardAllWork()"],
+        ['งานที่รอตรวจ',nf(reviewWork.length)+' งาน','var(--amber)',"openDashboardStatus('review')"],
+        ['งานที่ยังไม่มอบหมาย',nf(unassignedWork.length)+' งาน',unassignedWork.length?'var(--red)':'var(--green)',"openDashboardAllWork()"],
         ['ปัญหาหน้างานยังไม่ปิด',nf(openIssues.length)+' เคส',openIssues.length?'var(--red)':'var(--green)',"go('problems')"],
         ['กิจกรรมที่ต้องตรวจข้อมูล',ACTIVITY_READY?nf(activityReview)+' รายการ':'กำลังโหลด…',activityReview?'var(--amber)':'var(--green)',"go('activity')"],
       ].map(r=>`<div class="legrow" onclick="${r[3]}" style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:12.5px">${r[0]}</span><b style="color:${r[2]};font-size:12.5px">${r[1]} ›</b></div>`).join('')}</div>
-      <div class="ai-note" style="margin-top:12px"><b>${sic('i-chat')} สรุปจากฐานข้อมูล:</b> งานกราฟิกคงเหลือ ${nf(graphicActive.length)} งาน · เกินกำหนด ${nf(overdue)} งาน · ปัญหาหน้างานยังไม่ปิด ${nf(openIssues.length)} เคส</div></div></div>
+      <div class="ai-note" style="margin-top:12px"><b>${sic('i-chat')} สรุปจากฐานข้อมูล:</b> งานที่ยังไม่เสร็จ ${nf(activeWork.length)} งาน · เกินกำหนด ${nf(overdue)} งาน · ปัญหาหน้างานยังไม่ปิด ${nf(openIssues.length)} เคส</div></div></div>
   </div>
   <div class="grid" style="grid-template-columns:1.5fr 1fr;margin-top:16px">
     <div class="card"><div class="card-h"><h3>${sic('i-warning')} ต้องดำเนินการ / ตัดสินใจ</h3><span class="act">${action.length} รายการ</span></div><div class="pad">

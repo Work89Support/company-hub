@@ -55,7 +55,7 @@ async function openKpiEvidencePicker(){
  let candidates=[];
  try{candidates=await kpiEvidenceCandidates();}catch(error){toast('โหลดงานสำหรับหลักฐาน KPI ไม่สำเร็จ · '+error.message,'info');return;}
  const departments=[...new Set(candidates.map(row=>row.department))].sort((a,b)=>deptName(a).localeCompare(deptName(b),'th'));
- showModal(`<div class="modal-h"><div><h3>เพิ่มหลักฐาน KPI จากงานจริง</h3><p class="muted">เลือกกิจกรรม งาน กราฟิก หรือปัญหาที่คุณรับผิดชอบ แล้วผูกกับตัวชี้วัดของแผนก</p></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="two"><label class="field"><span>ค้นหา</span><input class="fin" id="kpi-evidence-query" placeholder="ชื่องาน ผู้รับผิดชอบ หรือรหัส"></label><label class="field"><span>แผนก</span><select class="fin" id="kpi-evidence-dept"><option value="">ทุกแผนกที่มีสิทธิ์</option>${departments.map(code=>`<option value="${esc(code)}">${esc(deptName(code))}</option>`).join('')}</select></label></div><p class="muted">การผูกงานเป็นหลักฐานประกอบเท่านั้น ยังไม่เพิ่มคะแนนจนกว่าหัวหน้าจะตรวจและรับรองผล</p><div id="kpi-evidence-list"></div></div>`);
+ showModal(`<div class="modal-h"><div><h3>เพิ่มหลักฐาน KPI จากงานจริง</h3><p class="muted">เลือกผลงานที่คุณรับผิดชอบ แล้วผูกกับตัวชี้วัดของแผนก</p></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="two"><label class="field"><span>ค้นหา</span><input class="fin" id="kpi-evidence-query" placeholder="ชื่องาน ผู้รับผิดชอบ หรือรหัส"></label><label class="field"><span>แผนก</span><select class="fin" id="kpi-evidence-dept"><option value="">ทุกแผนกที่มีสิทธิ์</option>${departments.map(code=>`<option value="${esc(code)}">${esc(deptName(code))}</option>`).join('')}</select></label></div><p class="muted">การผูกงานเป็นหลักฐานประกอบเท่านั้น ยังไม่เพิ่มคะแนนจนกว่าหัวหน้าจะตรวจและรับรองผล</p><div id="kpi-evidence-list"></div></div>`);
  const render=()=>{
   const query=(document.getElementById('kpi-evidence-query')?.value||'').trim().toLowerCase(),department=document.getElementById('kpi-evidence-dept')?.value||'';
   const visible=candidates.filter(row=>(!department||row.department===department)&&(!query||`${row.title} ${row.meta} ${row.id}`.toLowerCase().includes(query))).slice(0,100),host=document.getElementById('kpi-evidence-list');
@@ -73,7 +73,7 @@ openGraphicJob=async function(id){await kpiOpenGraphic(id);const j=GRAPHIC_JOBS.
 const kpiOpenIssue=openProblem;
 openProblem=function(id){kpiOpenIssue(id);const p=PROBLEMS.find(x=>x.id===id);if(p&&issueEntryCanEdit(p))workKpiButton('issue',p.id,p.dept);};
 RENDER.kpi=function(){
- main.innerHTML=`${crumb('หน้าแรก','KPI')}<div class="page-h"><div><h1>KPI และหลักฐานงาน</h1><p>ผูกกิจกรรม งาน กราฟิก หรือปัญหากับ KPI แล้วส่งให้หัวหน้าตรวจและรับรองผล</p></div><button class="tbtn primary" id="kpi-add-evidence">+ เพิ่มหลักฐาน KPI</button></div>`;
+ main.innerHTML=`${crumb('หน้าแรก','KPI')}<div class="page-h"><div><h1>KPI และหลักฐานงาน</h1><p>ผูกผลงานจริงจากระบบกับ KPI แล้วส่งให้หัวหน้าตรวจและรับรองผล</p></div><button class="tbtn primary" id="kpi-add-evidence">+ เพิ่มหลักฐาน KPI</button></div>`;
  document.getElementById('kpi-add-evidence').onclick=openKpiEvidencePicker;
  for(const [code,definitions] of Object.entries(typeof KPI_CATALOG==='undefined'?KPI:KPI_CATALOG)){
   const group=document.createElement('section');group.className='card pad';

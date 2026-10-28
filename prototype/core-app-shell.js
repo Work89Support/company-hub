@@ -315,7 +315,7 @@ function makeRec(){const R=window.SpeechRecognition||window.webkitSpeechRecognit
 function voiceCommand(){
   if(!speechOK()){toast('เบราว์เซอร์นี้ไม่รองรับสั่งงานด้วยเสียง — แนะนำใช้ Google Chrome','info');return;}
   const r=makeRec(),btn=document.getElementById('micBtn');
-  toast('🎤 กำลังฟัง... พูดคำสั่งได้เลย เช่น "สร้างงาน..." "ไปบอร์ด" "กรองแผนกกราฟิก" "ส่งออก"','info');
+  toast('🎤 กำลังฟัง... พูดคำสั่งได้เลย เช่น "สร้างงาน..." "ไปบอร์ด" "กรองแผนก" "ส่งออก"','info');
   btn.classList.add('listening');
   r.onresult=e=>interpretCommand(e.results[0][0].transcript);
   r.onerror=()=>toast('ไม่ได้ยินเสียง หรือยังไม่ได้อนุญาตไมโครโฟน','info');

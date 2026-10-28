@@ -2,7 +2,7 @@
 let REP_PERIOD='week';
 RENDER.reports=function(){
   const isExec=isExecutiveRole(),depts=reportDepts();
-  const scope=reportScope(),activities=reportActivityRows(depts),issues=reportIssueRows(depts),graphic=scope.filter(t=>t._source==='graphic');
+  const scope=reportScope(),activities=reportActivityRows(depts),issues=reportIssueRows(depts);
   const deptMetrics=depts.map(c=>reportDeptMetrics(c,scope,activities,issues)),deptsWithData=deptMetrics.filter(m=>m.total>0).length;
   const activityHours=activities.reduce((sum,row)=>sum+activityCountedDuration(row),0);
   const done=scope.filter(t=>t.status==='done'),ontime=done.filter(t=>t.ontime).length;
@@ -10,8 +10,8 @@ RENDER.reports=function(){
   const overall=codes.length?Math.round(codes.reduce((s,c)=>s+deptScore(c),0)/codes.length):null;
   const blocked=scope.filter(t=>t.status==='block'||(t._deadline!==false&&dashboardIsOverdue(t)));
   const kbList=KB.filter(k=>depts.includes(k.dept));
-  const graphicStatusRows=Object.entries(STATUS).map(([key,meta])=>({label:meta.t,v:graphic.filter(t=>t.status===key).length,color:meta.c})).filter(x=>x.v);
-  const unit=REP_DEPT?(REP_DEPT==='MKT'?'การตลาด + Graphic Production':reportingDeptName(REP_DEPT)):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?reportingDeptName(currentDept()):'ภาพรวมบริษัท');
+  const workStatusRows=Object.entries(STATUS).map(([key,meta])=>({label:meta.t,v:scope.filter(t=>t.status===key).length,color:meta.c})).filter(x=>x.v);
+  const unit=REP_DEPT?reportingDeptName(REP_DEPT):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?reportingDeptName(currentDept()):'ภาพรวมบริษัท');
   const pname={today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',quarter:'ไตรมาสนี้'}[REP_PERIOD];
   const opt=(cur,v,txt)=>`<option value="${v}" ${cur===v?'selected':''}>${txt}</option>`;
   main.innerHTML=`${crumb('หน้าแรก','รายงานสรุป')}
@@ -31,19 +31,19 @@ RENDER.reports=function(){
   </div>
   <div class="exec-summary" style="margin-bottom:14px">
     <b>${sic('i-chat')} บทสรุปจากข้อมูลจริง:</b> ${pname} · <b>${unit}</b>${overall==null?' · ยังไม่ได้ตั้ง KPI Production':` ทำคะแนน KPI <b>${overall}/100</b> (เกณฑ์: ${scoreLabel(overall)})`}.
-    ข้อมูลจริงครอบคลุม <b>${deptsWithData}/${depts.length}</b> แผนก · งาน Production <b>${scope.length}</b> งาน (Graphic <b>${graphic.length}</b>) · ปิดแล้ว <b>${done.length}</b> งาน · Daily Activity <b>${activities.length}</b> รายการ / <b>${nf(activityHours.toFixed(1))}</b> ชม. · ปัญหาหน้างาน <b>${issues.length}</b> เคส.
+    ข้อมูลจริงครอบคลุม <b>${deptsWithData}/${depts.length}</b> แผนก · งานมอบหมาย <b>${scope.length}</b> งาน · ปิดแล้ว <b>${done.length}</b> งาน · Daily Activity <b>${activities.length}</b> รายการ / <b>${nf(activityHours.toFixed(1))}</b> ชม. · ปัญหาหน้างาน <b>${issues.length}</b> เคส.
     จุดที่ต้องติดตาม: ${blocked.length?blocked.map(t=>t.title).join(' · '):'ไม่มีงานติดปัญหา/เกินกำหนด'}.
     องค์ความรู้ที่บันทึก ${kbList.length} เรื่อง · Action Plan ค้าง <b>${IMPLEMENTATION_ACTIONS.filter(a=>a.status!=='done').length}</b> รายการ.
   </div>
   <div class="stats" style="margin-bottom:14px">
-    <div class="stat accent click" onclick="go('graphic')"><div class="lbl">Graphic Production</div><div class="val">${graphic.length}</div><div class="sub">รวมทุกสถานะที่มีสิทธิ์เห็น</div><span class="go">ดู Graphic →</span></div>
+    <div class="stat accent click" onclick="go('board')"><div class="lbl">งานมอบหมาย</div><div class="val">${scope.length}</div><div class="sub">รวมทุกสถานะที่มีสิทธิ์เห็น</div><span class="go">ดูงาน →</span></div>
     <div class="stat click" onclick="go('activity')"><div class="lbl">Daily Activity</div><div class="val">${activities.length}</div><div class="sub muted">${nf(activityHours.toFixed(1))} ชั่วโมงที่นับได้</div><span class="go">ดูกิจกรรม →</span></div>
     <div class="stat"><div class="lbl">ส่งตรงเวลา</div><div class="val" style="color:${done.length&&ontime/done.length>=.9?'var(--green)':'var(--amber)'}">${done.length?Math.round(ontime/done.length*100):0}%</div><div class="sub muted">On-time rate</div></div>
     <div class="stat click" onclick="go('kb')"><div class="lbl">องค์ความรู้ใหม่</div><div class="val">${kbList.length}</div><div class="sub muted">บทความเข้า KB</div><span class="go">ดูคลัง →</span></div>
   </div>
   <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
     <div class="card"><div class="card-h"><h3>${sic('i-pie')} สัดส่วนสถานะงาน</h3><span class="act">${unit}</span></div><div class="pad">${statusDonutBlock(scope)}</div></div>
-    <div class="card"><div class="card-h"><h3>${sic('i-board')} Graphic Production ตามสถานะ</h3><span class="act">${nf(graphic.length)} งาน</span></div><div class="pad">${graphicStatusRows.length?hbars(graphicStatusRows):'<div class="muted">ไม่มีข้อมูล Graphic ตามสิทธิ์</div>'}</div></div>
+    <div class="card"><div class="card-h"><h3>${sic('i-board')} งานมอบหมายตามสถานะ</h3><span class="act">${nf(scope.length)} งาน</span></div><div class="pad">${workStatusRows.length?hbars(workStatusRows):'<div class="muted">ไม่มีข้อมูลงานตามสิทธิ์</div>'}</div></div>
   </div>
   <div class="card" style="margin-bottom:14px"><div class="card-h"><h3>${sic('i-trophy')} Company Scorecard ${depts.length>1?'รายแผนก':deptName(depts[0])}</h3><span class="act">รวมงาน · กิจกรรม · ปัญหาจากฐานข้อมูลจริง</span></div>
     <table><thead><tr><th>แผนก</th><th>คะแนน KPI</th><th>รายการรวม</th><th>เสร็จ/ปิดแล้ว</th><th>ต้องติดตาม</th><th>ชั่วโมงที่นับได้</th><th>แหล่งข้อมูล</th></tr></thead>
@@ -74,7 +74,7 @@ function monthlyData(){
   const done=scope.filter(t=>t.status==='done'),blocked=scope.filter(t=>t.status==='block');
   const overdue=scope.filter(t=>t._deadline!==false&&dashboardIsOverdue(t)),open=scope.filter(t=>t.status!=='done');
   const company=depts.length>1;
-  const unit=REP_DEPT?(REP_DEPT==='MKT'?'การตลาด + Graphic Production':reportingDeptName(REP_DEPT)):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?reportingDeptName(currentDept()):'ภาพรวมบริษัท');
+  const unit=REP_DEPT?reportingDeptName(REP_DEPT):REP_GROUP?('กลุ่ม '+GROUP_NAME[REP_GROUP]):(!isExec?reportingDeptName(currentDept()):'ภาพรวมบริษัท');
   const monthLabel=REP_MONTH==='09'?'กันยายน 2569':'สิงหาคม 2569';
   const d={isExec,depts,dept:depts[0],scope,codes,score,done,blocked,overdue,open,unit,company,monthLabel};
   d.dHighlight='ปิดงานสำเร็จ '+done.length+' งาน · คะแนน KPI รวม '+score+'/100 ('+scoreLabel(score)+')';
@@ -382,7 +382,7 @@ RENDER.talk=function(){
   <div class="card pad chat">
     <div class="chat-body" id="chatBody">
       <div class="msg a">สวัสดีค่ะ 👋 ถามข้อมูลงาน/KPI/ลูกค้าได้เลย ระบบจะดึงเฉพาะจากฐานข้อมูลภายในของเรา<br>
-        <div style="margin-top:8px">${['เดือนนี้แต่ละแผนกทำ KPI ได้เท่าไหร่','งานติดปัญหาตอนนี้มีอะไรบ้าง','กราฟิกส่งงานตรงเวลากี่เปอร์เซ็นต์'].map(q=>`<span class="chip" onclick="ask('${q}')">${q}</span>`).join('')}</div></div>
+        <div style="margin-top:8px">${['เดือนนี้แต่ละแผนกทำ KPI ได้เท่าไหร่','งานติดปัญหาตอนนี้มีอะไรบ้าง','งานเกินกำหนดมีอะไรบ้าง'].map(q=>`<span class="chip" onclick="ask('${q}')">${q}</span>`).join('')}</div></div>
     </div>
     <div class="chat-in"><input id="chatInput" placeholder="พิมพ์คำถาม... หรือกดไมค์เพื่อพูด" onkeydown="if(event.key==='Enter')ask(this.value)"><button class="tbtn" title="ถามด้วยเสียง" onclick="voiceDictate('chatInput')">🎤</button><button class="tbtn primary" onclick="ask(document.getElementById('chatInput').value)">ส่ง</button></div>
   </div>`;
