@@ -542,9 +542,24 @@ function statusDonutBlock(list,dashboard=false){
 /* ============================================================
    FILTER SYSTEM
 ============================================================ */
+function boardLatestValue(t){
+  const source=t?.sourceRow||{};
+  const values=[t?.createdAt,t?.updatedAt,t?.startAt,source.created_at,source.updated_at,source.activity_date,source.date,t?.start,t?.due];
+  for(const value of values){
+    if(!value)continue;
+    const raw=String(value).trim(),iso=/^\d{2}-\d{2}$/.test(raw)?String(TODAY_ISO).slice(0,4)+'-'+raw:raw;
+    const time=Date.parse(iso);
+    if(Number.isFinite(time))return time;
+  }
+  return 0;
+}
 function applyFilters(list){
   let r=list.filter(t=>{
-    if(F.q){const q=F.q.toLowerCase();if(!(t.title.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.tags.join(' ').toLowerCase().includes(q)))return false;}
+    if(F.q){
+      const q=F.q.toLowerCase();
+      const hay=[t.title,t.id,t.sourceId,t.desc,t.creator,deptName(t.dept),...(t.tags||[]),...assigneesOf(t).map(shortName)].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
     if(F.source==='work'&&!['task','graphic'].includes(t._source))return false;
     if(F.source&&F.source!=='work'&&t._source!==F.source)return false;
     if(F.dept&&t.dept!==F.dept)return false;
@@ -562,11 +577,15 @@ function applyFilters(list){
   });
   const key=F.sort;
   r.sort((a,b)=>{let x,y;
-    if(key==='prio'){const o={high:0,mid:1,low:2};x=o[a.prio];y=o[b.prio];}
+    if(key==='latest'){x=boardLatestValue(a);y=boardLatestValue(b);}
+    else if(key==='prio'){const o={high:0,mid:1,low:2};x=o[a.prio];y=o[b.prio];}
     else if(key==='status'){const o=Object.keys(STATUS);x=o.indexOf(a.status);y=o.indexOf(b.status);}
     else if(key==='spent'){x=a.spent;y=b.spent;}
     else {x=a[key];y=b[key];}
-    return (x>y?1:x<y?-1:0)*F.dir;});
+    const compared=(x>y?1:x<y?-1:0)*F.dir;
+    if(compared)return compared;
+    return String(a.sourceId||a.id||'').localeCompare(String(b.sourceId||b.id||''),undefined,{numeric:true})*F.dir;
+  });
   return r;
 }
 function activeFilterChips(){
@@ -585,6 +604,7 @@ function activeFilterChips(){
   return `<div class="chips">${chips.join('')}<button class="fchip" style="background:#fde7ea;color:#b01a30" onclick="clearAllFilters()">ล้างทั้งหมด</button></div>`;
 }
 function setF(k,v){F[k]=v;RENDER[VIEW](BOARD_DEPT);}
+function setBoardSort(value){F.sort=value;F.dir=value==='latest'?-1:1;RENDER[VIEW](BOARD_DEPT);}
 function clearFilter(k){F[k]='';RENDER[VIEW](BOARD_DEPT);}
 function clearAllFilters(){F={...F,q:'',source:VIEW==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};RENDER[VIEW](BOARD_DEPT);}
 function toggleSort(k){if(F.sort===k)F.dir*=-1;else{F.sort=k;F.dir=1;}RENDER[VIEW](BOARD_DEPT);}
@@ -613,7 +633,7 @@ function filterBar(lockDept){
     <button class="tbtn sm" onclick="exportCurrent()">${sic('i-export')} ส่งออก</button>
     <div class="fdiv"></div>
     <div class="fsel"><label>จัดกลุ่ม</label><select onchange="setF('group',this.value)">${opt(F.group,'dept','ตามแผนก')}${opt(F.group,'status','ตามสถานะ')}${opt(F.group,'assignee','ตามผู้รับผิดชอบ')}${opt(F.group,'none','ไม่จัดกลุ่ม')}</select></div>
-    <div class="fsel"><label>เรียง</label><select onchange="setF('sort',this.value)">${opt(F.sort,'due','กำหนดส่ง')}${opt(F.sort,'prio','ความสำคัญ')}${opt(F.sort,'status','สถานะ')}${opt(F.sort,'spent','เวลาที่ใช้')}</select></div>
+    <div class="fsel"><label>เรียง</label><select onchange="setBoardSort(this.value)">${opt(F.sort,'latest','งานล่าสุด')}${opt(F.sort,'due','กำหนดส่ง')}${opt(F.sort,'start','วันเริ่ม')}${opt(F.sort,'prio','ความสำคัญ')}${opt(F.sort,'status','สถานะ')}${opt(F.sort,'spent','เวลาที่ใช้')}</select></div>
     <button class="tbtn sm" onclick="F.dir*=-1;RENDER[VIEW](BOARD_DEPT)">${F.dir>0?'▲':'▼'}</button>
   </div>`;
 }
