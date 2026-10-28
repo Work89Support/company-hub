@@ -25,16 +25,16 @@
   body.querySelectorAll('button').forEach(b=>b.type='button');if(body.tagName==='FORM')body.noValidate=true;
   let step=0,saving=false;const key='company-entry-draft-v1:'+ACCESS_PROFILE?.id+':'+kind;
   const buttons=titles.map((title,i)=>{const b=document.createElement('button');b.type='button';b.textContent=`${i+1}. ${title}`;b.onclick=()=>{if(i<step&&!saving)show(i);};nav.append(b);return b;});
-  function errors(){
+  function errors(index=null){
    const out={};for(const id of required){const el=document.getElementById(id);if(el&&!el.disabled&&!el.value.trim())out[id]='กรุณากรอกช่องนี้';}
    for(const el of controls()){if(el.disabled||el.type==='checkbox'||!el.value)continue;if(!el.validity.valid)out[el.id]=el.validationMessage||'กรุณาตรวจรูปแบบข้อมูล';}
-   if(kind==='activity'){const v={};for(const el of controls())v[el.id.replace('entry-','')]=el.type==='checkbox'?el.checked:el.value;Object.assign(out,Object.fromEntries(Object.entries(entryValidate(v)).map(([k,v])=>['entry-'+k,v])));}
+   if(kind==='activity'){const v={};for(const el of controls())v[el.id.replace('entry-','')]=el.type==='checkbox'?el.checked:el.value;const activityErrors=entryValidate(v);if(index!==null&&!panels[index]?.querySelector('#entry-work-sessions')){delete activityErrors.start_time;delete activityErrors.end_time;}Object.assign(out,Object.fromEntries(Object.entries(activityErrors).map(([k,v])=>['entry-'+k,v])));}
    if(kind==='issue'){const scope=document.getElementById('newIssueImpactScope');if(scope&&(!scope.value||scope.value==='unknown'))out.newIssueImpactScope='กรุณาเลือกขอบเขตผลกระทบ';}
    if(kind==='task'&&!PICK.size)out.pickerBox='กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน';
    return out;
   }
   function validate(index){
-   const entries=Object.entries(errors()).filter(([id])=>index==null||panels[index].contains(document.getElementById(id)));
+   const entries=Object.entries(errors(index)).filter(([id])=>index==null||panels[index].contains(document.getElementById(id))||(kind==='activity'&&['entry-start_time','entry-end_time'].includes(id)&&panels[index].querySelector('#entry-work-sessions')));
    controls().forEach(el=>el.removeAttribute('aria-invalid'));error.hidden=!entries.length;
    if(!entries.length)return true;
    error.textContent=entries.map(([id,msg])=>{const el=document.getElementById(id);el?.setAttribute('aria-invalid','true');const label=el?.closest('.field')?.querySelector('label')?.textContent||'';return label+' — '+msg;}).join(' · ');
