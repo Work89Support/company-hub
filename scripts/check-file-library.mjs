@@ -1,1 +1,25 @@
-m«ëˆ§½©buªàºg§¶Ç+Š›lıÈ^rGâ•ébn¶«ÊhìRÆ y¶¬{®vçºh¢ø¥zŠ.µø¥y¶ëy©­æ¤zw(uçhºÚn¶êbÚ%Šw¬¡ù^aéƒu×œ¡×yÊz)éºØazZ]ŠÊek+aŠÉ²Æ z(§¦ëb›­~)^uçÚº[_¢»-v)è¢ëiºÚ.¶›­~)^uçÚº[_¢»-v‹­
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const js=fs.readFileSync(new URL('../prototype/file-library.js',import.meta.url),'utf8');
+const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
+const data=fs.readFileSync(new URL('../prototype/core-app-data.js',import.meta.url),'utf8');
+const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
+const sql=fs.readFileSync(new URL('../supabase/migrations/202610280057_file_library.sql',import.meta.url),'utf8');
+
+assert.match(data,/files:\{ic:'i-folder',t:'à¸„à¸¥à¸±à¸‡à¹„à¸Ÿà¸¥à¹Œà¸ˆà¸²à¸à¸‡à¸²à¸™'\}/);
+assert.match(shell,/à¸­à¸‡à¸„à¹Œà¸à¸£ & à¸„à¸§à¸²à¸¡à¸£à¸¹à¹‰'.*'files'/);
+assert.match(html,/file-library\.js\?v=20261028-file-library-1/);
+assert.match(html,/company-hub-release" content="20261028-file-library-1/);
+assert.match(js,/file_library_items/);
+assert.match(js,/à¸”à¸¶à¸‡à¸‚à¹‰à¸­à¸„à¸§à¸²à¸¡à¸ˆà¸²à¸à¹„à¸Ÿà¸¥à¹Œ/);
+assert.match(js,/à¹„à¸¡à¹ˆà¸ªà¹ˆà¸‡ AI à¸ à¸²à¸¢à¸™à¸­à¸/);
+assert.match(js,/fileLibraryOpenFile\(false,\$\{Number\(c\.page\)\|\|0\}\)/);
+assert.match(js,/fileLibraryOpenWork/);
+assert.match(sql,/public\.can_read_daily_activity\(f\.activity_id\)/);
+assert.match(sql,/public\.can_view_assignee_workspace\(f\.task_id,f\.user_id\)/);
+assert.match(sql,/public\.can_edit_graphic_job\(f\.job_id\)/);
+assert.match(sql,/Text is stored only after an authorized user explicitly requests per-file extraction/);
+assert.doesNotMatch(js,/OPENAI_API_KEY|api\.openai\.com/);
+
+console.log('PASS file library: permission-scoped metadata search, explicit extraction, local topic analysis and source/page links.');

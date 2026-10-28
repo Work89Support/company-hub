@@ -1,1 +1,14 @@
-m«ëˆ§½©buªàºg§¶–œ‘¨Ê'RÆ y¶¬{®vçºh¢ø¥zŠ.µø¥y¶ëy©­æ¤zw(uçhºÚn¶êbÚ%Šw¬¡ù^aéƒu×œ¡×yÊz)éºØazZ]ŠÊek+aŠÉ²Æ z(§¦ëb›­~)^uçÚº[_¢»-v)è¢ëiºÚ.¶›­~)^uçÚº[_¢»-v‹­
+{
+  "name": "company-hub-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:static && npm run test:ui",
+    "test:static": "node scripts/check-prototype-regressions.mjs && node scripts/check-company-world.mjs && node scripts/check-activity-loading.mjs && node scripts/check-native-entry.mjs && node scripts/check-activity-completion-files.mjs && node scripts/check-activity-collaboration-db.mjs && node scripts/check-bom-visibility.mjs && node scripts/check-file-library.mjs && node scripts/check-login-accessibility.mjs && node scripts/check-release-readiness.mjs && node scripts/check-manual-current.mjs && node scripts/check-graphic-pagination.mjs && node scripts/check-graphic-workflow-v2.mjs && node scripts/check-kpi-work.mjs && node scripts/check-company-accounts.mjs && node scripts/check-staff-mobility-chat.mjs && node scripts/check-admin-kpi-governance.mjs && node scripts/check-daily-supervision.mjs && node scripts/check-task-detail-edit.mjs && node scripts/check-task-acknowledgement.mjs && node scripts/check-task-assignee-workspace.mjs && node scripts/check-due-task-auto-close.mjs && node scripts/check-org-chart.mjs && node scripts/check-access-consolidation.mjs",
+    "test:ui": "node scripts/check-ux-system.mjs && node scripts/check-form-controls.mjs && node scripts/check-team-board.mjs && node scripts/check-access-sections.mjs && node scripts/check-department-workflows.mjs && node scripts/check-company-accounts-ui.mjs && node scripts/check-reporting-integrity.mjs && node scripts/check-demo-flow-fixes.mjs && node scripts/check-active-kpi.mjs && node scripts/check-central-audit-programmer.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.4.5",
+    "happy-dom": "20.11.2"
+  }
+}
