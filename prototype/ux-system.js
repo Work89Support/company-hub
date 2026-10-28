@@ -100,7 +100,7 @@
   else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===modal)){e.preventDefault();first.focus();}
  });
  let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;enhance();});});observer.observe(main,{childList:true,subtree:true});
- const wizardScript=document.createElement('script');wizardScript.src='entry-wizard.js?v=20261025-assignee-filter-2';document.head.append(wizardScript);
+ const wizardScript=document.createElement('script');wizardScript.src='entry-wizard.js?v=20261028-activity-step-time-1';document.head.append(wizardScript);
  const connectedScript=document.createElement('script');connectedScript.src='connected-systems.js?v=20261016-persistent-results-2';document.head.append(connectedScript);
  window.companyUxEnhance=enhance;window.companyUxEnhanceModal=enhanceModal;enhance();
 })();
