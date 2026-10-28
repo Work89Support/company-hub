@@ -6,3 +6,17 @@
 @media(max-width:1050px){.filelib-layout{grid-template-columns:1fr}.filelib-panel{position:static}.filelib-hero{grid-template-columns:1fr}.filelib-privacy{justify-content:flex-start}}
 @media(max-width:680px){.filelib-hero{padding:18px;border-radius:15px}.filelib-searchline{grid-template-columns:1fr}.filelib-row{grid-template-columns:42px minmax(0,1fr)}.filelib-row>.filelib-state{grid-column:2;justify-self:start}.filelib-layout{gap:10px}.filelib-panel-body,.filelib-panel-head{padding:13px}}
 body.dark .filelib-state.ready{background:#123c31;color:#6ee7b7}
+
+
+/* Keep global chat launchers available without covering the file workflow. */
+body:has(#filelib-panel) .support-chat-dock{right:14px;bottom:76px}
+body:has(#filelib-panel) .support-chat-dock-button{width:48px;min-height:48px;padding:0;justify-content:center}
+body:has(#filelib-panel) .support-chat-dock-button span{display:none}
+body:has(#filelib-panel) .talk-fab{right:14px;bottom:16px;width:48px;height:48px;padding:0;justify-content:center}
+body:has(#filelib-panel) .talk-fab span{display:none}
+body:has(#filelib-panel) .filelib-panel-body{padding-right:76px}
+@media(max-width:480px){
+  body:has(#filelib-panel) .filelib-panel-body{padding-right:13px;padding-bottom:84px}
+  body:has(#filelib-panel) .support-chat-dock{right:72px;bottom:14px}
+  body:has(#filelib-panel) .talk-fab{right:14px;bottom:14px}
+}
