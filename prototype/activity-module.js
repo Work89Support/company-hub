@@ -2,6 +2,7 @@
 let ACTIVITY_ROWS=[];
 let ACTIVITY_ASSIGNMENTS=[];
 let ACTIVITY_FILES=[];
+let ACTIVITY_WORK_SESSIONS=[];
 let ACTIVITY_READY=false;
 let ACTIVITY_LOADING=false;
 let ACTIVITY_ERROR='';
@@ -19,7 +20,29 @@ for(const role of Object.keys(ROLE_ALLOW)){
   if(!SIMPLE_ALLOW[role].includes('activity')) SIMPLE_ALLOW[role].push('activity');
 }
 
-function activityDuration(row){return row.duration_minutes==null?null:Number(row.duration_minutes)/60;}
+function activityWorkSessionRows(row){return Array.isArray(row?.activity_work_sessions)?row.activity_work_sessions:[];}
+function activityDuration(row){
+  const sessions=activityWorkSessionRows(row),minutes=sessions.reduce((sum,item)=>sum+Number(item.duration_minutes||0),0);
+  if(sessions.length)return sessions.some(item=>item.duration_minutes==null)?null:minutes/60;
+  return row.duration_minutes==null?null:Number(row.duration_minutes)/60;
+}
+function activityWorkPeriod(row){
+  const sessions=activityWorkSessionRows(row);if(!sessions.length)return activityDateLabel(row.activity_date);
+  const dates=[...new Set(sessions.map(item=>item.work_date).filter(Boolean))].sort();
+  return dates.length>1?`${activityDateLabel(dates[0])}–${activityDateLabel(dates.at(-1))}`:activityDateLabel(dates[0]||row.activity_date);
+}
+function activityTimeSummary(row){
+  const sessions=activityWorkSessionRows(row);if(!sessions.length)return`${activityTime(row.start_time)}–${activityTime(row.end_time)}`;
+  if(sessions.length===1)return`${activityTime(sessions[0].start_time)}–${activityTime(sessions[0].end_time)}`;
+  return`${nf(sessions.length)} ช่วง · ${nf(new Set(sessions.map(item=>item.work_date)).size)} วัน`;
+}
+function activityMatchesDateRange(row,from,to){const dates=activityWorkSessionRows(row).map(item=>item.work_date).filter(Boolean);if(!dates.length)dates.push(row.activity_date);return dates.some(date=>(!from||date>=from)&&(!to||date<=to));}
+function activityPersonHours(row){
+  const sessions=activityWorkSessionRows(row),assignments=activityAssignmentRows(row);
+  if(!sessions.length)return activityAssigneeLabels(row).map(label=>[label,activityCountedDuration(row)]);
+  const names=new Map(assignments.filter(item=>item.profile_id).map(item=>[item.profile_id,item.display_name||item.source_name]));
+  return [...sessions.reduce((map,item)=>{const label=names.get(item.profile_id)||'ไม่ระบุผู้ทำ';return map.set(label,(map.get(label)||0)+Number(item.duration_minutes||0)/60);},new Map())];
+}
 function activityAssignmentRows(row){return Array.isArray(row?.activity_assignees)?row.activity_assignees:[];}
 function activityAttachmentRows(row){return Array.isArray(row?.activity_files)?row.activity_files:[];}
 function activityAssigneeLabels(row){
@@ -85,8 +108,7 @@ function activityVisibleRows(){
     &&(!ACTIVITY_FILTER.status||r.status===ACTIVITY_FILTER.status)
     &&(!ACTIVITY_FILTER.flag||r.time_flag===ACTIVITY_FILTER.flag)
     &&(!ACTIVITY_FILTER.quality||(ACTIVITY_FILTER.quality==='review'?activityReviewFlags(r).length>0:activityQualityFlags(r).includes(ACTIVITY_FILTER.quality)))
-    &&(!ACTIVITY_FILTER.from||r.activity_date>=ACTIVITY_FILTER.from)
-    &&(!ACTIVITY_FILTER.to||r.activity_date<=ACTIVITY_FILTER.to)
+    &&activityMatchesDateRange(r,ACTIVITY_FILTER.from,ACTIVITY_FILTER.to)
     &&(!q||[activityOwnerLabel(r),r.employee_name,r.activity,r.category,r.department_label,r.worksite,r.operational_issue,r.result_note].some(v=>String(v||'').toLowerCase().includes(q))));
 }
 function activitySet(key,value){ACTIVITY_FILTER[key]=value;if(key==='from'||key==='to')ACTIVITY_RANGE_MODE='custom';ACTIVITY_PAGE=1;RENDER.activity();}
@@ -142,13 +164,15 @@ async function loadActivities(){
   ACTIVITY_LOADING=true;
   ACTIVITY_ERROR='';
   try{
-    const [result,assignmentResult,fileResult]=await Promise.all([sbAllRows('daily_activities','activity_date',false),sbAllRows('activity_assignees','activity_id',true),sbAllRows('activity_files','created_at',true)]);
+    const [result,assignmentResult,fileResult,sessionResult]=await Promise.all([sbAllRows('daily_activities','activity_date',false),sbAllRows('activity_assignees','activity_id',true),sbAllRows('activity_files','created_at',true),sbAllRows('activity_work_sessions','work_date',true)]);
     if(result.error)throw result.error;if(assignmentResult.error)throw assignmentResult.error;if(fileResult.error)throw fileResult.error;
     ACTIVITY_ASSIGNMENTS=assignmentResult.data||[];
     ACTIVITY_FILES=fileResult.data||[];
+    ACTIVITY_WORK_SESSIONS=sessionResult.error?[]:(sessionResult.data||[]);
     const byActivity=ACTIVITY_ASSIGNMENTS.reduce((map,item)=>{const key=String(item.activity_id);if(!map.has(key))map.set(key,[]);map.get(key).push(item);return map;},new Map());
     const filesByActivity=ACTIVITY_FILES.reduce((map,item)=>{const key=String(item.activity_id);if(!map.has(key))map.set(key,[]);map.get(key).push(item);return map;},new Map());
-    ACTIVITY_ROWS=(result.data||[]).filter(row=>row.is_active!==false).map(row=>({...row,activity_assignees:byActivity.get(String(row.id))||[],activity_files:filesByActivity.get(String(row.id))||[]}));
+    const sessionsByActivity=ACTIVITY_WORK_SESSIONS.reduce((map,item)=>{const key=String(item.activity_id);if(!map.has(key))map.set(key,[]);map.get(key).push(item);return map;},new Map());
+    ACTIVITY_ROWS=(result.data||[]).filter(row=>row.is_active!==false).map(row=>({...row,activity_assignees:byActivity.get(String(row.id))||[],activity_files:filesByActivity.get(String(row.id))||[],activity_work_sessions:sessionsByActivity.get(String(row.id))||[]}));
     ACTIVITY_READY=true;
     if(VIEW==='activity')RENDER.activity();
     if(VIEW==='dash')RENDER.dash();
@@ -180,7 +204,7 @@ RENDER.activity=function(){
   const qualityRows=rows.filter(r=>activityReviewFlags(r).length>0).length;
   const flagCounts=rows.reduce((o,r)=>(o[r.time_flag]=(o[r.time_flag]||0)+1,o),{});
   const byDepartment=[...rows.reduce((m,r)=>m.set(r.department_label||deptName(r.department_code),(m.get(r.department_label||deptName(r.department_code))||0)+1),new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v);
-  const byPerson=[...rows.reduce((m,r)=>{for(const key of activityAssigneeLabels(r))m.set(key,(m.get(key)||0)+activityCountedDuration(r));return m;},new Map())].map(([label,v])=>({label:esc(label),v:Number(v.toFixed(1))})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const byPerson=[...rows.reduce((m,r)=>{for(const [key,hours] of activityPersonHours(r))m.set(key,(m.get(key)||0)+hours);return m;},new Map())].map(([label,v])=>({label:esc(label),v:Number(v.toFixed(1))})).sort((a,b)=>b.v-a.v).slice(0,8);
   const byCategory=[...rows.reduce((m,r)=>{const key=r.category||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+1);},new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v).slice(0,8);
   const byStatus=[...rows.reduce((m,r)=>{const key=r.status||'ไม่ระบุ';return m.set(key,(m.get(key)||0)+1);},new Map())].map(([label,v])=>({label:esc(label),v})).sort((a,b)=>b.v-a.v);
   const pages=Math.max(1,Math.ceil(rows.length/ACTIVITY_PAGE_SIZE));
@@ -214,7 +238,7 @@ RENDER.activity=function(){
       </div>
       <details class="activity-advanced" ${(ACTIVITY_FILTER.flag||ACTIVITY_FILTER.quality||ACTIVITY_RANGE_MODE==='custom')?'open':''}><summary>ตัวกรองเพิ่มเติม${(ACTIVITY_FILTER.flag||ACTIVITY_FILTER.quality||ACTIVITY_RANGE_MODE==='custom')?' · กำลังใช้งาน':''}</summary><div class="activity-advanced-grid"><div class="field"><label>ตรวจเวลา</label><select class="fin" onchange="activitySet('flag',this.value)"><option value="">ทั้งหมด</option><option value="overnight" ${ACTIVITY_FILTER.flag==='overnight'?'selected':''}>ข้ามวัน</option><option value="excluded_all_day" ${ACTIVITY_FILTER.flag==='excluded_all_day'?'selected':''}>ไม่นับทั้งวัน</option><option value="suspicious" ${ACTIVITY_FILTER.flag==='suspicious'?'selected':''}>ผิดปกติ</option><option value="missing" ${ACTIVITY_FILTER.flag==='missing'?'selected':''}>เวลาไม่ครบ</option></select></div><div class="field"><label>คุณภาพข้อมูล</label><select class="fin" onchange="activitySet('quality',this.value)"><option value="">ทั้งหมด</option><option value="review" ${ACTIVITY_FILTER.quality==='review'?'selected':''}>มีจุดต้องตรวจ</option><option value="missing_employee" ${ACTIVITY_FILTER.quality==='missing_employee'?'selected':''}>ไม่มีชื่อพนักงาน</option><option value="missing_status" ${ACTIVITY_FILTER.quality==='missing_status'?'selected':''}>ไม่มีสถานะ</option><option value="corrected_date" ${ACTIVITY_FILTER.quality==='corrected_date'?'selected':''}>แก้ปีวันที่</option><option value="date_range_end" ${ACTIVITY_FILTER.quality==='date_range_end'?'selected':''}>วันที่เป็นช่วงกะ</option></select></div><div class="field"><label>ตั้งแต่</label><input type="date" class="fin" value="${ACTIVITY_FILTER.from}" onchange="activitySet('from',this.value)"></div><div class="field"><label>ถึง</label><input type="date" class="fin" value="${ACTIVITY_FILTER.to}" onchange="activitySet('to',this.value)"></div></div></details>
       <div class="activity-scroll"><table class="activity-table"><thead><tr><th>วันที่</th><th>แผนก / เว็บ</th><th>พนักงาน</th><th>กิจกรรม / ผลลัพธ์</th><th>หมวด</th><th>เวลา / ตรวจ</th><th>ชม.</th><th>สถานะ / คุณภาพ</th></tr></thead><tbody>
-      ${pageRows.map(r=>{const quality=activityReviewFlags(r),files=activityAttachmentRows(r);return `<tr><td class="nowrap">${activityDateLabel(r.activity_date)}</td><td>${esc(r.department_label||deptName(r.department_code))}${r.worksite?`<br><span class="muted">${esc(r.worksite)}</span>`:''}</td><td class="nowrap"><b>${esc(activityOwnerLabel(r))}</b>${activityHasSharedAssignment(r)?'<br><span class="tag">งานร่วม</span>':''}</td><td class="work">${esc(r.activity)}${typeof entryCanEdit==='function'&&entryCanEdit(r)?`<br><button class="tbtn sm" onclick="openActivityEntry('${r.id}')">รายละเอียด / แนบไฟล์</button>`:''}${files.length?`<br><span class="tag">📎 ${nf(files.length)} ไฟล์</span>`:''}${r.result_note?`<br><span class="muted">ผลลัพธ์: ${esc(r.result_note)}</span>`:''}${r.operational_issue?`<br><span class="activity-issue">ปัญหา: ${esc(r.operational_issue)}</span>`:''}</td><td>${esc(r.category||'-')}</td><td class="nowrap">${activityTime(r.start_time)}–${activityTime(r.end_time)}${r.time_flag!=='ok'&&canManageActivity(r)?`<br><button class="tbtn sm" style="margin-top:5px" onclick="openActivityTime('${esc(r.id)}')">ตรวจ/แก้เวลา</button>`:''}</td><td>${activityDuration(r)==null?'<span class="muted">-</span>':activityDuration(r).toFixed(2)}${r.time_flag!=='ok'?`<br><span class="activity-flag">${esc(r.time_flag)}</span>`:''}</td><td>${esc(r.status||'-')}${quality.length?`<br><span class="activity-quality" title="${esc(quality.map(activityQualityLabel).join(' · '))}">${nf(quality.length)} จุดต้องตรวจ</span>`:''}</td></tr>`}).join('')}
+      ${pageRows.map(r=>{const quality=activityReviewFlags(r),files=activityAttachmentRows(r),sessions=activityWorkSessionRows(r);return `<tr><td class="nowrap">${activityWorkPeriod(r)}</td><td>${esc(r.department_label||deptName(r.department_code))}${r.worksite?`<br><span class="muted">${esc(r.worksite)}</span>`:''}</td><td class="nowrap"><b>${esc(activityOwnerLabel(r))}</b>${activityHasSharedAssignment(r)?'<br><span class="tag">งานร่วม</span>':''}</td><td class="work">${esc(r.activity)}${typeof entryCanEdit==='function'&&entryCanEdit(r)?`<br><button class="tbtn sm" onclick="openActivityEntry('${r.id}')">รายละเอียด / แนบไฟล์</button>`:''}${files.length?`<br><span class="tag">📎 ${nf(files.length)} ไฟล์</span>`:''}${sessions.length>1?`<br><span class="tag">🕒 ${nf(sessions.length)} ช่วงเวลา</span>`:''}${r.result_note?`<br><span class="muted">ผลลัพธ์: ${esc(r.result_note)}</span>`:''}${r.operational_issue?`<br><span class="activity-issue">ปัญหา: ${esc(r.operational_issue)}</span>`:''}</td><td>${esc(r.category||'-')}</td><td class="nowrap">${activityTimeSummary(r)}${r.time_flag!=='ok'&&canManageActivity(r)?`<br><button class="tbtn sm" style="margin-top:5px" onclick="openActivityTime('${esc(r.id)}')">ตรวจ/แก้เวลา</button>`:''}</td><td>${activityDuration(r)==null?'<span class="muted">-</span>':activityDuration(r).toFixed(2)}${r.time_flag!=='ok'?`<br><span class="activity-flag">${esc(r.time_flag)}</span>`:''}</td><td>${esc(r.status||'-')}${quality.length?`<br><span class="activity-quality" title="${esc(quality.map(activityQualityLabel).join(' · '))}">${nf(quality.length)} จุดต้องตรวจ</span>`:''}</td></tr>`}).join('')}
       </tbody></table>${rows.length?`<div class="activity-pages"><span>แสดง ${nf(from+1)}–${nf(Math.min(from+ACTIVITY_PAGE_SIZE,rows.length))} จาก ${nf(rows.length)} รายการ</span><div><button class="tbtn sm" ${ACTIVITY_PAGE<=1?'disabled':''} onclick="activityPage(${ACTIVITY_PAGE-1})">← ก่อนหน้า</button><span>หน้า ${nf(ACTIVITY_PAGE)} / ${nf(pages)}</span><button class="tbtn sm" ${ACTIVITY_PAGE>=pages?'disabled':''} onclick="activityPage(${ACTIVITY_PAGE+1})">ถัดไป →</button></div></div>`:'<div class="activity-empty">ไม่พบข้อมูลตามตัวกรอง</div>'}</div>
     </div>`;
 };

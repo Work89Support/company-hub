@@ -34,7 +34,7 @@ for(const token of [
   "SB.rpc('add_activity_file'",
   "SB.rpc('delete_my_activity_file'",
   "createSignedUrl(file.storage_path,300",
-  "`บันทึกงานและแนบไฟล์แล้ว ${files.length} ไฟล์`",
+  "แนบไฟล์ '+files.length+' ไฟล์'",
 ]) assert.ok(native.includes(token),`missing activity file UI: ${token}`);
 
 for(const token of [
