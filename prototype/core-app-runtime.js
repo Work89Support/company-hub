@@ -6,6 +6,7 @@
    ศูนย์ปัญหา (Problem Management) — รับแจ้งและวิเคราะห์ใน Company Hub
 ============================================================ */
 const PROBLEMS = [];
+const ISSUE_ATTACHMENTS = [];
 const PROB_SRC = {file:'Supabase · operational_issues', asof:'กำลังโหลดข้อมูล Production ตามสิทธิ์', n:0};
 const PROB_PRIO = {Critical:{t:'วิกฤต',c:'#d64545',o:4}, High:{t:'สูง',c:'#e8971b',o:3}, Medium:{t:'กลาง',c:'#2563eb',o:2}, Low:{t:'ต่ำ',c:'#67769a',o:1}};
 const PROB_ST = {Open:{t:'ยังไม่แก้',c:'#d64545'}, 'In Progress':{t:'กำลังแก้',c:'#e8971b'}, Resolved:{t:'แก้แล้ว',c:'#0b7a5a'}};
@@ -27,6 +28,65 @@ function probBars(pairs,total,click,colorFn){const max=Math.max(1,...pairs.map(x
 function probAvgHrs(list){const r=list.filter(p=>typeof p.resmin==='number'&&p.status==='Resolved');if(!r.length)return 0;return (r.reduce((s,p)=>s+p.resmin,0)/r.length/60);}
 function issueLocalNow(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:ORG_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()),o={};parts.forEach(x=>o[x.type]=x.value);return {date:`${o.year}-${o.month}-${o.day}`,time:`${o.hour==='24'?'00':o.hour}:${o.minute}`};}
 function issueNumberOrNull(id){const raw=val(id);return raw===''?null:Number(raw);}
+function issueAttachmentRows(issueId){return ISSUE_ATTACHMENTS.filter(x=>x.issueId===issueId);}
+function issueSafeFileName(name){return String(name||'image').normalize('NFKC').replace(/[^a-zA-Z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(-120)||'image';}
+function issueCanManage(p){return !!p&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(p.dept||'ADMIN')));}
+function issueProfileById(id){return typeof TASK_PROFILES==='undefined'?null:TASK_PROFILES.find(x=>x.id===id);}
+function issueCanClose(p){
+  if(!p||p.status==='Resolved'||!ACCESS_PROFILE)return false;
+  if(issueCanManage(p))return true;
+  if(p.prio!=='Low')return false;
+  const creator=issueProfileById(p.createdBy),mine=ACCESS_PROFILE.team_code||'';
+  return p.createdBy===ACCESS_PROFILE.id||p.ownerProfileId===ACCESS_PROFILE.id||!!(mine&&creator?.team_code===mine);
+}
+function issueRiskRule(p){return p?.prio==='Low'?'ระดับต่ำ · ผู้แจ้ง ผู้รับผิดชอบ หรือพนักงานทีมเดียวกันปิดได้':'ระดับกลาง/สูง/วิกฤต · หัวหน้าหรือผู้ช่วยหัวหน้าเท่านั้นที่ปิดได้';}
+async function uploadIssueEvidence(issueId,files){
+  const list=[...(files||[])];if(!list.length)return {saved:0,failed:[]};
+  if(list.length>8)throw new Error('แนบได้ไม่เกิน 8 ภาพต่อครั้ง');
+  const failed=[];let saved=0;
+  for(const file of list){
+    try{
+      if(!/^image\/(jpeg|png|webp|gif)$/i.test(file.type||''))throw new Error('รองรับเฉพาะ JPG, PNG, WEBP หรือ GIF');
+      if(file.size<=0||file.size>10*1024*1024)throw new Error('ภาพต้องมีขนาดไม่เกิน 10 MB');
+      const path=`${issueId}/${crypto.randomUUID()}-${issueSafeFileName(file.name)}`;
+      const up=await SB.storage.from('issue-evidence').upload(path,file,{contentType:file.type,upsert:false,cacheControl:'3600'});
+      if(up.error)throw up.error;
+      const row=await SB.from('issue_attachments').insert({issue_id:issueId,storage_path:path,file_name:file.name,mime_type:file.type,file_size:file.size,uploaded_by:ACCESS_PROFILE.id}).select('id,issue_id,storage_path,file_name,mime_type,file_size,uploaded_by,created_at').single();
+      if(row.error){await SB.storage.from('issue-evidence').remove([path]);throw row.error;}
+      ISSUE_ATTACHMENTS.push({id:row.data.id,issueId:row.data.issue_id,path:row.data.storage_path,name:row.data.file_name,type:row.data.mime_type,size:Number(row.data.file_size),uploadedBy:row.data.uploaded_by,createdAt:row.data.created_at});
+      saved++;
+    }catch(error){failed.push(`${file.name}: ${error.message||error}`);}
+  }
+  return {saved,failed};
+}
+async function openIssueEvidence(id){
+  const file=ISSUE_ATTACHMENTS.find(x=>x.id===id);if(!file)return;
+  const r=await SB.storage.from('issue-evidence').createSignedUrl(file.path,300);
+  if(r.error)return toast('เปิดหลักฐานไม่สำเร็จ · '+r.error.message,'info');
+  window.open(r.data.signedUrl,'_blank','noopener');
+}
+async function hydrateIssueEvidence(issueId){
+  const box=document.getElementById('issueEvidenceGallery');if(!box)return;
+  for(const file of issueAttachmentRows(issueId)){
+    const img=box.querySelector(`[data-issue-evidence="${file.id}"]`);if(!img||img.dataset.loaded)continue;
+    const r=await SB.storage.from('issue-evidence').createSignedUrl(file.path,300);
+    if(!r.error){img.src=r.data.signedUrl;img.dataset.loaded='1';}
+  }
+}
+async function removeIssueEvidence(id,issueId){
+  const file=ISSUE_ATTACHMENTS.find(x=>x.id===id);if(!file||!confirm('ลบภาพหลักฐานนี้หรือไม่?'))return;
+  const db=await SB.from('issue_attachments').delete().eq('id',id);if(db.error)return toast('ลบหลักฐานไม่สำเร็จ · '+db.error.message,'info');
+  const st=await SB.storage.from('issue-evidence').remove([file.path]);if(st.error)console.warn('issue evidence storage remove:',st.error.message);
+  const index=ISSUE_ATTACHMENTS.findIndex(x=>x.id===id);if(index>=0)ISSUE_ATTACHMENTS.splice(index,1);
+  toast('ลบภาพหลักฐานแล้ว');openProblem(issueId);
+}
+async function addIssueEvidence(issueId){
+  const input=document.getElementById('issueEvidenceInput');if(!input?.files?.length)return toast('กรุณาเลือกภาพ','info');
+  const btn=document.getElementById('issueEvidenceUpload');if(btn)btn.disabled=true;
+  const result=await uploadIssueEvidence(issueId,input.files);
+  if(result.failed.length)toast(`อัปโหลดสำเร็จ ${result.saved} ภาพ · ไม่สำเร็จ ${result.failed.length} ภาพ`,'info');else toast(`แนบหลักฐานแล้ว ${result.saved} ภาพ`);
+  openProblem(issueId);
+}
 function openNewIssue(){
   if(!ACCESS_PROFILE){toast('กรุณาเข้าสู่ระบบก่อนแจ้งปัญหา','info');return;}
   const now=issueLocalNow(),reporter=ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'';
@@ -45,6 +105,7 @@ function openNewIssue(){
     <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">3 · การรับมือเบื้องต้นและหลักฐาน</summary><div style="padding-top:12px">
       <div class="field"><label>วิธีรับมือชั่วคราว</label><textarea class="fin" id="newIssueWorkaround" maxlength="4000" rows="3" placeholder="เช่น เติมมือ เปลี่ยนช่องทาง หรือประสานผู้ให้บริการ"></textarea></div>
       <div class="field"><label>ลิงก์หลักฐาน</label><input class="fin" type="url" id="newIssueEvidence" maxlength="2000" placeholder="https://..."></div>
+      <div class="field"><label>อัปโหลดภาพหลักฐาน</label><input class="fin" type="file" id="newIssueFiles" accept="image/jpeg,image/png,image/webp,image/gif" multiple><small>สูงสุด 8 ภาพต่อครั้ง · ภาพละไม่เกิน 10 MB</small></div>
     </div></details>
     <div class="ai-note"><b>หลังบันทึก:</b> สถานะจะเป็น “ยังไม่แก้” และส่งให้ ${esc(ISSUE_DEFAULT_OWNER.Payment)} หรือทีมตามประเภทปัญหา หัวหน้าจะเป็นผู้ยืนยันวิธีแก้ก่อนปิดเคส</div>
     <button class="tbtn primary" id="newIssueSaveBtn" onclick="saveNewIssue()">บันทึกและส่งให้ทีมแก้ไข</button>
@@ -57,7 +118,7 @@ async function saveNewIssue(){
   const evidence=val('newIssueEvidence').trim();if(evidence&&!/^https?:\/\//i.test(evidence)){toast('ลิงก์หลักฐานต้องขึ้นต้นด้วย http:// หรือ https://','info');return;}
   const payload={department_code:'ADMIN',occurred_at:new Date(`${date}T${time}:00+07:00`).toISOString(),project_code:project,category,problem,priority:val('newIssuePriority'),reporter:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'',status:'Open',owner_team:val('newIssueOwner')||ISSUE_DEFAULT_OWNER[category]||'Admin',service_name:val('newIssueService').trim(),provider_name:val('newIssueProvider').trim(),impact_scope:val('newIssueImpactScope'),impact_summary:val('newIssueImpact').trim(),affected_customer_count:issueNumberOrNull('newIssueCustomers'),affected_transaction_count:issueNumberOrNull('newIssueTransactions'),financial_impact:issueNumberOrNull('newIssueFinancial'),workaround:val('newIssueWorkaround').trim(),evidence_url:evidence,source:'Company Hub'};
   const btn=document.getElementById('newIssueSaveBtn');if(btn)btn.disabled=true;
-  try{const r=await SB.from('operational_issues').insert(payload).select('id').single();if(r.error)throw r.error;closeModal();await cloudLoadIssues();RENDER.problems();toast('รับแจ้ง '+r.data.id+' แล้ว');openProblem(r.data.id);}catch(e){if(btn)btn.disabled=false;toast((/service_name|impact_scope|schema cache/i.test(e.message||''))?'ยังไม่ได้รัน Migration 017':('บันทึกไม่สำเร็จ · '+(e.message||'')),'info');}
+  try{const r=await SB.from('operational_issues').insert(payload).select('id').single();if(r.error)throw r.error;const files=document.getElementById('newIssueFiles')?.files;const upload=await uploadIssueEvidence(r.data.id,files);closeModal();await cloudLoadIssues();RENDER.problems();toast('รับแจ้ง '+r.data.id+' แล้ว'+(upload.saved?` · แนบภาพ ${upload.saved} ภาพ`:'')+(upload.failed.length?` · มี ${upload.failed.length} ภาพไม่สำเร็จ`:''),upload.failed.length?'info':undefined);openProblem(r.data.id);}catch(e){if(btn)btn.disabled=false;toast((/service_name|impact_scope|schema cache/i.test(e.message||''))?'ยังไม่ได้รัน Migration 017':('บันทึกไม่สำเร็จ · '+(e.message||'')),'info');}
 }
 function probCause(p){
   if(p.rootCause)return p.rootCause;
@@ -158,13 +219,16 @@ function openProblem(id){
   const p=PROBLEMS.find(x=>x.id===id);if(!p)return;
   const refs=issueReferenceCandidates(p),type=p.solutionType||(p.solution?'permanent':'unresolved');
   const selectedRef=p.referenceType==='issue'?p.referenceId:'';
-  const impact=[p.impactScope&&p.impactScope!=='unknown'?ISSUE_IMPACT_SCOPES[p.impactScope]:null,p.service,p.provider,p.impact].filter(Boolean),canEdit=canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(p.dept||'ADMIN'));
+  const impact=[p.impactScope&&p.impactScope!=='unknown'?ISSUE_IMPACT_SCOPES[p.impactScope]:null,p.service,p.provider,p.impact].filter(Boolean),manager=issueCanManage(p),canClose=issueCanClose(p),canEdit=manager||canClose,files=issueAttachmentRows(id);
+  const statusOptions=manager?[['Open','ยังไม่แก้'],['In Progress','กำลังแก้'],['Resolved','แก้แล้ว']]:[[p.status,PROB_ST[p.status]?.t||p.status],['Resolved','แก้แล้ว']];
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px"><span class="tag" style="background:#2158c822;color:#2158c8;border-color:#2158c855">${issueEsc(p.project)}</span> ${probPrio(p.prio)} ${probStatus(p.status)} ${hasIssueSolution(p)?'<span class="tag" style="color:var(--green)">✓ มีวิธีแก้แล้ว</span>':'<span class="tag" style="color:var(--red)">ยังไม่มีวิธีแก้</span>'} ${p.verified?'<span class="tag" style="background:#0b7a5a22;color:#0b7a5a;border-color:#0b7a5a55">✓ ยืนยันใช้ได้จริง</span>':''}</div>
     <h3>${issueEsc(p.cat)} — ${issueEsc(p.project)}</h3><div class="muted" style="font-size:11.5px">${issueEsc(p.id)} · แจ้งโดย ${issueEsc(p.reporter||'-')} · ${probDate(p.date)} ${(p.time||'').slice(0,5)}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>รายละเอียดปัญหา</label><div class="v">${issueEsc(p.problem||'-')}</div></div>
+    <div class="ai-note"><b>สิทธิ์ปิดตามความเสี่ยง:</b> ${issueEsc(issueRiskRule(p))}${canClose?'<br><span style="color:var(--green)">บัญชีของคุณมีสิทธิ์ปิดเคสนี้</span>':'<br><span class="muted">บัญชีของคุณดูและแนบหลักฐานได้ แต่ยังไม่มีสิทธิ์ปิดเคสนี้</span>'}</div>
     ${impact.length||p.affectedCustomers!=null||p.affectedTransactions!=null||p.financialImpact!=null?`<div class="ai-note"><b>ผลกระทบ:</b> ${impact.map(issueEsc).join(' · ')||'มีข้อมูลเชิงตัวเลข'}<br><span class="muted">ลูกค้า ${p.affectedCustomers==null?'—':nf(p.affectedCustomers)} · รายการ ${p.affectedTransactions==null?'—':nf(p.affectedTransactions)} · มูลค่า ${p.financialImpact==null?'—':('฿'+Number(p.financialImpact).toLocaleString('th-TH'))}</span>${p.workaround?`<br><b>รับมือเบื้องต้น:</b> ${issueEsc(p.workaround)}`:''}${p.evidenceUrl?`<br><a href="${issueEsc(p.evidenceUrl)}" target="_blank" rel="noopener">เปิดหลักฐาน ↗</a>`:''}</div>`:''}
-    <div class="two"><div class="field"><label>สถานะ</label><select class="fin" id="issueStatus" ${canEdit?'':'disabled'}><option value="Open" ${p.status==='Open'?'selected':''}>ยังไม่แก้</option><option value="In Progress" ${p.status==='In Progress'?'selected':''}>กำลังแก้</option><option value="Resolved" ${p.status==='Resolved'?'selected':''}>แก้แล้ว</option></select></div>
+    <div class="field"><label>ภาพหลักฐาน (${files.length})</label><div class="issue-evidence-gallery" id="issueEvidenceGallery">${files.map(file=>`<div class="issue-evidence-item"><button type="button" onclick="openIssueEvidence('${file.id}')"><img data-issue-evidence="${file.id}" alt="${issueEsc(file.name)}"><span>${issueEsc(file.name)}</span></button>${(file.uploadedBy===ACCESS_PROFILE?.id||manager)?`<button class="issue-evidence-remove" type="button" onclick="removeIssueEvidence('${file.id}','${id}')" aria-label="ลบ ${issueEsc(file.name)}">×</button>`:''}</div>`).join('')||'<span class="muted">ยังไม่มีภาพหลักฐาน</span>'}</div><div class="issue-evidence-upload"><input class="fin" type="file" id="issueEvidenceInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple><button class="tbtn" id="issueEvidenceUpload" type="button" onclick="addIssueEvidence('${id}')">อัปโหลดภาพ</button></div><small>สูงสุด 8 ภาพต่อครั้ง · ภาพละไม่เกิน 10 MB</small></div>
+    <div class="two"><div class="field"><label>สถานะ</label><select class="fin" id="issueStatus" ${canEdit?'':'disabled'}>${statusOptions.map(([key,label])=>`<option value="${key}" ${p.status===key?'selected':''}>${label}</option>`).join('')}</select></div>
       <div class="field"><label>ผู้รับผิดชอบ</label><input class="fin" id="issueOwner" value="${issueEsc(p.owner||'')}" ${canEdit?'':'disabled'}></div></div>
     <div class="field"><label>สาเหตุราก (Root cause)</label><input class="fin" id="issueRootCause" maxlength="500" value="${issueEsc(p.rootCause||'')}" placeholder="ระบุสาเหตุที่ตรวจสอบแล้ว" ${canEdit?'':'disabled'}></div>
     <div class="field"><label>ประเภทวิธีแก้</label><select class="fin" id="issueSolutionType" onchange="issueSolutionTypeChanged()" ${canEdit?'':'disabled'}>${Object.entries(ISSUE_SOLUTION_TYPES).map(([k,v])=>`<option value="${k}" ${type===k?'selected':''}>${v}</option>`).join('')}</select></div>
@@ -174,9 +238,9 @@ function openProblem(id){
     <div class="field"><label>เวลาแก้ (นาที)</label><input class="fin" type="number" min="0" step="1" id="issueResolutionMinutes" value="${p.resmin==null?'':p.resmin}"></div>
     <label class="ai-note" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer"><input type="checkbox" id="issueVerified" style="margin-top:3px" ${p.verified?'checked':''}><span><b>ยืนยันว่าทดสอบแล้วและวิธีแก้นี้ใช้ได้จริง</b><br><span class="muted">จะเลือกสถานะ “แก้แล้ว” ได้ต่อเมื่อกรอกวิธีแก้และติ๊กยืนยันข้อนี้</span></span></label>
     ${p.referenceType&&p.referenceId?`<div class="field" style="margin-top:12px"><button class="tbtn sm" onclick="openIssueReference('${p.referenceType}','${p.referenceId}')">เปิดแหล่งอ้างอิง ↗</button></div>`:''}
-    ${canEdit?`<button class="tbtn primary" id="issueSaveBtn" style="margin-top:12px" onclick="saveIssueFollowup('${p.id}')">บันทึกการติดตาม</button>`:'<div class="ai-note">คุณติดตามเคสของตนเองได้ แต่การเปลี่ยนสถานะและยืนยันวิธีแก้เป็นสิทธิ์หัวหน้า/Admin</div>'}
+    ${canEdit?`<button class="tbtn primary" id="issueSaveBtn" style="margin-top:12px" onclick="saveIssueFollowup('${p.id}')">บันทึกการติดตาม</button>`:'<div class="ai-note">คุณดูรายละเอียดและแนบหลักฐานได้ แต่เคสระดับนี้ต้องให้หัวหน้าหรือผู้ช่วยหัวหน้าปิด</div>'}
   </div>`);
-  if(selectedRef)setTimeout(issueReferenceChanged,0);
+  if(selectedRef)setTimeout(issueReferenceChanged,0);hydrateIssueEvidence(id);
 }
 async function saveIssueFollowup(id){
   const p=PROBLEMS.find(x=>x.id===id);if(!p)return;
