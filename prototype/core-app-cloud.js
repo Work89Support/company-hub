@@ -306,7 +306,7 @@ async function onLoggedIn(session){
 async function loadAuthenticatedProfile(session){
   try{
     const [profile,departments]=await Promise.all([
-      SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('id',session.user.id).maybeSingle(),
+      SB.from('profiles').select('id,email,display_name,position_title,role,department_code,team_code,active').eq('id',session.user.id).maybeSingle(),
       SB.from('profile_departments').select('department_code,can_manage').eq('profile_id',session.user.id)
     ]);
     if(profile.error)throw profile.error;
@@ -320,7 +320,7 @@ async function loadAuthenticatedProfile(session){
     if(ROLE_META[ROLE])ROLE_META[ROLE].dept=ACCESS_PROFILE.department_code||'';
     const label=AUTH_DB_ROLE==='admin'?'ผู้ดูแลระบบ':AUTH_DB_ROLE==='exec'?'ผู้บริหาร':AUTH_DB_ROLE==='lead'?'หัวหน้างาน':'พนักงาน';
     sideName.textContent=ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||SB_UID;
-    sideRole.textContent=label+(ACCESS_PROFILE.department_code?' — '+deptName(ACCESS_PROFILE.department_code):'');
+    sideRole.textContent=label+(ACCESS_PROFILE.department_code?' — '+deptName(ACCESS_PROFILE.department_code):'')+(ACCESS_PROFILE.team_code?' · '+ACCESS_PROFILE.team_code:'');
     sideAvatar.textContent=(ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'U').slice(0,1).toUpperCase();
     topAvatar.textContent=sideAvatar.textContent;
     return true;
@@ -360,7 +360,7 @@ async function cloudLoadTasks(){
     const [tasks,assignments,profiles,timeEntries,comments,people,workspaces,workspaceFiles]=await Promise.all([
       integrityReadAll(()=>SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,auto_close_enabled,prototype_payload,created_at,updated_at'),["id"]),
       integrityReadAll(()=>SB.from('task_assignees').select('task_id,user_id,assigned_at,acknowledged_at'),["task_id", "user_id"]),
-      integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,active').eq('active',true),["id"]),
+      integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,team_code,active').eq('active',true),["id"]),
       integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
       integrityReadAll(()=>SB.from('task_comments').select('task_id,author_id,body,created_at'),["id"]),
       SB.rpc('activity_entry_people'),
