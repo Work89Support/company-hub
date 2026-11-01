@@ -3,12 +3,13 @@ const {Window}=await import(process.env.DOM_MODULE||'happy-dom');const window=ne
 document.body.innerHTML='<main id="main"></main><div id="modal"></div>';
 const main=document.getElementById('main'),modal=document.getElementById('modal');let opened='',analysis=0;
 const escape=v=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
-const ctx={document,main,ACCESS_PROFILE:{department_code:'ADMIN'},currentDept:()=>ctx.ACCESS_PROFILE.department_code,deptName:x=>x,esc:escape,crumb:()=>'',GF:{tab:'board'},
+const ctx={document,main,ACCESS_PROFILE:{department_code:'ADMIN'},currentDept:()=>ctx.ACCESS_PROFILE.department_code,deptName:x=>x,esc:escape,crumb:()=>'',sic:()=>'',GF:{tab:'board'},
  SIMPLE_ALLOW:{staff:[]},ROLE_ALLOW:{staff:['activity','problems']},GP_STATUS:Object.fromEntries(['intake','doing','review','done','monthly','brief','revision'].map(k=>[k,{t:k}])),
  RENDER:{dash(){main.innerHTML='';},myTasks(){main.innerHTML='';},graphic(){main.innerHTML='<div class="page-h"><p></p></div>';},problems(){analysis++;main.innerHTML='analysis';}},
  go(v){opened=v;},openGraphicBrief(){opened='brief';},openActivityEntry(){opened='activity';},openProblem(id){opened=id;},gpJobFiles:()=>[{}],gpJobCard:j=>`<div class="gp-job"><h4>${escape(j.title)}</h4></div>`,
  ISSUE_DEFAULT_OWNER:{Payment:'Payment',System:'IT'},ISSUE_CATEGORIES:['Payment','System'],PROB_ST:{Open:{},'In Progress':{},Resolved:{}},PROB_PRIO:{High:{},Low:{}},
- PF:{project:'',status:'',cat:'',prio:'',q:''},PROBLEMS:Array.from({length:75},(_,i)=>({id:'ISS-'+i,date:i<30?'2026-09-04':'2026-09-05',time:'10:00',project:'P',cat:'Payment',problem:i===0?'<img src=x onerror=alert(1)>':'รายการ '+i,prio:'High',reporter:'ทีม',status:'Open',owner:i<30?'Admin':'IT',solution:'',resmin:0})),
+ TASK_PROFILES:[{id:'x1',display_name:'ทีม X1',department_code:'ADMIN',team_code:'X1'},{id:'x5',display_name:'ทีม X5',department_code:'ADMIN',team_code:'X5'}],
+ PF:{project:'',status:'',cat:'',prio:'',q:''},PROBLEMS:Array.from({length:75},(_,i)=>({id:'ISS-'+i,createdBy:i<30?'x1':'x5',date:i<30?'2026-09-04':'2026-09-05',time:'10:00',project:'P',cat:'Payment',problem:i===0?'<img src=x onerror=alert(1)>':'รายการ '+i,prio:'High',reporter:i<30?'ทีม X1':'ทีม X5',status:'Open',owner:i<30?'Admin':'IT',solution:'',resmin:0})),
  probFiltered(){return ctx.PROBLEMS.filter(p=>(!ctx.PF.q||p.problem.includes(ctx.PF.q))&&(!ctx.PF.status||p.status===ctx.PF.status));},probDate:x=>x,probPrio:escape,probStatus:escape,gpDateTime:x=>x,
  clearPF(){ctx.PF={project:'',status:'',cat:'',prio:'',q:''};ctx.RENDER.problems();},
  openNewIssue(){modal.innerHTML='<div class="pad"><div class="field"><select id="newIssueCategory"><option>Payment</option><option>System</option></select></div><div class="field"><textarea id="newIssueProblem"></textarea></div><details open><summary>เสริม</summary><div class="field"><textarea id="newIssueImpact"></textarea></div></details><div class="ai-note"></div><button id="newIssueSaveBtn"></button></div>';}
@@ -18,6 +19,7 @@ ctx.RENDER.problems();assert.equal(main.querySelectorAll('thead th').length,15);
 assert.equal(analysis,0,'register opens without analytics');assert.equal(main.querySelectorAll('img').length,0,'source text is escaped');
 document.getElementById('issue-work-owner').value='Admin';document.getElementById('issue-work-owner').dispatchEvent(new window.Event('change'));
 assert.equal(main.querySelectorAll('tbody tr').length,30);assert.equal(main.querySelectorAll('img').length,0);
+document.getElementById('issue-work-team').value='X1';document.getElementById('issue-work-team').dispatchEvent(new window.Event('change'));assert.equal(main.querySelectorAll('tbody tr').length,30);
 main.querySelector('[data-open-issue]').click();assert.ok(opened.startsWith('ISS-'));
 document.getElementById('issue-work-clear').click();assert.equal(main.querySelectorAll('tbody tr').length,50);
 ctx.openNewIssue();assert.equal(document.getElementById('newIssueOwner').value,'Payment');assert.equal(document.querySelector('details').open,false);assert.equal(document.getElementById('newIssueImpact').closest('details'),null,'required impact stays visible');

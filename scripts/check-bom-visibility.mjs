@@ -72,3 +72,4 @@ for(const id of [1,2,3])assert.equal((await db.query('select can_read_daily_acti
 assert.equal((await db.query('select can_read_daily_activity(4) allowed')).rows[0].allowed,false);
 
 console.log('BOM visibility migration passed: ADMIN + CRM + SC read scopes persist and expose only the requested activity departments.');
+await db.close();

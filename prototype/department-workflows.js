@@ -31,9 +31,11 @@ gpJobCard=function(j){
   .replace('</h4>',`</h4>${attachments?`<div class="gp-meta">ไฟล์แนบ ${attachments}</div>`:''}`);
 };
 
-let ISSUE_WORK_VIEW='register',ISSUE_WORK_FILTER={from:'',to:'',owner:''},ISSUE_WORK_PAGE=1;
+let ISSUE_WORK_VIEW='register',ISSUE_WORK_FILTER={from:'',to:'',owner:'',team:''},ISSUE_WORK_PAGE=1;
 const ISSUE_REGISTER_COLUMNS=['รหัสเคส','วันที่','เวลา','โปรเจกต์','ประเภท','ปัญหา','ความสำคัญ','ผู้แจ้ง','สถานะ','ทีมรับผิดชอบ','วิธีแก้','สร้างเมื่อ','แก้ไขเมื่อ','ปิดเมื่อ','นาทีที่ใช้แก้'];
-function issueRegisterRows(){return probFiltered().filter(p=>(!ISSUE_WORK_FILTER.from||p.date>=ISSUE_WORK_FILTER.from)&&(!ISSUE_WORK_FILTER.to||p.date<=ISSUE_WORK_FILTER.to)&&(!ISSUE_WORK_FILTER.owner||p.owner===ISSUE_WORK_FILTER.owner)).sort((a,b)=>(b.date+' '+b.time).localeCompare(a.date+' '+a.time));}
+function issueTeamProfiles(){return typeof TASK_PROFILES==='undefined'?[]:TASK_PROFILES;}
+function issueWorkTeam(p){const people=issueTeamProfiles(),direct=people.find(x=>x.id===p.createdBy),name=String(p.reporter||'').normalize('NFKC').trim().toLowerCase(),byName=!direct&&people.find(x=>String(x.display_name||'').normalize('NFKC').trim().toLowerCase()===name);return (direct||byName)?.team_code||'';}
+function issueRegisterRows(){return probFiltered().filter(p=>(!ISSUE_WORK_FILTER.from||p.date>=ISSUE_WORK_FILTER.from)&&(!ISSUE_WORK_FILTER.to||p.date<=ISSUE_WORK_FILTER.to)&&(!ISSUE_WORK_FILTER.owner||p.owner===ISSUE_WORK_FILTER.owner)&&(!ISSUE_WORK_FILTER.team||issueWorkTeam(p)===ISSUE_WORK_FILTER.team)).sort((a,b)=>(b.date+' '+b.time).localeCompare(a.date+' '+a.time));}
 function issueWorkTabs(){return `<div class="gp-tabs"><button class="${ISSUE_WORK_VIEW==='register'?'active':''}" onclick="ISSUE_WORK_VIEW='register';RENDER.problems()">ทะเบียนปัญหา</button><button class="${ISSUE_WORK_VIEW==='analysis'?'active':''}" onclick="ISSUE_WORK_VIEW='analysis';RENDER.problems()">สรุปและวิเคราะห์</button></div>`;}
 function issueExcelEscape(value){return String(value==null?'':value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));}
 function issueExcelCell(value,type='String',style=''){return `<Cell${style?` ss:StyleID="${style}"`:''}><Data ss:Type="${type}">${issueExcelEscape(value)}</Data></Cell>`;}
@@ -69,7 +71,7 @@ RENDER.problems=function(){
  <label>สถานะ<select class="fin" data-issue-filter="status">${options(Object.keys(PROB_ST),PF.status)}</select></label>
  <label>ประเภท<select class="fin" data-issue-filter="cat">${options(ISSUE_CATEGORIES,PF.cat)}</select></label>
  <label>ความสำคัญ<select class="fin" data-issue-filter="prio">${options(Object.keys(PROB_PRIO),PF.prio)}</select></label>
- <label>ทีมรับผิดชอบ<select class="fin" id="issue-work-owner">${options([...new Set(PROBLEMS.map(p=>p.owner).filter(Boolean))].sort(),ISSUE_WORK_FILTER.owner)}</select></label>
+ <label>ทีมย่อยผู้แจ้ง<select class="fin" id="issue-work-team">${options([...new Set(issueTeamProfiles().filter(p=>p.department_code==='ADMIN').map(p=>p.team_code).filter(Boolean))].sort(),ISSUE_WORK_FILTER.team)}</select></label><label>ทีมรับผิดชอบ<select class="fin" id="issue-work-owner">${options([...new Set(PROBLEMS.map(p=>p.owner).filter(Boolean))].sort(),ISSUE_WORK_FILTER.owner)}</select></label>
  <form id="issue-work-search"><label>ค้นหาปัญหา / ผู้แจ้ง / รหัส<input class="fin" name="query" value="${esc(PF.q)}"></label><button class="tbtn">ค้นหา</button></form><button class="tbtn" id="issue-work-clear">ล้างตัวกรอง</button></div>
  <p role="status">${rows.length} เคสตามตัวกรอง · ${rows.filter(p=>p.status!=='Resolved').length} เคสยังไม่ปิด · หน้า ${ISSUE_WORK_PAGE}/${pages}</p>
  <div class="issue-register" tabindex="0" aria-label="ทะเบียนปัญหา เลื่อนแนวนอนเพื่อดูทุกคอลัมน์"><table><thead><tr>${ISSUE_REGISTER_COLUMNS.map(t=>`<th scope="col">${t}</th>`).join('')}</tr></thead><tbody>${rows.slice((ISSUE_WORK_PAGE-1)*50,ISSUE_WORK_PAGE*50).map(p=>`<tr><td><button class="issue-case-link" data-open-issue="${esc(p.id)}">${esc(p.id)}</button></td><td>${esc(probDate(p.date))}</td><td>${esc(p.time)}</td><td>${esc(p.project)}</td><td>${esc(p.cat)}</td><td class="issue-text">${esc(p.problem)}</td><td>${probPrio(p.prio)}</td><td>${esc(p.reporter)}</td><td>${probStatus(p.status)}</td><td>${esc(p.owner||'ยังไม่ระบุ')}</td><td class="issue-text">${esc(p.solution||'ยังไม่มีวิธีแก้')}</td><td>${p.createdAt?esc(gpDateTime(p.createdAt)):'—'}</td><td>${p.updatedAt?esc(gpDateTime(p.updatedAt)):'—'}</td><td>${p.resolvedAt?esc(gpDateTime(p.resolvedAt)):'—'}</td><td>${p.resmin==null?'—':esc(p.resmin)}</td></tr>`).join('')||'<tr><td colspan="15">ไม่พบเคสตามตัวกรอง</td></tr>'}</tbody></table></div>
@@ -79,9 +81,10 @@ RENDER.problems=function(){
  main.querySelectorAll('[data-open-issue]').forEach(b=>b.onclick=()=>openProblem(b.dataset.openIssue));
  main.querySelectorAll('[data-issue-filter]').forEach(s=>s.onchange=()=>{PF[s.dataset.issueFilter]=s.value;refresh();});
  main.querySelectorAll('[data-issue-date]').forEach(s=>s.onchange=()=>{ISSUE_WORK_FILTER[s.dataset.issueDate]=s.value;if(ISSUE_WORK_FILTER.from&&ISSUE_WORK_FILTER.to&&ISSUE_WORK_FILTER.from>ISSUE_WORK_FILTER.to){ISSUE_WORK_FILTER[s.dataset.issueDate==='from'?'to':'from']=s.value;}refresh();});
+ document.getElementById('issue-work-team').onchange=e=>{ISSUE_WORK_FILTER.team=e.target.value;refresh();};
  document.getElementById('issue-work-owner').onchange=e=>{ISSUE_WORK_FILTER.owner=e.target.value;refresh();};
  document.getElementById('issue-work-search').onsubmit=e=>{e.preventDefault();PF.q=e.currentTarget.elements.query.value.trim();refresh();};
- document.getElementById('issue-work-clear').onclick=()=>{ISSUE_WORK_FILTER={from:'',to:'',owner:''};ISSUE_WORK_PAGE=1;clearPF();};
+ document.getElementById('issue-work-clear').onclick=()=>{ISSUE_WORK_FILTER={from:'',to:'',owner:'',team:''};ISSUE_WORK_PAGE=1;clearPF();};
 };
 const familiarIssueEntry=openNewIssue;
 openNewIssue=function(){
