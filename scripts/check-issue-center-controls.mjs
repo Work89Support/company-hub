@@ -7,6 +7,7 @@ const workflow=fs.readFileSync(new URL('../prototype/department-workflows.js',im
 const css=fs.readFileSync(new URL('../prototype/department-workflows.css',import.meta.url),'utf8');
 const index=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
 const sql=fs.readFileSync(new URL('../supabase/migrations/202611010056_issue_center_controls.sql',import.meta.url),'utf8');
+const hotfixSql=fs.readFileSync(new URL('../supabase/migrations/202611010057_issue_bulk_close_reason_fix.sql',import.meta.url),'utf8');
 
 for(const token of [
   "SB.storage.from('issue-evidence').upload",
@@ -31,8 +32,17 @@ for(const token of [
   'public.can_manage_department(issue.department_code)',
   'create or replace function public.bulk_close_operational_issues',
   'if not public.can_close_operational_issue(issue)',
-  'insert into public.issue_bulk_actions'
+  'insert into public.issue_bulk_actions',
+  'close_reason=trim($2)'
 ])assert.ok(sql.includes(token),`migration missing ${token}`);
+
+for(const token of [
+  'create or replace function public.bulk_close_operational_issues',
+  'close_reason=trim($2)',
+  'resolution_minutes=coalesce(resolution_minutes',
+  "values(caller.id,'resolve',clean_ids,trim($2),trim(resolution_solution))"
+])assert.ok(hotfixSql.includes(token),`hotfix migration missing ${token}`);
+assert.ok(!hotfixSql.includes('close_reason=trim(close_reason)'),'hotfix must not use the ambiguous close_reason argument name');
 
 assert.ok(!sql.includes('@gmail.com'),'migration must not publish employee email addresses');
 console.log('PASS issue image evidence, risk-based closure, audited bulk close, team grouping and cache release checks');
