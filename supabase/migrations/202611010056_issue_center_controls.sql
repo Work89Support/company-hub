@@ -269,7 +269,7 @@ begin
 
   if coalesce(array_length(clean_ids,1),0)=0 then raise exception 'select at least one issue'; end if;
   if array_length(clean_ids,1)>100 then raise exception 'a bulk action is limited to 100 issues'; end if;
-  if char_length(trim(coalesce(close_reason,'')))<5 then raise exception 'close reason must be at least 5 characters'; end if;
+  if char_length(trim(coalesce($2,'')))<5 then raise exception 'close reason must be at least 5 characters'; end if;
   if trim(coalesce(resolution_solution,''))='' then raise exception 'solution is required'; end if;
   if not confirm_effective then raise exception 'confirm that the solution was tested and worked'; end if;
 
@@ -294,7 +294,8 @@ begin
   set status='Resolved',
       solution_type=case when solution_type in ('','unresolved') then 'permanent' else solution_type end,
       solution=trim(resolution_solution),
-      close_reason=trim(close_reason),
+      close_reason=trim($2),
+      resolution_minutes=coalesce(resolution_minutes,greatest(0,round(extract(epoch from (now()-occurred_at))/60))),
       solution_verified=true,
       solution_verified_by=caller.id,
       solution_verified_at=now(),
@@ -303,7 +304,7 @@ begin
   get diagnostics changed_count=row_count;
 
   insert into public.issue_bulk_actions(actor_id,action,issue_ids,reason,solution)
-  values(caller.id,'resolve',clean_ids,trim(close_reason),trim(resolution_solution));
+  values(caller.id,'resolve',clean_ids,trim($2),trim(resolution_solution));
 
   return jsonb_build_object('closed',changed_count,'issue_ids',clean_ids,'closed_by',caller.id,'closed_at',now());
 end
