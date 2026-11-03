@@ -50,7 +50,8 @@ export default {fetch:async(request:Request)=>{
   for(const [bucket,max] of [[ipBucket,300],[nameBucket,12]] as const){
    if(!checked(await admin.rpc('company_login_attempt_allowed',{p_bucket:bucket,p_max:max})))return json({error:'ลองหลายครั้งเกินไป กรุณารอ 10 นาที'},429);
   }
-  const account=checked(await admin.from('company_login_accounts').select('profile_id,credential_lock,credentials_valid_after,contact_email').eq('login_name',login).maybeSingle());
+  const loginPattern=login.replace(/[\\%_*]/g,'\\$&');
+  const account=checked(await admin.from('company_login_accounts').select('profile_id,credential_lock,credentials_valid_after,contact_email').ilike('login_name',loginPattern).maybeSingle());
   if(b.email!==undefined&&String(account?.contact_email||'').trim().toLowerCase()!==String(b.email).trim().toLowerCase())return json({error:'อีเมลและบัญชีที่เลือกไม่ตรงกัน'},401);
   // Directory names are stored lower-case; display labels live in profiles.
   const profile=account?checked(await admin.from('profiles').select('email,active').eq('id',account.profile_id).maybeSingle()):null;
