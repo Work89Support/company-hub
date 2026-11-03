@@ -10,6 +10,7 @@ const emailLoginChoice=(choices:Array<{login_name:string,display_name:string,dep
  if(choices.length>1)return {status:200,body:{mode:'choose_name',accounts:choices}};
  return {status:200,body:{accounts:[]}};
 };
+const leadCanManageProfile=(actorRole:string,managed:Set<string>,profile:{role?:string,department_code?:string}|null|undefined)=>actorRole==='lead'&&profile?.role==='staff'&&!!profile.department_code&&managed.has(profile.department_code);
 function checked<T>(r:{data:T,error:unknown}):T{if(r.error)throw new Error('DATABASE_OPERATION_FAILED');return r.data;}
 function required<T>(r:{data:T,error:unknown}):NonNullable<T>{const value=checked(r);if(value==null)throw new Error('REQUIRED_ROW_MISSING');return value;}
 export default {fetch:async(request:Request)=>{
@@ -87,9 +88,23 @@ export default {fetch:async(request:Request)=>{
   return json({ok:true,sign_in_again:true});
  }
  if(!checked(await admin.rpc('company_credentials_ready',{p_profile:user.id,p_iat:iat})))return json({error:'บัญชียังไม่พร้อมใช้งาน กรุณาเข้าสู่ระบบด้วยรหัสล่าสุด'},403);
- if(!['admin','exec'].includes(actor.role))return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
- if(action==='list')return json({accounts:checked(await admin.from('company_login_accounts').select('profile_id,login_name,contact_email,must_change_password,source_key').order('login_name'))});
+ const globalAccountAdmin=['admin','exec'].includes(actor.role);
+ const managedRows=actor.role==='lead'?(checked(await admin.from('profile_departments').select('department_code').eq('profile_id',user.id).eq('can_manage',true))??[]):[];
+ const managedDepartments=new Set(managedRows.map((row:any)=>String(row.department_code||'').trim()).filter(Boolean));
+ const departmentAccountAdmin=actor.role==='lead'&&managedDepartments.size>0;
+ if(!globalAccountAdmin&&!departmentAccountAdmin)return json({error:'บัญชีนี้ไม่มีสิทธิ์จัดการผู้ใช้'},403);
+ if(action==='list'){
+  const allAccounts=checked(await admin.from('company_login_accounts').select('profile_id,login_name,contact_email,must_change_password,source_key').order('login_name'))??[];
+  if(!allAccounts.length)return json({accounts:[],scope:globalAccountAdmin?'all':'department',managed_departments:[...managedDepartments]});
+  const ids=allAccounts.map((row:any)=>row.profile_id);
+  const profiles=checked(await admin.from('profiles').select('id,display_name,position_title,role,department_code,active').in('id',ids))??[];
+  const scopes=checked(await admin.from('profile_departments').select('profile_id,department_code,can_manage').in('profile_id',ids))??[];
+  const byId=new Map(profiles.map((profile:any)=>[profile.id,profile]));
+  const visible=allAccounts.flatMap((row:any)=>{const profile=byId.get(row.profile_id) as any;if(!profile)return[];if(!globalAccountAdmin&&!leadCanManageProfile(actor.role,managedDepartments,profile))return[];return[{...row,profile,department_codes:scopes.filter((scope:any)=>scope.profile_id===profile.id).map((scope:any)=>scope.department_code)}];});
+  return json({accounts:visible,scope:globalAccountAdmin?'all':'department',managed_departments:[...managedDepartments]});
+ }
  if(action==='update-contact-email'){
+  if(!globalAccountAdmin)return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
   const profileId=clean(b.profile_id),email=String(b.contact_email||'').trim().toLowerCase();
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(profileId))return json({error:'ไม่พบบัญชีที่ต้องการแก้ไข'},400);
   if(email&&(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))return json({error:'กรุณากรอกอีเมลให้ถูกต้อง หรือเว้นว่างหากยังไม่มีอีเมล'},400);
@@ -104,6 +119,7 @@ export default {fetch:async(request:Request)=>{
   return json({ok:true,profile_id:profileId,contact_email:email});
  }
  if(action==='bootstrap-roster'){
+  if(!globalAccountAdmin)return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
   const password=String(b.initial_password||''),rows=Array.isArray(b.rows)?b.rows:[];
   if(password.length<12||password.length>128)return json({error:'รหัสแรกเข้าต้องมี 12–128 ตัวอักษร'},400);
   if(!rows.length||rows.length>25)return json({error:'ส่งรายชื่อครั้งละ 1–25 บัญชี'},400);
@@ -168,15 +184,44 @@ export default {fetch:async(request:Request)=>{
  }
  if(action==='reset'){
   const target=required(await admin.from('company_login_accounts').select('profile_id,login_name,credential_version').eq('profile_id',b.profile_id).single());
-  const targetProfile=required(await admin.from('profiles').select('role,active').eq('id',target.profile_id).single());
-  if(target.profile_id===user.id||!targetProfile.active||targetProfile.role==='admin'&&actor.role!=='admin')return json({error:'ไม่สามารถรีเซ็ตบัญชีนี้ได้'},403);
+  const targetProfile=required(await admin.from('profiles').select('role,active,department_code').eq('id',target.profile_id).single());
+  const leadCanReset=departmentAccountAdmin&&leadCanManageProfile(actor.role,managedDepartments,targetProfile);
+  if(target.profile_id===user.id||!targetProfile.active||!globalAccountAdmin&&!leadCanReset||targetProfile.role==='admin'&&actor.role!=='admin')return json({error:'ไม่สามารถรีเซ็ตบัญชีนี้ได้'},403);
   checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:target.profile_id,old_access:{},new_access:{action:'username_password_reset_requested'}}));
   const lock=crypto.randomUUID(),password=secret();checked(await admin.rpc('begin_company_credential_change',{p_profile:target.profile_id,p_lock:lock,p_reset:true,p_revision:target.credential_version}));
   const changed=await admin.auth.admin.updateUserById(target.profile_id,{password});if(changed.error)throw new Error('RESET_FAILED');
   checked(await admin.rpc('finish_company_credential_change',{p_profile:target.profile_id,p_lock:lock,p_pending:true}));
   return json({ok:true,login_name:target.login_name,initial_password:password});
  }
+ if(action==='create-department-user'){
+  const name=clean(b.name),dept=clean(b.department_code).toUpperCase(),position=clean(b.position_title||'พนักงาน'),contactEmail=String(b.contact_email||'').trim().toLowerCase(),initialPassword=b.initial_password;
+  if(!name||name.length>100||/[\r\n\x00-\x1f]/.test(String(b.name))||name.includes('/'))return json({error:'กรุณากรอกชื่อพนักงานให้ถูกต้อง'},400);
+  if(position.length<1||position.length>120)return json({error:'กรุณากรอกตำแหน่งให้ถูกต้อง'},400);
+  if(contactEmail&&(contactEmail.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)))return json({error:'กรุณากรอกอีเมลให้ถูกต้อง หรือเว้นว่างไว้'},400);
+  if(initialPassword!==undefined&&(typeof initialPassword!=='string'||initialPassword.length<12||initialPassword.length>128))return json({error:'รหัสแรกเข้าที่กำหนดเองต้องมี 12–128 ตัวอักษร'},400);
+  if(!globalAccountAdmin&&!managedDepartments.has(dept))return json({error:'สร้างบัญชีได้เฉพาะแผนกที่คุณดูแล'},403);
+  const department=required(await admin.from('departments').select('code,name').eq('code',dept).eq('active',true).single());
+  const display=name+' ('+department.name+')',login=display.toLowerCase();
+  const duplicate=checked(await admin.from('company_login_accounts').select('profile_id').eq('login_name',login).maybeSingle());
+  if(duplicate)return json({error:'มีชื่อบัญชีนี้แล้ว กรุณาใช้บัญชีเดิม'},409);
+  const same=checked(await admin.from('profiles').select('id').eq('department_code',dept).in('display_name',[name,display]).limit(1))??[];
+  if(same.length)return json({error:'มีพนักงานชื่อนี้ในแผนกแล้ว กรุณาตรวจบัญชีเดิม'},409);
+  const password=initialPassword===undefined?secret():initialPassword,email=crypto.randomUUID()+'@company-hub.invalid';
+  const created=await admin.auth.admin.createUser({email,password,email_confirm:true,app_metadata:{company_role:'staff',department:dept},user_metadata:{display_name:display,position_title:position}});
+  if(created.error||!created.data.user)throw new Error('CREATE_FAILED');
+  const id=created.data.user.id;
+  try{
+   checked(await admin.from('profiles').upsert({id,email,display_name:display,role:'staff',department_code:dept,active:false,position_title:position}));
+   checked(await admin.from('company_login_accounts').insert({profile_id:id,login_name:login,source_key:await hash('manual\x1f'+dept+'\x1f'+login),personal_name:name,contact_email:contactEmail||null,created_by:user.id}));
+   checked(await admin.from('profile_departments').upsert({profile_id:id,department_code:dept,can_manage:false},{onConflict:'profile_id,department_code'}));
+   checked(await admin.from('user_access_policies').insert({profile_id:id,enforce_device:false,enforce_ip:false,session_minutes:5,updated_by:user.id}));
+   checked(await admin.from('access_audit').insert({actor_id:user.id,target_user_id:id,old_access:{},new_access:{action:'department_user_created',role:'staff',department_code:dept,position_title:position,created_by_role:actor.role}}));
+   checked(await admin.from('profiles').update({active:true}).eq('id',id));
+  }catch(error){await admin.from('profiles').update({active:false}).eq('id',id);throw error;}
+  return json({ok:true,profile_id:id,login_name:display,initial_password:password});
+ }
  if(action==='provision'){
+  if(!globalAccountAdmin)return json({error:'เฉพาะผู้ดูแลหรือผู้บริหาร'},403);
   const initialPassword=b.initial_password;
   if(initialPassword!==undefined&&(typeof initialPassword!=='string'||initialPassword.length<12||initialPassword.length>128))return json({error:'รหัสแรกเข้าที่กำหนดเองต้องมี 12–128 ตัวอักษร'},400);
   const sourceName=String(b.name||'').normalize('NFC').trim(),name=clean(b.name),dept=clean(b.department_code);
