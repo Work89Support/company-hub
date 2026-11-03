@@ -473,15 +473,19 @@ const SIMPLE_ALLOW={
  exec:['dash','board','graphic','kpi','reports','ann'],
 };
 let SIMPLE=false;
+function homeView(){
+  const preferred=ROLE_META[ROLE]?.home||'dash',allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||[];
+  return allow.includes(preferred)?preferred:(allow.includes('dash')?'dash':(allow[0]||'board'));
+}
 function toggleSimple(){SIMPLE=!SIMPLE;try{localStorage.setItem('ch_simple',SIMPLE?'1':'0')}catch(e){}document.body.classList.toggle('simple',SIMPLE);
-  const allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||[];
-  if(!allow.includes(VIEW)){go(allow.includes('dash')?'dash':(allow[0]||'board'));}else{buildNav();}
+  go(homeView());
   toast(SIMPLE?'เปิดโหมดง่าย — แสดงเฉพาะเมนูหลัก':'แสดงทุกเมนูแล้ว');}
 function buildNav(){
   let allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||Object.keys(NAV);
   if(!canViewDept('GRAPHIC'))allow=allow.filter(k=>k!=='graphic');
   if(!CLOUD||!canAdminAccess())allow=allow.filter(k=>k!=='users');
   let html=`<button type="button" class="navitem simpletgl" onclick="toggleSimple()"><span class="ic">${sic(SIMPLE?'i-grid':'i-check')}</span>${SIMPLE?'โหมดครบ (ทุกเมนู)':'โหมดง่าย (เมนูหลัก)'}</button>`;
+  if(SIMPLE)html+=`<button type="button" class="navitem ${VIEW===homeView()?'active':''}" onclick="navGo(homeView())"><span class="ic">${sic('i-dash')}</span>กลับหน้าแรก</button>`;
   NAVGROUPS.forEach(g=>{
     const its=g.items.filter(k=>allow.includes(k));
     if(!its.length)return;
