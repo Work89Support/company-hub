@@ -10,6 +10,10 @@ assert.equal(vm.runInContext(`emailLoginChoice([{login_name:'a',display_name:'A'
 assert.equal(vm.runInContext(`emailLoginChoice([{login_name:'a',display_name:'A',department_code:'FIN'},{login_name:'b',display_name:'B',department_code:'FIN'}]).body.mode`,ctx),'choose_name');
 assert.equal(vm.runInContext(`emailLoginChoice([{login_name:'a',display_name:'A',department_code:'CRM'},{login_name:'b',display_name:'B',department_code:'CRM'}]).body.mode`,ctx),'choose_name');
 assert.equal(vm.runInContext(`emailLoginChoice([{login_name:'a',display_name:'A',department_code:'FIN'},{login_name:'b',display_name:'B',department_code:'CRM'}]).body.mode`,ctx),'choose_name');
+assert.equal(vm.runInContext(`leadCanManageProfile('lead',new Set(['CRM']),{role:'staff',department_code:'CRM'})`,ctx),true,'department lead can manage staff in a managed department');
+assert.equal(vm.runInContext(`leadCanManageProfile('lead',new Set(['CRM']),{role:'staff',department_code:'FIN'})`,ctx),false,'department lead cannot cross departments');
+assert.equal(vm.runInContext(`leadCanManageProfile('lead',new Set(['CRM']),{role:'lead',department_code:'CRM'})`,ctx),false,'department lead cannot manage another lead account');
+assert.equal(vm.runInContext(`leadCanManageProfile('staff',new Set(['CRM']),{role:'staff',department_code:'CRM'})`,ctx),false,'staff never receives account administration');
 const send=(action,extra={})=>ctx.handler.fetch(new Request('https://edge.test',{method:'POST',headers:{authorization:'Bearer '+token,'x-forwarded-for':'127.0.0.1'},body:JSON.stringify({action,...extra})}));
 assert.equal((await send('status')).status,200);assert.equal((await send('list')).status,403,'pending account cannot list');
 assert.equal((await send('password',{password:'short',current_password:'old'})).status,400);
