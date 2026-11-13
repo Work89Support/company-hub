@@ -47,8 +47,8 @@ await reject(()=>save({...row,request_id:'10000000-0000-4000-8000-000000000011',
 await login('b');await reject(()=>save({...row,request_id:'10000000-0000-4000-8000-000000000012',department_code:'FIN',employee_id:ids.b}),'unassigned department denied');
 await login('foreign');assert.ok((await db.query('select * from activity_entry_people()')).rows.some(r=>r.id===ids.a&&r.department_code==='FIN'),'secondary member visible to department manager');
 await save({...row,request_id:'10000000-0000-4000-8000-000000000013',department_code:'FIN'});
-await db.exec('reset role');await db.exec(fs.readFileSync(new URL('202611130058_activity_entry_delete.sql',root),'utf8'));
+await db.exec('reset role');for(const file of ['202611130058_activity_entry_delete.sql','202611130059_imported_activity_delete.sql'])await db.exec(fs.readFileSync(new URL(file,root),'utf8'));
 await login('b');await reject(()=>db.query('select delete_activity_entry($1,$2)',[created.id,2]),'colleague cannot delete native activity');
 await login('a');assert.equal((await db.query('select delete_activity_entry($1,$2) as id',[created.id,2])).rows[0].id,created.id);await db.exec('reset role');assert.equal((await db.query('select is_active from daily_activities where id=$1',[created.id])).rows[0].is_active,false);
-await login('lead');await reject(()=>db.query('select delete_activity_entry($1,$2)',[legacy.id,1]),'imported activity history cannot be deleted');
+await login('lead');assert.equal((await db.query('select delete_activity_entry($1,$2) as id',[legacy.id,1])).rows[0].id,legacy.id);await db.exec('reset role');assert.equal((await db.query('select is_active from daily_activities where id=$1',[legacy.id])).rows[0].is_active,false);
 console.log('PASS database migrations, staff/lead/admin isolation, required fields, retries, revision conflicts, issue intake and closure');await db.close();

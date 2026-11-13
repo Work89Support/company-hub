@@ -6,6 +6,7 @@ const source=fs.readFileSync(new URL('../prototype/native-entry.js',import.meta.
 const wizardSource=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 const activitySource=fs.readFileSync(new URL('../prototype/activity-module.js',import.meta.url),'utf8');
 const deleteMigration=fs.readFileSync(new URL('../supabase/migrations/202611130058_activity_entry_delete.sql',import.meta.url),'utf8');
+const importedDeleteMigration=fs.readFileSync(new URL('../supabase/migrations/202611130059_imported_activity_delete.sql',import.meta.url),'utf8');
 new vm.Script(source);
 new vm.Script(wizardSource);
 assert.match(source,/ผู้ร่วมจัดทำ/);
@@ -13,9 +14,10 @@ assert.match(source,/เพิ่มช่วงเวลา \/ เพิ่ม�
 assert.match(source,/save_activity_collaboration/);
 assert.match(source,/function activityCanDelete/);
 assert.match(source,/delete_activity_entry/);
-assert.match(activitySource,/confirmDeleteActivity/,'activity register exposes delete next to editable native rows');
-assert.match(deleteMigration,/source_key is null or previous\.source_key not like 'native-%'/,'imported Sheet history cannot be deleted from the activity register');
-assert.match(deleteMigration,/previous\.created_by=caller\.id[\s\S]*previous\.employee_id=caller\.id[\s\S]*can_manage_department/,'creator, owner and department manager are the only delete roles');
+assert.match(activitySource,/confirmDeleteActivity/,'activity register exposes guarded deletion');
+assert.match(deleteMigration,/source_key is null or previous\.source_key not like 'native-%'/,'initial migration protected imported history');
+assert.doesNotMatch(importedDeleteMigration,/source_key[^;]*native-/,'latest migration permits imported activity deletion');
+assert.match(importedDeleteMigration,/previous\.created_by=caller\.id[\s\S]*previous\.employee_id=caller\.id[\s\S]*can_manage_department/,'creator, owner and department manager are the only delete roles');
 assert.match(wizardSource,/if\(index===0\)\{delete activityErrors\.start_time;delete activityErrors\.end_time;delete activityErrors\.status;\}/,'activity step 1 must not validate fields that only appear on the time step');
 let noticeCount=0,modalBusy=true;
 const window=new Window();
@@ -44,7 +46,7 @@ assert.ok(context.entryMissing({...verifiedProject,source_key:'gsheet:row:1'}).i
 assert.equal(context.entryCanEdit({employee_id:'other'}),false);
 assert.equal(context.entryCanEdit({employee_id:'me'}),true);
 assert.equal(context.activityCanDelete({source_key:'native-1',created_by:'me',employee_id:'other',is_active:true}),true);
-assert.equal(context.activityCanDelete({source_key:'sheet-row-1',created_by:'me',employee_id:'me',is_active:true}),false);
+assert.equal(context.activityCanDelete({source_key:'sheet-row-1',created_by:'me',employee_id:'me',is_active:true}),true);
 assert.equal(context.activityCanDelete({source_key:'native-2',created_by:'other',employee_id:'other',is_active:true}),false);
 assert.ok(context.issueEntryMissing({status:'Resolved',problem:'p',impact:'i',impactScope:'project',owner:'o',solution:'s',resmin:1,verified:false}).includes('หัวหน้ายืนยันผล'));
 context.entryNotice();assert.equal(noticeCount,0,'completeness reminder must not replace an active modal');

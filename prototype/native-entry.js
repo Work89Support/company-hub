@@ -164,13 +164,13 @@ async function deleteActivityFile(fileId,activityId){
  try{const removed=await SB.rpc('delete_my_activity_file',{p_file:fileId});if(removed.error)throw removed.error;const storage=await SB.storage.from('activity-files').remove([removed.data]);if(storage.error)throw storage.error;await loadActivities();toast('ลบไฟล์แล้ว');await openActivityEntry(activityId);}catch(error){toast('ลบไฟล์ไม่สำเร็จ · '+(error.message||error),'info');}
 }
 function activityCanDelete(row){
- if(!row||row.is_active===false||!String(row.source_key||'').startsWith('native-'))return false;
+ if(!row||row.is_active===false)return false;
  const me=String(ACCESS_PROFILE?.id||'');
  return String(row.created_by||'')===me||String(row.employee_id||'')===me||canManageActivity(row);
 }
 function confirmDeleteActivity(id){
  const row=ACTIVITY_ROWS.find(item=>String(item.id)===String(id));
- if(!activityCanDelete(row)){toast('ลบได้เฉพาะกิจกรรมที่บันทึกผ่าน Company Hub และอยู่ในสิทธิ์ของคุณ','info');return;}
+ if(!activityCanDelete(row)){toast('ลบได้เฉพาะกิจกรรมที่อยู่ในสิทธิ์ของคุณ','info');return;}
  showModal(`<div class="modal-h"><div><h3>ยืนยันลบบันทึกกิจกรรม</h3><div class="muted">รายการ #${esc(row.id)} · ${esc(activityDateLabel(row.activity_date))}</div></div><button class="x" onclick="openActivityEntry('${esc(String(row.id))}')">×</button></div><div class="pad"><div class="entry-delete-warning"><b>${esc(row.activity||'กิจกรรมนี้')}</b><span>รายการจะถูกนำออกจากหน้ากิจกรรม รายงาน และการคำนวณ KPI แต่ระบบยังเก็บประวัติผู้ลบไว้สำหรับตรวจสอบ</span></div><label class="checkbox entry-delete-confirm"><input id="entry-delete-confirm" type="checkbox" onchange="document.getElementById('entry-delete-button').disabled=!this.checked"> ยืนยันว่าตรวจสอบรายการถูกต้องแล้ว</label><div class="ux-modal-actions"><button class="tbtn" onclick="openActivityEntry('${esc(String(row.id))}')">ยกเลิก</button><button id="entry-delete-button" class="tbtn danger" type="button" disabled onclick="deleteActivityEntry('${esc(String(row.id))}')">ลบบันทึกกิจกรรม</button></div></div>`);
 }
 async function deleteActivityEntry(id){
