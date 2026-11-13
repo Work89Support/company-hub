@@ -158,7 +158,7 @@ async function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
   if(CLOUD){
     if(!canCreateTask(d.dept))throw new Error('บัญชีนี้ไม่มีสิทธิ์สร้างงานในแผนก '+deptName(d.dept));
-    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[]};
+    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
     const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:(d.due||addFrom(TODAY_ISO,5))+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),prototype_payload:payload}).select('id,task_no').single();
     if(inserted.error)throw inserted.error;
     const validAssignees=assignees.filter(id=>TASK_PROFILES.some(p=>p.id===id));
@@ -168,7 +168,7 @@ async function createTask(d){
   }
   const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,
     status:'todo',prio:d.prio||'mid',start:TODAY_ISO,due:d.due||addFrom(TODAY_ISO,5),spent:0,ontime:true,sla:d.sla||null,
-    tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
+    tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],_payload:d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{},log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
   TASKS.unshift(t);
   logFeed('🆕','#eef2ff',`<b>${shortName(t.creator)}</b> สร้างงาน <b>${t.id}</b> ${t.title} · มอบ ${assignees.map(shortName).join(', ')}`);
   return t;
@@ -222,7 +222,7 @@ function assigneeOptions(sel){return ASSIGNABLE.map(a=>`<option value="${a}" ${s
 function deptOptions(sel){const allowed=CLOUD&&!canAdminAccess()?DEPTS.filter(d=>MANAGE_DEPTS.includes(d.code)):DEPTS;return allowed.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
 
 /* Announcements */
-function openAnnForm(){PICK=new Set();PICK_QUERY='';PICK_DEPT='';PICK_POSITION='';showModal(`<div class="modal-h"><div><h3>${sic('i-megaphone')} ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
+function openAnnForm(){PICK=new Set();PICK_QUERY='';PICK_DEPT='';PICK_POSITION='';PICK_MULTI_DEPTS=[];showModal(`<div class="modal-h"><div><h3>${sic('i-megaphone')} ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="field"><label>หัวข้อ</label><input class="fin" id="annT" placeholder="เช่น ปรับเป้าหมายทีมสัปดาห์นี้"></div>
     <div class="field"><label>รายละเอียด (พิมพ์หรือพูด)</label><textarea class="fin" id="annB" rows="3" placeholder="เนื้อหาประกาศ"></textarea>
@@ -354,8 +354,10 @@ let PICK=new Set();
 let PICK_QUERY='';
 let PICK_DEPT='';
 let PICK_POSITION='';
+let PICK_MULTI_DEPTS=[];
 function assigneeProfile(id){return TASK_PROFILES.find(x=>x.id===id)||{};}
 function assigneeDepartments(id){const p=assigneeProfile(id);return [...new Set((p.department_codes||[p.department_code]).filter(Boolean))];}
+function assigneeInDepartmentScope(id){return !PICK_MULTI_DEPTS.length||assigneeDepartments(id).some(dept=>PICK_MULTI_DEPTS.includes(dept));}
 function assigneePositionKey(id){
   const p=assigneeProfile(id);
   return typeof accessPersonLevel==='function'?accessPersonLevel(p):(['lead','exec','admin'].includes(p.role)?'lead':'staff');
@@ -365,12 +367,12 @@ function assigneePositionLabel(id){
   return type==='lead'?'หัวหน้า':'พนักงาน';
 }
 function assigneeDepartmentOptions(){
-  const present=new Set(ASSIGNABLE.flatMap(assigneeDepartments));
+  const present=new Set(ASSIGNABLE.filter(assigneeInDepartmentScope).flatMap(assigneeDepartments));
   return DEPTS.filter(d=>present.has(d.code)).map(d=>`<option value="${esc(d.code)}" ${PICK_DEPT===d.code?'selected':''}>${esc(d.name)}</option>`).join('');
 }
 function assigneePositionOptions(){
   const seen=new Map();
-  ASSIGNABLE.filter(id=>!PICK_DEPT||assigneeDepartments(id).includes(PICK_DEPT)).forEach(id=>seen.set(assigneePositionKey(id),assigneePositionLabel(id)));
+  ASSIGNABLE.filter(id=>assigneeInDepartmentScope(id)&&(!PICK_DEPT||assigneeDepartments(id).includes(PICK_DEPT))).forEach(id=>seen.set(assigneePositionKey(id),assigneePositionLabel(id)));
   return [...seen.entries()].sort((a,b)=>a[1].localeCompare(b[1],'th')).map(([value,label])=>`<option value="${esc(value)}" ${PICK_POSITION===value?'selected':''}>${esc(label)}</option>`).join('');
 }
 function assigneeSearchText(id){
@@ -380,7 +382,7 @@ function assigneeSearchText(id){
 function filterAssigneePicker(query=''){
   PICK_QUERY=String(query||'').normalize('NFKC').toLowerCase().trim();
   const rows=[...document.querySelectorAll('#pickerBox [data-assignee-search]')];let visible=0;
-  rows.forEach(row=>{const queryMatch=!PICK_QUERY||row.dataset.assigneeSearch.includes(PICK_QUERY),deptMatch=!PICK_DEPT||row.dataset.assigneeDepartments.split('|').includes(PICK_DEPT),positionMatch=!PICK_POSITION||row.dataset.assigneePosition===PICK_POSITION,show=queryMatch&&deptMatch&&positionMatch;row.hidden=!show;if(show)visible++;});
+  rows.forEach(row=>{const departments=row.dataset.assigneeDepartments.split('|'),queryMatch=!PICK_QUERY||row.dataset.assigneeSearch.includes(PICK_QUERY),scopeMatch=!PICK_MULTI_DEPTS.length||departments.some(dept=>PICK_MULTI_DEPTS.includes(dept)),deptMatch=!PICK_DEPT||departments.includes(PICK_DEPT),positionMatch=!PICK_POSITION||row.dataset.assigneePosition===PICK_POSITION,show=scopeMatch&&queryMatch&&deptMatch&&positionMatch;row.hidden=!show;if(show)visible++;});
   const result=document.getElementById('pickerSearchResult');if(result)result.textContent=`แสดง ${visible} จาก ${rows.length} คน`;
   const empty=document.getElementById('pickerSearchEmpty');if(empty)empty.hidden=visible>0;
 }
@@ -406,12 +408,12 @@ function renderPicker(){
   filterAssigneePicker(PICK_QUERY);
 }
 function pickToggle(id){PICK.has(id)?PICK.delete(id):PICK.add(id);renderPicker();}
-function pickGroup(gid){const g=groupById(gid);g.members.forEach(m=>PICK.add(m));renderPicker();toast('เพิ่ม '+g.name+' ('+g.members.length+' คน)');}
+function pickGroup(gid){const g=groupById(gid),members=g.members.filter(id=>assigneeInDepartmentScope(id));members.forEach(m=>PICK.add(m));renderPicker();toast('เพิ่ม '+g.name+' ('+members.length+' คนตามแผนกที่เลือก)');}
 function pickVisiblePeople(){const ids=[...document.querySelectorAll('#pickerBox [data-assignee-id]:not([hidden])')].map(row=>row.dataset.assigneeId);ids.forEach(id=>PICK.add(id));renderPicker();toast('เลือกเพิ่มตามตัวกรอง '+ids.length+' คน');}
 function pickAllPeople(){pickVisiblePeople();}
 function saveGroupFromPick(){if(PICK.size<2){toast('เลือกอย่างน้อย 2 คนเพื่อตั้งกลุ่ม','info');return;}const name=normSp(val('grpName'));if(!name){toast('กรุณาตั้งชื่อกลุ่ม','info');return;}GROUPS.push({id:'g'+GROUPS.length,name,dept:null,members:[...PICK]});saveState();renderPicker();toast('บันทึกกลุ่ม "'+name+'" ('+PICK.size+' คน) แล้ว');}
 function openAssigneePicker(taskId){
-  const t=TASKS.find(x=>x.id===taskId);PICK=new Set(assigneesOf(t));PICK_QUERY='';PICK_DEPT=t.dept||'';PICK_POSITION='';
+  const t=TASKS.find(x=>x.id===taskId);PICK=new Set(assigneesOf(t));PICK_QUERY='';PICK_DEPT=t.dept||'';PICK_POSITION='';PICK_MULTI_DEPTS=t.dept?[t.dept]:[];
   showModal(`<div class="modal-h"><div><h3>เลือกผู้รับผิดชอบ</h3><div class="muted" style="font-size:11.5px">${t.id} · เลือกได้หลายคน หรือทั้งกลุ่ม</div></div><button class="x" onclick="openTask('${taskId}')">×</button></div>
     <div class="pad"><div id="pickerBox"></div><button class="tbtn primary" style="margin-top:12px" onclick="saveAssignees('${taskId}')">บันทึกผู้รับผิดชอบ</button></div>`);renderPicker();}
 async function saveAssignees(id){const t=TASKS.find(x=>x.id===id);if(!PICK.size){toast('เลือกอย่างน้อย 1 คน','info');return;}
