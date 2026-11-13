@@ -25,10 +25,23 @@
     [...select.options].forEach(option=>{if(!option.value)return;const show=!q||String(option.dataset.assigneeSearch||'').includes(q);option.hidden=!show;if(show)visible++;});
     const result=document.getElementById(selectId+'SearchResult');if(result)result.textContent=q?`พบ ${visible} คน`:`ทั้งหมด ${visible} คน`;
   };
+  function gpStoredAssigneeIds(job){return Array.isArray(job?.source_payload?.assignee_profile_ids)?job.source_payload.assignee_profile_ids.filter(Boolean):[];}
+  function gpJobAssigneeIds(job){return [...new Set([job?.assignee_id,...gpStoredAssigneeIds(job),...gpJobMemberRows(job?.id).map(m=>m.profile_id||m.linked_profile_id)].filter(Boolean))];}
+  function gpSelectedAssigneeIds(groupId){return [...document.querySelectorAll(`[data-gp-assignee-group="${groupId}"] input[type="checkbox"]:checked`)].map(input=>input.value).filter(Boolean);}
+  function gpAssigneeMultiControl(groupId,selected=[]){
+    const chosen=new Set(selected.filter(Boolean));
+    return `<div class="gp-assignee-multi" data-gp-assignee-group="${groupId}"><div class="gp-assignee-search"><label for="${groupId}Search">ค้นหาผู้รับผิดชอบ</label><small id="${groupId}SearchResult">เลือกแล้ว ${chosen.size} จาก ${GRAPHIC_PEOPLE.length} คน</small><input class="fin" type="search" id="${groupId}Search" placeholder="พิมพ์ชื่อหรืออีเมล" autocomplete="off" oninput="gpFilterAssigneeMulti('${groupId}',this.value)"></div><div class="gp-assignee-person-grid">${GRAPHIC_PEOPLE.map(p=>{const name=p.display_name||p.email;return `<label class="gp-assignee-person" data-assignee-search="${esc(gpAssigneeSearchText(p))}" style="${chosen.has(p.id)?'background:var(--blue-50);border-color:var(--blue-400)':''}"><input type="checkbox" value="${p.id}" ${chosen.has(p.id)?'checked':''} onchange="gpAssigneeMultiChanged('${groupId}')"><span class="gp-person-avatar">${esc(name.slice(0,2))}</span><span><b>${esc(name)}</b><small>${esc(p.position_title||'พนักงาน')} · ${esc(deptName(p.department_code)||'ยังไม่กำหนดแผนก')}</small></span></label>`;}).join('')}</div><small class="muted">เลือกได้หลายคน · คนแรกเป็นผู้รับผิดชอบหลักเพื่อรองรับข้อมูลเดิม</small></div>`;
+  }
+  window.gpFilterAssigneeMulti=function(groupId,query=''){
+    const root=document.querySelector(`[data-gp-assignee-group="${groupId}"]`);if(!root)return;const q=String(query||'').normalize('NFKC').toLowerCase().trim();let visible=0;
+    root.querySelectorAll('.gp-assignee-person').forEach(row=>{const show=!q||String(row.dataset.assigneeSearch||'').includes(q);row.hidden=!show;if(show)visible++;});
+    const result=document.getElementById(groupId+'SearchResult'),selected=gpSelectedAssigneeIds(groupId).length;if(result)result.textContent=`เลือกแล้ว ${selected} คน${q?` · พบ ${visible} คน`:` จาก ${GRAPHIC_PEOPLE.length} คน`}`;
+  };
+  window.gpAssigneeMultiChanged=function(groupId){const root=document.querySelector(`[data-gp-assignee-group="${groupId}"]`);if(!root)return;root.querySelectorAll('.gp-assignee-person').forEach(row=>{const checked=row.querySelector('input')?.checked;row.style.background=checked?'var(--blue-50)':'';row.style.borderColor=checked?'var(--blue-400)':'';});gpFilterAssigneeMulti(groupId,document.getElementById(groupId+'Search')?.value||'');};
   function gpNormalizePerson(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/\([^)]*\)/g,'').replace(/[^\p{L}\p{N}]+/gu,'');}
   function gpNormalizeBriefInput(value){return String(value==null?'':value).replace(/\r\n?/g,'\n').trim();}
   function gpBriefText(value){const text=gpNormalizeBriefInput(value);if(!text||text.includes('\n'))return text;return /^(?:\d+[.)]|[-•])(?:\s|$)/.test(text)?text.replace(/\s+(?=(?:\d+[.)]|[-•])(?:\s|$))/g,'\n'):text;}
-  function gpJobAssignedToProfile(job,id){if(!id)return false;if(job.assignee_id===id)return true;return gpJobMemberRows(job.id).some(m=>(m.profile_id||m.linked_profile_id)===id);}
+  function gpJobAssignedToProfile(job,id){return !!id&&gpJobAssigneeIds(job).includes(id);}
   const jobFreshness=typeof gpFreshness==='function'?gpFreshness:function(job){const updated=Date.parse(job.status==='done'?(job.completed_at||job.updated_at||job.trello_last_activity_at||job.created_at||''):(job.trello_last_activity_at||job.updated_at||job.created_at||''));if(job.status==='done')return Number.isFinite(updated)&&Date.now()-updated<=30*86400000?'current':'history';if(job.source!=='Trello')return'current';return Number.isFinite(updated)&&Date.now()-updated>30*86400000?'stale':'current';};
   function gpScope(){
     const id=ACCESS_PROFILE?.id||'';
@@ -37,8 +50,8 @@
     return AUTH_DB_ROLE==='staff'&&currentDept()==='GRAPHIC'?'mine':'all';
   }
   gpJobPeople=function(job){
-    const memberNames=gpJobMemberRows(job.id).map(m=>gpProfileName(m.profile_id||m.linked_profile_id)||m.full_name||m.username),direct=gpProfileName(job.assignee_id);
-    const names=[direct,job.assignee_name,...memberNames].flatMap(x=>String(x||'').split(',')).map(x=>x.trim()).filter(Boolean);
+    const memberNames=gpJobMemberRows(job.id).map(m=>gpProfileName(m.profile_id||m.linked_profile_id)||m.full_name||m.username),selectedNames=gpJobAssigneeIds(job).map(gpProfileName),direct=gpProfileName(job.assignee_id);
+    const names=[direct,job.assignee_name,...selectedNames,...memberNames].flatMap(x=>String(x||'').split(',')).map(x=>x.trim()).filter(Boolean);
     return [...new Set(names)];
   };
   gpMatchesGlobal=function(job){
@@ -118,7 +131,7 @@
     originalOpenGraphicBrief();
     const brief=document.getElementById('gbBrief')?.closest('.field');if(!brief)return;
     const assignee=document.getElementById('gbAssignee'),assigneeField=assignee?.closest('.field');
-    if(assigneeField)assigneeField.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeControl('gbAssignee',assignee.value)}`;
+    if(assigneeField)assigneeField.innerHTML=`<label>ผู้รับผิดชอบ</label><input type="hidden" id="gbAssignee" value="">${gpAssigneeMultiControl('gbAssignees',assignee.value?[assignee.value]:[])}`;
     const images=document.createElement('div');images.className='field';images.innerHTML=`<label>ภาพตัวอย่างประกอบบรีฟ</label><input class="fin" id="gbImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onchange="gpBriefImagePreview()"><small>แนบได้สูงสุด 6 ภาพ ภาพละไม่เกิน 10 MB ผู้รับบรีฟจะเห็นภาพในการ์ดได้ทันที</small><div id="gbImagePreview" class="gp-brief-previews"></div>`;brief.after(images);
   };
 
@@ -138,13 +151,13 @@
   createGraphicJob=async function(){
     const title=normSp(val('gbTitle')),brief=gpNormalizeBriefInput(val('gbBrief')),due=val('gbDue'),images=[...(document.getElementById('gbImages')?.files||[])];
     if(!title||!brief||!due){toast('กรุณากรอกชื่อ บรีฟ และกำหนดส่ง','info');return;}
-    const ae=document.getElementById('gbAssignee'),aid=ae.value,an=aid?(ae.options[ae.selectedIndex].dataset.name||ae.options[ae.selectedIndex].text):'',btn=document.getElementById('gbSave');btn.disabled=true;
+    const assigneeIds=gpSelectedAssigneeIds('gbAssignees'),aid=assigneeIds[0]||'',names=assigneeIds.map(gpProfileName).filter(Boolean),an=names.join(', '),btn=document.getElementById('gbSave');btn.disabled=true;
     try{
-      const row={title,brief,project_id:val('gbProject')||null,work_type:val('gbType'),requester_name:normSp(val('gbRequester')),assignee_id:aid||null,assignee_name:an,due_at:new Date(due).toISOString(),priority:val('gbPrio'),dimensions:normSp(val('gbDim')),channel:normSp(val('gbChannel')),status:val('gbType')==='monthly'?'monthly':'intake',source:'Company Hub'};
+      const row={title,brief,project_id:val('gbProject')||null,work_type:val('gbType'),requester_name:normSp(val('gbRequester')),assignee_id:aid||null,assignee_name:an,due_at:new Date(due).toISOString(),priority:val('gbPrio'),dimensions:normSp(val('gbDim')),channel:normSp(val('gbChannel')),status:val('gbType')==='monthly'?'monthly':'intake',source:'Company Hub',source_payload:{assignee_profile_ids:assigneeIds}};
       const r=await SB.from('graphic_jobs').insert(row).select().single();if(r.error)throw r.error;GRAPHIC_JOBS.unshift(r.data);
       const checks=(val('gbChecks')||'').split('\n').map(normSp).filter(Boolean);if(checks.length){const cr=await SB.from('graphic_job_checklist_items').insert(checks.map((name,i)=>({job_id:r.data.id,title:name,position:i}))).select();if(cr.error)throw cr.error;GRAPHIC_CHECKS.push(...cr.data);}
       if(images.length)await uploadReferenceImages(r.data.id,images);
-      closeModal();GF.scope=aid===ACCESS_PROFILE?.id?'mine':GF.scope;RENDER.graphic();toast(`สร้างงาน G-${r.data.job_no}${images.length?' พร้อมภาพบรีฟ '+images.length+' ภาพ':''} แล้ว`);
+      closeModal();GF.scope=assigneeIds.includes(ACCESS_PROFILE?.id)?'mine':GF.scope;RENDER.graphic();toast(`สร้างงาน G-${r.data.job_no}${assigneeIds.length?` · ผู้รับผิดชอบ ${assigneeIds.length} คน`:''}${images.length?' พร้อมภาพบรีฟ '+images.length+' ภาพ':''} แล้ว`);
     }catch(e){btn.disabled=false;toast('สร้างงานไม่สำเร็จ · '+(e.message||e),'info');}
   };
 
@@ -171,7 +184,7 @@
     }
     if(canManageGraphic()){
       const owner=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent==='ผู้รับผิดชอบ');
-      if(owner)owner.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeControl('gjAssignee',job.assignee_id||'',`updateGraphicAssignee('${id}',this.value)`)}<small>มอบหมายด้วยบัญชีจริง เพื่อให้ปรากฏใน “งานของฉัน”</small>`;
+      if(owner)owner.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeMultiControl('gjAssignees',gpJobAssigneeIds(job))}<button type="button" class="tbtn primary sm" style="margin-top:10px" onclick="updateGraphicAssignees('${id}')">บันทึกผู้รับผิดชอบ</button><small>เลือกได้หลายคน ทุกคนจะเห็นงานนี้ใน “งานของฉัน”</small>`;
       pad.insertAdjacentHTML('beforeend',`<div class="gp-delete-zone"><div><b>นำการ์ดนี้ออก</b><small>เฉพาะหัวหน้า/ผู้ดูแลกราฟิก · งานจาก Trello อาจกลับมาอีกหากยังอยู่ที่ต้นทาง</small></div><button type="button" class="tbtn danger" onclick="confirmDeleteGraphicJob('${id}')">ลบการ์ดงาน</button></div>`);
     }
     hydratePrivatePreviews();
@@ -184,7 +197,7 @@
   };
 
   window.uploadGraphicJobImages=async function(job){const input=document.getElementById('gjImages');if(!input?.files?.length){toast('กรุณาเลือกภาพ','info');return;}try{await uploadReferenceImages(job,input.files);await openGraphicJob(job);toast('แนบภาพอ้างอิงแล้ว');}catch(e){toast('แนบภาพไม่สำเร็จ · '+(e.message||e),'info');}};
-  window.updateGraphicAssignee=async function(job,id){const j=GRAPHIC_JOBS.find(x=>x.id===job),p=gpProfile(id);try{const r=await SB.from('graphic_jobs').update({assignee_id:id||null,assignee_name:id?(p.display_name||p.email):''}).eq('id',job).select().single();if(r.error)throw r.error;Object.assign(j,r.data);await openGraphicJob(job);toast('อัปเดตผู้รับผิดชอบแล้ว');}catch(e){toast('มอบหมายไม่สำเร็จ · '+(e.message||e),'info');}};
+  window.updateGraphicAssignees=async function(job){const j=GRAPHIC_JOBS.find(x=>x.id===job),ids=gpSelectedAssigneeIds('gjAssignees'),names=ids.map(gpProfileName).filter(Boolean),payload={...(j?.source_payload||{}),assignee_profile_ids:ids};try{const r=await SB.from('graphic_jobs').update({assignee_id:ids[0]||null,assignee_name:names.join(', '),source_payload:payload}).eq('id',job).select().single();if(r.error)throw r.error;Object.assign(j,r.data);await openGraphicJob(job);toast(`อัปเดตผู้รับผิดชอบ ${ids.length} คนแล้ว`);}catch(e){toast('มอบหมายไม่สำเร็จ · '+(e.message||e),'info');}};
   window.editGraphicFile=function(id){const f=GRAPHIC_FILES.find(x=>x.id===id);if(!f)return;showModal(`<div class="modal-h"><div><h3>แก้ไข${f.storage_path?'ภาพอ้างอิง':'ไฟล์ Final'}</h3><div class="muted">แก้ชื่อ${f.storage_path?'':'และลิงก์'}ได้โดยไม่ต้องส่งซ้ำ</div></div><button class="x" onclick="openGraphicJob('${f.job_id}')">×</button></div><div class="pad"><div class="field"><label>ชื่อไฟล์ / ชื่องาน</label><input class="fin" id="geFileName" value="${esc(f.name||'')}"></div>${f.storage_path?'':`<div class="field"><label>ลิงก์</label><input class="fin" id="geFileUrl" type="url" value="${esc(f.url||'')}"></div>`}<div class="ai-note">ประเภท: ${f.storage_path?'ภาพอ้างอิง / บรีฟ':'ไฟล์ Final'}</div><button class="tbtn primary" onclick="saveGraphicFileEdit('${id}')">บันทึกการแก้ไข</button></div>`);};
   window.saveGraphicFileEdit=async function(id){const f=GRAPHIC_FILES.find(x=>x.id===id);if(!f)return;const patch={name:normSp(val('geFileName')),file_type:f.storage_path?'reference':'final'};if(!f.storage_path){patch.url=normSp(val('geFileUrl'));if(!gpSafeHttpUrl(patch.url)){toast('กรุณาใส่ลิงก์ http/https','info');return;}}try{const r=await SB.from('graphic_job_files').update(patch).eq('id',id).select().single();if(r.error)throw r.error;Object.assign(f,r.data);await openGraphicJob(f.job_id);toast('แก้ไขไฟล์แล้ว');}catch(e){toast('แก้ไขไฟล์ไม่สำเร็จ · '+(e.message||e),'info');}};
   window.deleteGraphicFile=async function(id){const f=GRAPHIC_FILES.find(x=>x.id===id);if(!f||!confirm(`ลบ “${f.name||'ไฟล์นี้'}” ออกจากงานใช่หรือไม่?`))return;try{const r=await SB.from('graphic_job_files').delete().eq('id',id);if(r.error)throw r.error;if(f.storage_path)await SB.storage.from('graphic-job-files').remove([f.storage_path]);GRAPHIC_FILES=GRAPHIC_FILES.filter(x=>x.id!==id);await openGraphicJob(f.job_id);toast('ลบไฟล์แล้ว');}catch(e){toast('ลบไฟล์ไม่สำเร็จ · '+(e.message||e),'info');}};
