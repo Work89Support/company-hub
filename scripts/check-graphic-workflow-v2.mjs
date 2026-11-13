@@ -39,12 +39,13 @@ assert.match(source,/brief=gpNormalizeBriefInput\(val\('gbBrief'\)\)/,'graphic b
 assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\?\/g,'\\n'\)/,'brief line endings are normalized without collapsing newlines');
 assert.match(source,/briefValue\.textContent=gpBriefText\(job\.brief\)\|\|'-'/,'graphic detail displays preserved line breaks');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
-assert.match(html,/graphic-production-v2\.js\?v=20261113-graphic-multi-assignee-1/,'graphic multi-assignee release is cache-busted');
+assert.match(html,/graphic-production-v2\.js\?v=20261113-graphic-delete-all-status-1/,'graphic all-status delete release is cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 assert.match(shell,/task_assignees'\)\.insert\(validAssignees\.map/,'general tasks persist multiple assignees for every department');
 assert.match(entryWizard,/ผู้รับผิดชอบ \*/,'general task wizard exposes the shared multi-assignee picker');
 const views=fs.readFileSync(new URL('../prototype/core-app-views.js',import.meta.url),'utf8');
+assert.match(views,/remove=canManageGraphic\(\)\?`<button[^`]+gp-card-delete[^`]+confirmDeleteGraphicJob/s,'manager delete control is available on every rendered card regardless of status');
 assert.match(views,/function gpMoveCardOrder/,'manual card movement is available');
 assert.match(views,/วันที่สร้าง · ล่าสุดก่อน/,'created-date sorting is available');
 assert.match(views,/วันที่แก้ไข · ล่าสุดก่อน/,'updated-date sorting is available');

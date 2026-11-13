@@ -185,7 +185,7 @@
     if(canManageGraphic()){
       const owner=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent==='ผู้รับผิดชอบ');
       if(owner)owner.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeMultiControl('gjAssignees',gpJobAssigneeIds(job))}<button type="button" class="tbtn primary sm" style="margin-top:10px" onclick="updateGraphicAssignees('${id}')">บันทึกผู้รับผิดชอบ</button><small>เลือกได้หลายคน ทุกคนจะเห็นงานนี้ใน “งานของฉัน”</small>`;
-      pad.insertAdjacentHTML('beforeend',`<div class="gp-delete-zone"><div><b>นำการ์ดนี้ออก</b><small>เฉพาะหัวหน้า/ผู้ดูแลกราฟิก · งานจาก Trello อาจกลับมาอีกหากยังอยู่ที่ต้นทาง</small></div><button type="button" class="tbtn danger" onclick="confirmDeleteGraphicJob('${id}')">ลบการ์ดงาน</button></div>`);
+      pad.insertAdjacentHTML('beforeend',`<div class="gp-delete-zone"><div><b>นำการ์ดนี้ออก</b><small>ลบได้ทุกสถานะสำหรับหัวหน้า/ผู้ดูแลกราฟิก · งานจาก Trello อาจกลับมาอีกหากยังอยู่ที่ต้นทาง</small></div><button type="button" class="tbtn danger" onclick="confirmDeleteGraphicJob('${id}')">ลบการ์ดงาน</button></div>`);
     }
     hydratePrivatePreviews();
   }
