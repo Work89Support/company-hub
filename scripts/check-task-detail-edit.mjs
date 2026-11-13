@@ -8,6 +8,10 @@ const cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta
 assert.match(shell,/function canEditTaskDetails\(t\)[\s\S]*ACCESS_PROFILE\?\.id===t\.creator/);
 assert.match(shell,/SB\.rpc\('update_own_task_details'/);
 assert.match(cloud,/canEditTaskDetails\(t\)\?`<button[\s\S]*แก้ไขรายละเอียด/);
+assert.match(cloud,/function taskCreatorInfo\(t\)/,'Task detail must resolve the assigner name');
+assert.match(cloud,/class="task-assignment-meta"/,'Task detail must show a prominent assigner card');
+assert.match(cloud,/function taskDescriptionHtml\(value\)/,'Task detail must format long descriptions into readable sections');
+assert.match(shell,/created_by:\{profile_id:ACCESS_PROFILE\.id,display_name:/,'New tasks must retain an assigner display snapshot');
 assert.match(migration,/task_creator_details_guard/);
 
 const db=new PGlite();

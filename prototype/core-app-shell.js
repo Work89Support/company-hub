@@ -158,7 +158,7 @@ async function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
   if(CLOUD){
     if(!canCreateTask(d.dept))throw new Error('บัญชีนี้ไม่มีสิทธิ์สร้างงานในแผนก '+deptName(d.dept));
-    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
+    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],created_by:{profile_id:ACCESS_PROFILE.id,display_name:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'ผู้มอบหมาย',department_code:ACCESS_PROFILE.department_code||'',position_title:ACCESS_PROFILE.position_title||''},...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
     const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:(d.due||addFrom(TODAY_ISO,5))+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),prototype_payload:payload}).select('id,task_no').single();
     if(inserted.error)throw inserted.error;
     const validAssignees=assignees.filter(id=>TASK_PROFILES.some(p=>p.id===id));

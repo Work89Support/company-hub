@@ -78,6 +78,16 @@ function actAnswer(q){
 
 function showModal(html){modal.innerHTML=html;overlay.classList.add('show');}
 function closeModal(){overlay.classList.remove('show');}
+function taskCreatorInfo(t){
+  const snapshot=t?._payload?.created_by||{},id=t?.creator||snapshot.profile_id||'',profile=TASK_PROFILES.find(p=>p.id===id)||ACCESS_USERS.find?.(p=>p.id===id)||(ACCESS_PROFILE?.id===id?ACCESS_PROFILE:null);
+  const uuid=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(id)),name=profile?.display_name||snapshot.display_name||(!uuid&&id?shortName(id):'ไม่พบชื่อบัญชีผู้มอบหมาย');
+  return {name,department:profile?.department_code||snapshot.department_code||'',position:profile?.position_title||snapshot.position_title||'',resolved:!!(profile?.display_name||snapshot.display_name||(!uuid&&id))};
+}
+function taskDescriptionHtml(value){
+  const text=String(value||'').trim();if(!text)return '<p class="task-description-empty">ยังไม่มีรายละเอียดงาน</p>';
+  const lines=text.replace(/\r/g,'').replace(/\s+(?=[📌📁💬✅⚠])/gu,'\n').replace(/([^\n])\s+(?=(?:\d{1,2}[.)]|[①-⑳])\s)/gu,'$1\n').split(/\n+/).map(line=>line.trim()).filter(Boolean);
+  return lines.map(line=>`<p class="${/^[📌📁💬✅⚠]/u.test(line)?'task-description-section':''}">${esc(line)}</p>`).join('');
+}
 function openTask(id){
   const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),progress=canProgressTaskUi(t),logTime=!CLOUD||isMyTaskAssignee(t);
   const allowedStatus=edit?Object.keys(STATUS):['todo','doing','review','block'];
@@ -87,12 +97,14 @@ function openTask(id){
   const dl=Math.round((DFROM(t.due)-DFROM(TODAY_ISO))/86400000);
   const dueNote=t.status==='done'?'ปิดงานแล้ว':dl>0?('เหลืออีก '+dl+' วัน'):dl===0?'ครบกำหนดวันนี้':('เกินกำหนด '+(-dl)+' วัน');
   const dueColor=t.status==='done'?'var(--green)':dl<0?'var(--red)':dl===0?'var(--amber)':'var(--muted)';
+  const creator=taskCreatorInfo(t),creatorMeta=[creator.position,creator.department?deptName(creator.department):''].filter(Boolean).join(' · ');
   const _sla=slaOf(t);
   const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)} ${t._payload?.auto_closed?'<span class="pill task-auto-close-pill">⏱ ปิดอัตโนมัติตามกำหนด</span>':''}</div>
-    <h3>${esc(t.title)}</h3><div class="muted" style="font-size:11.5px">${esc(t.id)} · สั่งโดย ${esc(shortName(t.creator))}</div></div><button class="x" onclick="closeModal()">×</button></div>
+    <h3>${esc(t.title)}</h3><div class="muted" style="font-size:11.5px">${esc(t.id)}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
-    <div class="field"><div class="task-detail-heading"><label>รายละเอียดงาน</label>${canEditTaskDetails(t)?`<button class="tbtn sm" onclick="openTaskDetailsEditor('${t.id}')">แก้ไขรายละเอียด</button>`:''}</div><div class="v task-description">${esc(t.desc||'-')}</div>${!canEditTaskDetails(t)?'<small class="muted">ชื่อและรายละเอียดแก้ไขได้เฉพาะผู้สร้างงาน</small>':''}</div>
+    <div class="task-assignment-meta"><span class="mini" style="background:${u(t.creator).c}">${esc(Array.from(creator.name)[0]||'?')}</span><div><small>มอบหมายโดย</small><b>${esc(creator.name)}</b>${creatorMeta?`<span>${esc(creatorMeta)}</span>`:''}${!creator.resolved?'<span class="task-creator-warning">ชื่อบัญชีเดิมไม่อยู่ในรายชื่อที่มองเห็น</span>':''}</div></div>
+    <div class="field"><div class="task-detail-heading"><label>รายละเอียดงาน</label>${canEditTaskDetails(t)?`<button class="tbtn sm" onclick="openTaskDetailsEditor('${t.id}')">แก้ไขรายละเอียด</button>`:''}</div><div class="v task-description">${taskDescriptionHtml(t.desc)}</div>${!canEditTaskDetails(t)?'<small class="muted">ชื่อและรายละเอียดแก้ไขได้เฉพาะผู้สร้างงาน</small>':''}</div>
     <div class="field" style="margin-top:6px"><label>${progress?'สถานะ (ผู้รับงานอัปเดตความคืบหน้า / หัวหน้าปิดงาน)':'สถานะ'}</label>${sSel}</div>
     <div class="field"><label>ความสำคัญ</label>${pSel}</div>
     <div class="field"><label>ผู้รับผิดชอบ (${assigneesOf(t).length} คน)</label>${aBox}</div>
