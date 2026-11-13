@@ -166,7 +166,8 @@ async function deleteActivityFile(fileId,activityId){
 function activityCanDelete(row){
  if(!row||row.is_active===false)return false;
  const me=String(ACCESS_PROFILE?.id||'');
- return String(row.created_by||'')===me||String(row.employee_id||'')===me||canManageActivity(row);
+ const assigned=typeof activityAssigneeIds==='function'&&activityAssigneeIds(row).some(id=>String(id)===me);
+ return String(row.created_by||'')===me||String(row.employee_id||'')===me||assigned||canManageActivity(row);
 }
 function confirmDeleteActivity(id){
  const row=ACTIVITY_ROWS.find(item=>String(item.id)===String(id));

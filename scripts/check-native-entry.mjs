@@ -7,6 +7,7 @@ const wizardSource=fs.readFileSync(new URL('../prototype/entry-wizard.js',import
 const activitySource=fs.readFileSync(new URL('../prototype/activity-module.js',import.meta.url),'utf8');
 const deleteMigration=fs.readFileSync(new URL('../supabase/migrations/202611130058_activity_entry_delete.sql',import.meta.url),'utf8');
 const importedDeleteMigration=fs.readFileSync(new URL('../supabase/migrations/202611130059_imported_activity_delete.sql',import.meta.url),'utf8');
+const assigneeDeleteMigration=fs.readFileSync(new URL('../supabase/migrations/202611130060_assignee_activity_delete.sql',import.meta.url),'utf8');
 new vm.Script(source);
 new vm.Script(wizardSource);
 assert.match(source,/ผู้ร่วมจัดทำ/);
@@ -18,10 +19,11 @@ assert.match(activitySource,/confirmDeleteActivity/,'activity register exposes g
 assert.match(deleteMigration,/source_key is null or previous\.source_key not like 'native-%'/,'initial migration protected imported history');
 assert.doesNotMatch(importedDeleteMigration,/source_key[^;]*native-/,'latest migration permits imported activity deletion');
 assert.match(importedDeleteMigration,/previous\.created_by=caller\.id[\s\S]*previous\.employee_id=caller\.id[\s\S]*can_manage_department/,'creator, owner and department manager are the only delete roles');
+assert.match(assigneeDeleteMigration,/activity_assignees[\s\S]*assignment\.profile_id=caller\.id/,'resolved imported assignees can delete their activity');
 assert.match(wizardSource,/if\(index===0\)\{delete activityErrors\.start_time;delete activityErrors\.end_time;delete activityErrors\.status;\}/,'activity step 1 must not validate fields that only appear on the time step');
 let noticeCount=0,modalBusy=true;
 const window=new Window();
-const context={window,document:window.document,crypto:{randomUUID:()=> '123e4567-e89b-12d3-a456-426614174000'},esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
+const context={window,document:window.document,crypto:{randomUUID:()=> '123e4567-e89b-12d3-a456-426614174000'},esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),NAV:{},NAVGROUPS:[{items:[]}],ROLE_ALLOW:{staff:[],lead:[]},SIMPLE_ALLOW:{staff:[],lead:[]},RENDER:{},loadActivities:async()=>{},openProblem(){},saveIssueFollowup(){},saveNewIssue(){},bangkokTodayISO:()=> '2026-09-04',activityQualityFlags:r=>r.data_quality_flags||[],activityAssigneeIds:r=>(r.activity_assignees||[]).map(a=>a.profile_id).filter(Boolean),ACCESS_PROFILE:{id:'me'},canManageActivity:()=>false,canAdminAccess:()=>true,AUTH_DB_ROLE:'admin',MANAGE_DEPTS:[],ACTIVITY_READY:true,ACTIVITY_ROWS:[{id:1,employee_id:'me',activity:'รอข้อมูล'}],PROBLEMS:[],nf:String,buildNav(){},showModal(){noticeCount++;},overlay:{classList:{contains:()=>modalBusy}}};
 vm.createContext(context);vm.runInContext(source,context);
 const valid={department_code:'ADMIN',employee_id:'me',activity_date:'2026-09-04',activity:'ตรวจรายการ',category:'ตรวจสอบ',start_time:'09:00',end_time:'10:00',status:'Completed',completed_date:'2026-09-04',result_note:'ตรวจครบ',overnight:false};
 assert.equal(Object.keys(context.entryValidate(valid)).length,0);
@@ -47,6 +49,7 @@ assert.equal(context.entryCanEdit({employee_id:'other'}),false);
 assert.equal(context.entryCanEdit({employee_id:'me'}),true);
 assert.equal(context.activityCanDelete({source_key:'native-1',created_by:'me',employee_id:'other',is_active:true}),true);
 assert.equal(context.activityCanDelete({source_key:'sheet-row-1',created_by:'me',employee_id:'me',is_active:true}),true);
+assert.equal(context.activityCanDelete({source_key:'sheet-row-2',created_by:null,employee_id:null,activity_assignees:[{profile_id:'me'}],is_active:true}),true);
 assert.equal(context.activityCanDelete({source_key:'native-2',created_by:'other',employee_id:'other',is_active:true}),false);
 assert.ok(context.issueEntryMissing({status:'Resolved',problem:'p',impact:'i',impactScope:'project',owner:'o',solution:'s',resmin:1,verified:false}).includes('หัวหน้ายืนยันผล'));
 context.entryNotice();assert.equal(noticeCount,0,'completeness reminder must not replace an active modal');
