@@ -89,8 +89,8 @@ function taskDescriptionHtml(value){
   return lines.map(line=>`<p class="${/^[📌📁💬✅⚠]/u.test(line)?'task-description-section':''}">${esc(line)}</p>`).join('');
 }
 function openTask(id){
-  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),progress=canProgressTaskUi(t),logTime=!CLOUD||isMyTaskAssignee(t);
-  const gate=taskAssignmentGate(t),allowedStatus=edit?Object.keys(STATUS):['todo','doing','review','block'];
+  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),close=canCloseTaskUi(t),progress=edit,recipientOnly=CLOUD&&isMyTaskAssignee(t)&&!edit&&!close,logTime=!CLOUD||isMyTaskAssignee(t);
+  const gate=taskCompletionGate(t),allowedStatus=edit?Object.keys(STATUS).filter(s=>s!=='done'||(close&&!taskAutoCloses(t))):[];
   const sSel=progress?`<div class="statusbtns">${allowedStatus.map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" ${s==='done'&&!gate.ready?'disabled title="ผู้รับผิดชอบต้องรับทราบและเริ่มดำเนินการให้ครบ"':''} onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`:statusPill(t.status);
   const aBox=`<div style="display:flex;align-items:center;gap:8px;padding-top:4px">${avStack(assigneesOf(t))}<span style="font-size:12.5px">${assigneesOf(t).map(shortName).join(', ')||'ยังไม่มอบหมาย'}</span>${edit?`<button class="tbtn sm" style="margin-left:auto" onclick="openAssigneePicker('${t.id}')">แก้ / เพิ่มคน</button>`:''}</div>`;
   const pSel=edit?`<div class="statusbtns">${Object.keys(PRIO).map(pk=>`<button class="stbtn ${t.prio===pk?'active':''}" style="--c:${PRIO[pk].c}" onclick="setPrio('${t.id}','${pk}')">${PRIO[pk].t}</button>`).join('')}</div>`:prioPill(t.prio);
@@ -102,20 +102,20 @@ function openTask(id){
   if(lockedForAck){showModal(`<div class="modal-h"><div><h3>มีงานใหม่มอบหมายให้คุณ</h3><div class="muted" style="font-size:11.5px">รายละเอียดงานจะเปิดหลังจากรับทราบ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad task-ack-gate"><div class="task-assignment-meta"><span class="mini" style="background:${u(t.creator).c}">${esc(Array.from(creator.name)[0]||'?')}</span><div><small>มอบหมายโดย</small><b>${esc(creator.name)}</b>${creatorMeta?`<span>${esc(creatorMeta)}</span>`:''}</div></div><div class="task-detail-lock"><b>🔒 กดรับทราบเพื่อเปิดงาน</b><p>ชื่อเรื่อง รายละเอียด กำหนดส่ง ผู้ร่วมงาน ไฟล์ และ KPI ถูกซ่อนไว้จนกว่าคุณจะยืนยันว่าได้รับงาน</p></div><button class="tbtn primary task-ack-gate-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">✓ รับทราบและเปิดงาน</button></div>`);return;}
   const _sla=slaOf(t);
   const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
-  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)} ${t._payload?.auto_closed?'<span class="pill task-auto-close-pill">⏱ ปิดอัตโนมัติตามกำหนด</span>':''}</div>
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)} ${taskAutoCloses(t)?'<span class="pill task-auto-close-pill">✓ ปิดอัตโนมัติเมื่อผู้รับทุกคนเสร็จ</span>':''}</div>
     <h3>${esc(t.title)}</h3><div class="muted" style="font-size:11.5px">${esc(t.id)}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
     <div class="task-assignment-meta"><span class="mini" style="background:${u(t.creator).c}">${esc(Array.from(creator.name)[0]||'?')}</span><div><small>มอบหมายโดย</small><b>${esc(creator.name)}</b>${creatorMeta?`<span>${esc(creatorMeta)}</span>`:''}${!creator.resolved?'<span class="task-creator-warning">ชื่อบัญชีเดิมไม่อยู่ในรายชื่อที่มองเห็น</span>':''}</div></div>
     <div class="field"><div class="task-detail-heading"><label>รายละเอียดงาน</label>${canEditTaskDetails(t)?`<button class="tbtn sm" onclick="openTaskDetailsEditor('${t.id}')">แก้ไขรายละเอียด</button>`:''}</div><div class="v task-description">${taskDescriptionHtml(t.desc)}</div>${!canEditTaskDetails(t)?'<small class="muted">ชื่อและรายละเอียดแก้ไขได้เฉพาะผู้สร้างงาน</small>':''}</div>
-    <div class="field" style="margin-top:6px"><label>${progress?'สถานะ (ผู้รับงานอัปเดตความคืบหน้า / หัวหน้าปิดงาน)':'สถานะ'}</label>${sSel}</div>
+    <div class="field" style="margin-top:6px"><label>${progress?'สถานะงานหลัก':'สถานะ'}</label>${sSel}</div>
     <div class="field"><label>ความสำคัญ</label>${pSel}</div>
     <div class="field"><label>ผู้รับผิดชอบ (${assigneesOf(t).length} คน)</label>${aBox}</div>
     ${taskAcknowledgementUi(t)}
     ${taskAssigneeWorkspaceUi(t)}
-    <div class="two">
+    ${recipientOnly?'':`<div class="two">
       <div class="field"><label>กำหนดส่ง</label>
         <input type="date" class="fin" value="${d2(t.due)}" ${edit?'':'disabled'} onchange="setDue('${t.id}',this.value)">
-        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}${t.autoCloseEnabled&&t.status!=='done'?' · ปิดอัตโนมัติเมื่อครบกำหนดและทุกคนรับทราบ/เริ่มงานแล้ว':''}</div></div>
+        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}</div></div>
       <div class="field"><label>เวลาที่ใช้ (ชม.)</label>
         <div style="display:flex;gap:6px;align-items:center"><b>${t.spent||0}</b><span class="muted">ชม. รวม</span>
           ${logTime?`<input type="number" min="0.1" step="0.5" class="fin" id="spent_${t.id}" placeholder="เพิ่มครั้งนี้" style="max-width:105px"><button class="tbtn sm" onclick="setSpent('${t.id}')">+ บันทึก</button><button class="tbtn sm" onclick="addSpent('${t.id}',1)">+1 ชม.</button>`:'<span class="muted" style="font-size:11px">ผู้รับงานเป็นผู้ลงเวลา</span>'}</div></div>
@@ -125,15 +125,15 @@ function openTask(id){
         <input type="number" min="1" class="fin" id="sla_n_${t.id}" value="${_sla.n}" ${edit?'':'disabled'} style="max-width:80px">
         <select class="fin" id="sla_u_${t.id}" ${edit?'':'disabled'} style="max-width:110px"><option value="day" ${_sla.unit==='day'?'selected':''}>วัน</option><option value="hr" ${_sla.unit==='hr'?'selected':''}>ชั่วโมง</option></select>
         ${edit?`<button class="tbtn sm" onclick="setSla('${t.id}')">บันทึก</button>`:''}</div>
-      <div class="muted" style="font-size:11px;margin-top:4px">${_slaNote}</div></div>
+      <div class="muted" style="font-size:11px;margin-top:4px">${_slaNote}</div></div>`}
     <div class="field"><label>แท็ก</label><span>${t.tags.map(x=>`<span class="tag">${x}</span>`).join('')||'-'}</span></div>
 
-    <div class="field"><label>งานย่อย / มอบต่อ (Delegation) — คลิกเพื่อเปลี่ยนสถานะงานย่อย</label>
+    ${recipientOnly?'':`<div class="field"><label>งานย่อย / มอบต่อ (Delegation) — คลิกเพื่อเปลี่ยนสถานะงานย่อย</label>
       ${(t.sub||[]).map((s,i)=>`<div class="sub-item" ${edit?`onclick="toggleSub('${t.id}',${i})" title="คลิกเพื่อเปลี่ยนสถานะ"`:''}><span class="mini" style="background:${u(s.who).c}">${u(s.who).s}</span><div style="flex:1">${s.t} <span class="muted" style="font-size:11px">· ${shortName(s.who)}</span></div>${statusPill(s.st)}${edit?'<span class="cyc">↻ เปลี่ยน</span>':''}</div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีงานย่อย</div>'}
       ${edit?`<div style="display:flex;gap:6px;margin-top:8px">
         <input class="fin" id="subName" placeholder="ชื่องานย่อยที่มอบต่อ" style="flex:1">
         <select class="fin" id="subWho" style="width:110px">${assigneeOptions(t.assignee)}</select>
-        <button class="tbtn" onclick="addSub('${t.id}')">+ มอบต่อ</button></div>`:''}</div>
+        <button class="tbtn" onclick="addSub('${t.id}')">+ มอบต่อ</button></div>`:''}</div>`}
 
     ${sop?`<div class="field"><label>SOP ที่ผูกกับงานนี้ — ${sop.title}</label>
       ${sop.steps.slice(0,4).map((s,i)=>`<div class="step"><span class="n">${i+1}</span>${s}</div>`).join('')}
@@ -143,8 +143,9 @@ function openTask(id){
       `<div class="field"><label>วิธีแก้ปัญหา / ผลการดำเนินงาน</label><textarea id="solIn" rows="2" placeholder="พิมพ์วิธีแก้ แล้วกด 'อนุมัติ/ปิดงาน' → ระบบเก็บเข้าคลังความรู้อัตโนมัติ"></textarea></div>`}
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
       ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">${sic('i-save')} บันทึกวิธีแก้</button>`:''}
-      ${edit&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" ${gate.ready?'':`disabled title="รอรับทราบ ${gate.acked}/${gate.total} และเริ่มดำเนินการ ${gate.started}/${gate.total}"`} onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button><span class="task-close-gate ${gate.ready?'is-ready':''}">${gate.ready?'พร้อมปิดงาน':`รอรับทราบ ${gate.acked}/${gate.total} · เริ่มดำเนินการ ${gate.started}/${gate.total}`}</span>`:''}
-      ${edit&&t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
+      ${close&&t.status!=='done'&&!taskAutoCloses(t)?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" ${gate.ready?'':`disabled title="รอผู้รับกดเสร็จสิ้น ${gate.completed}/${gate.total} คน"`} onclick="closeTaskWithSolution('${t.id}')">✓ ตรวจและปิดงาน</button><span class="task-close-gate ${gate.ready?'is-ready':''}">${gate.ready?'ผู้รับทุกคนเสร็จแล้ว · พร้อมตรวจปิดงาน':`รอผู้รับกดเสร็จสิ้น ${gate.completed}/${gate.total} คน`}</span>`:''}
+      ${close&&t.status!=='done'&&taskAutoCloses(t)?`<span class="task-close-gate">งานนี้จะปิดอัตโนมัติเมื่อผู้รับทุกคนกดเสร็จสิ้น</span>`:''}
+      ${close&&t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
 
     <div class="field" style="margin-top:14px"><label>ความเคลื่อนไหว / ความคิดเห็น</label>
       <div style="display:flex;gap:6px;margin-bottom:8px"><input class="fin" id="cmtIn" placeholder="เขียนความคิดเห็น..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${t.id}')"><button class="tbtn" onclick="addComment('${t.id}')">ส่ง</button></div>
@@ -219,6 +220,7 @@ function aiCompose(defDept){
       <div class="field"><label>ความสำคัญ</label><select class="fin" id="f_prio">${Object.keys(PRIO).map(pk=>`<option value="${pk}" ${a.prio===pk?'selected':''}>${PRIO[pk].t}</option>`).join('')}</select></div>
       <div class="field"><label>กำหนดส่ง</label><input type="date" class="fin" id="f_due" value="${d2(a.due)}"></div></div>
     <div class="field"><label>ระยะเวลาดำเนินการ (SLA) — ต้องเสร็จภายใน</label><div style="display:flex;gap:6px"><input type="number" min="1" class="fin" id="f_sla_n" value="${a.sla.n}" style="max-width:90px"><select class="fin" id="f_sla_u" style="max-width:120px"><option value="day">วัน</option><option value="hr">ชั่วโมง</option></select></div></div>
+    <div class="field"><label>วิธีปิดงาน</label><select class="fin" id="f_close_mode"><option value="manual_creator">ผู้มอบหมายตรวจและปิดด้วยมือ</option><option value="auto_assignees">ปิดอัตโนมัติเมื่อผู้รับทุกคนกดเสร็จสิ้น</option></select><small class="muted">ผู้รับงานจะมีปุ่ม “เสร็จสิ้นและแจ้งผู้มอบหมาย” เหมือนกันทั้งสองแบบ</small></div>
     <div class="field"><label>ผู้รับผิดชอบ — เลือกได้หลายคน หรือกดทั้งกลุ่ม</label><div id="pickerBox"></div></div>
     <div class="field"><label>Checklist (AI แตกจาก SOP ${deptName(a.dept)})</label>${a.checklist.map((c,i)=>`<div class="step"><span class="n">${i+1}</span>${c}</div>`).join('')}</div>
     ${a.kb?`<div class="ai-note">${sic('i-chat')} เกี่ยวข้อง: SOP ${deptName(a.dept)} · บทความ ${a.kb.id} (${a.kb.title})</div>`:''}
@@ -230,7 +232,7 @@ async function submitCompose(){
   if(!PICK.size){toast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน','info');return;}
   const due=val('f_due')||addFrom(TODAY_ISO,5);const assignees=[...PICK];
   const sla={n:Math.max(1,parseInt(val('f_sla_n'))||1),unit:val('f_sla_u')||'day'};
-  try{const t=await createTask({title,dept:val('f_dept'),assignees,prio:val('f_prio'),due,sla,desc:val('f_desc'),tags:['งานใหม่']});
+  try{const t=await createTask({title,dept:val('f_dept'),assignees,prio:val('f_prio'),due,sla,closeMode:val('f_close_mode'),desc:val('f_desc'),tags:['งานใหม่']});
     closeModal();F.dept='';go('board');toast('สร้างงาน '+t.id+' ให้ '+assignees.length+' คน (ส่ง '+fmtDate(due)+')');
   }catch(e){toast('สร้างงานไม่สำเร็จ · '+(e.message||e),'info');}
 }
