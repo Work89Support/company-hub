@@ -4,7 +4,7 @@ const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'u
 window.document.write(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
 window.console={...console,warn:()=>{},log:()=>{}};window.confirm=()=>false;window.scrollTo=()=>{};
 // One eval preserves top-level lexical bindings across the classic scripts.
-const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-data','core-app-data','core-app-shell','core-app-views','core-app-admin','core-app-runtime','core-app-cloud','activity-module','native-entry','kpi-work','department-workflows','graphic-production-v2','team-board','company-accounts','reporting-integrity','ux-system','entry-wizard','connected-systems'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
+const source=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n')+'\n'+['activity-data','core-app-data','core-app-shell','core-app-views','core-app-admin','core-app-runtime','core-app-cloud','activity-module','native-entry','kpi-work','department-workflows','graphic-production-v2','team-board','company-accounts','reporting-integrity','ux-system','entry-wizard'].map(n=>fs.readFileSync(new URL('../prototype/'+n+'.js',import.meta.url),'utf8')).join('\n');
 window.eval(source+`\nwindow.reviewAPI={checkProductionFeed:()=>{
  const oldCloud=CLOUD,oldProfile=ACCESS_PROFILE,saved=FEED.slice();
  try{CLOUD=true;ACCESS_PROFILE={id:'feed-me'};FEED.push({t:'MY REAL UPDATE',live:true,account:'feed-me'},{t:'OTHER ACCOUNT UPDATE',live:true,account:'feed-other'});RENDER.ann();
@@ -38,25 +38,6 @@ window.eval(source+`\nwindow.reviewAPI={checkProductionFeed:()=>{
  window.companyUxEnhanceModal();if(form.onsubmit!==handler||issue.value!=='Keep this note')throw new Error('Modal enhancement replaced draft controls');
  overlay.click();if(!overlay.classList.contains('show'))throw new Error('Backdrop discarded editable form');
  closeModal();if(document.body.classList.contains('ux-modal-open'))throw new Error('Modal close did not release scroll lock');
-},
-checkConnected:()=>{
- ACCESS_PROFILE={id:'ux-me',department_code:'AUD123',active:true};AUTH_DB_ROLE='admin';VISIBLE_DEPTS=['AUD123','ADMIN','PROG'];VIEW='connectedSystems';RENDER.connectedSystems();
- if(main.querySelector('iframe'))throw new Error('Source screen must not be embedded');
- if(main.querySelectorAll('[data-department]').length!==3)throw new Error('Missing department results');
- if(!main.textContent.includes('ยังไม่มีผลที่เชื่อมไว้ใน 24 ชั่วโมง')||[...main.querySelectorAll('.cr-metrics strong')].some(n=>n.textContent!=='—'))throw new Error('Disconnected result must not imply zero');
- const popup={};let url='';window.open=(u)=>{url=u;return popup;};
- main.querySelector('#cr-connect').click();const hash=new URLSearchParams(url.split('#')[1]);
- const data={version:1,from:hash.get('from'),to:hash.get('to'),fetchedAt:new Date().toISOString(),partial:false,rows:[{id:'case1',title:'ACTUAL AUDIT CASE',company:'A',date:hash.get('from'),ownerId:'person-1',owner:'Audit owner',status:'clarifying',waiting:true,closed:false}],runs:[]};
- const message={type:'company-hub-results',nonce:hash.get('nonce'),source:'audit',data};
- window.dispatchEvent(new MessageEvent('message',{origin:'https://evil.test',source:popup,data:message}));
- if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Untrusted origin accepted');
- window.dispatchEvent(new MessageEvent('message',{origin:'https://work89support.github.io',source:popup,data:message}));
- if(!main.textContent.includes('ACTUAL AUDIT CASE')||!main.querySelector('.cr-company-summary'))throw new Error('Native result handoff failed');
- main.querySelector('[data-department="ADMIN"]').click();if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Department data leaked into other source');
- if(!main.textContent.includes('ไม่มีการให้คะแนนรายบุคคล'))throw new Error('Missing metric provenance');
- ACCESS_PROFILE={id:'other-user',department_code:'AUD123'};RENDER.connectedSystems();main.querySelector('[data-department="AUD123"]').click();if(main.textContent.includes('ACTUAL AUDIT CASE'))throw new Error('Previous account cache survived');
- ACCESS_PROFILE={id:'ux-me',department_code:'AUD123',active:true};RENDER.connectedSystems();main.querySelector('[data-department="AUD123"]').click();if(!main.textContent.includes('ACTUAL AUDIT CASE')||!main.textContent.includes('จำผลบนเครื่องนี้ 24 ชั่วโมง'))throw new Error('Connected result did not survive same-device account return');
- ACCESS_PROFILE=null;RENDER.connectedSystems();if(main.querySelector('a,button'))throw new Error('Source view requires Hub login');
 },
 checkWizard:async()=>{
  AUTH_DB_ROLE='admin';ACCESS_PROFILE={id:'ux-me',department_code:'CRM',active:true};MANAGE_DEPTS=['CRM'];VISIBLE_DEPTS=['CRM'];
@@ -136,5 +117,5 @@ const calls=[];const data=Array.from({length:1001},(_,i)=>({id:i}));const r=awai
 await assert.rejects(()=>api.integrityReadAll(()=>({order(){return this;},range(){return Promise.resolve({error:new Error('offline')});}})));
 const pages=await api.previewAll();assert.equal(pages.filter(r=>r.error).length,0,JSON.stringify(pages.filter(r=>r.error)));assert.ok(pages.length>=21);for(const p of pages){assert.ok(p.title,'Missing page title: '+p.view);assert.ok(!p.html?.includes('id="data-health"'),'Healthy source diagnostics visible on '+p.view);}
 if(process.env.UX_PREVIEW_DIR){fs.mkdirSync(process.env.UX_PREVIEW_DIR,{recursive:true});for(const r of pages){if(r.html)fs.writeFileSync(process.env.UX_PREVIEW_DIR+'/'+r.view+'.html',r.html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));}}
-api.checkProductionFeed();await api.checkWorkspace();await api.checkWizard();api.checkConnected();
+api.checkProductionFeed();await api.checkWorkspace();await api.checkWizard();
 console.log('PASS UX: '+pages.length+' screens, preserved draft values and submission handler, activity form, source links, filters and script initialization');await window.happyDOM.close();

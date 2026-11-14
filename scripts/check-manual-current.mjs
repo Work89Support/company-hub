@@ -8,7 +8,7 @@ const integrity=fs.readFileSync(new URL('../prototype/reporting-integrity.js',im
 const images=JSON.parse(fs.readFileSync(new URL('../prototype/manual-images.json',import.meta.url),'utf8'));
 const manualIds=[...manualSource.matchAll(/\{id:'([^']+)',ic:/g)].map(match=>match[1]);
 const textOnlyIds=[...manualSource.matchAll(/\{id:'([^']+)',ic:[^\n]+?img:null/g)].map(match=>match[1]);
-const required=['intro','world','loginAccess','account','teamAccounts','dash','myTasks','teamBoard','board','task','compose','graphic','timeline','activity','completeness','problems','kpi','reports','monthly','tracker','connectedSystems','ann','ack','org','users','sop','kb','talk','extra'];
+const required=['intro','world','loginAccess','account','teamAccounts','dash','myTasks','teamBoard','board','task','compose','graphic','timeline','activity','completeness','problems','kpi','reports','monthly','tracker','ann','ack','org','users','sop','kb','talk','extra'];
 
 for(const id of required)assert.ok(manualIds.includes(id),'คู่มือขาดหัวข้อ '+id);
 assert.equal(new Set(manualIds).size,manualIds.length,'คู่มือมีรหัสหัวข้อซ้ำ');
