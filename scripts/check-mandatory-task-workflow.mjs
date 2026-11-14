@@ -11,7 +11,10 @@ const mandatory=fs.readFileSync(new URL('../supabase/migrations/202611140062_man
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta.url),'utf8');
 assert.match(shell,/function taskAssignmentGate\(t\)/);
-assert.match(shell,/กำลังดำเนินการ · เริ่มงาน/);
+assert.match(shell,/function startTaskAssigneeWorkspace\(id\)/);
+assert.match(shell,/▶ เริ่มดำเนินการ/);
+assert.match(shell,/\[0,25,50,75,100,progress\]/);
+assert.doesNotMatch(shell,/taskWorkProgress_\$\{t\.id\}" type="number"/);
 assert.match(cloud,/กดรับทราบเพื่อเปิดรายละเอียดงาน/);
 assert.match(cloud,/started_at/);
 
