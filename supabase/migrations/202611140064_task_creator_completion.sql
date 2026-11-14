@@ -5,9 +5,9 @@ returns trigger language plpgsql security definer set search_path=public as $$
 declare close_mode text:=coalesce(old.prototype_payload->>'close_mode','manual_creator'); incomplete integer;
 begin
   if old.status is not distinct from new.status then return new; end if;
+  if current_setting('app.task_auto_close',true)='1' then return new; end if;
+  if auth.uid() is null then return new; end if;
   if new.status='done' then
-    if current_setting('app.task_auto_close',true)='1' then return new; end if;
-    if auth.uid() is null then return new; end if;
     if close_mode='auto_assignees' then
       raise exception using errcode='42501',message='งานนี้ปิดอัตโนมัติเมื่อผู้รับทุกคนกดเสร็จสิ้น';
     end if;
@@ -21,8 +21,8 @@ begin
     if incomplete>0 then
       raise exception using errcode='23514',message=format('ปิดงานไม่ได้: ยังมีผู้รับ %s คนที่ไม่ได้กดเสร็จสิ้น',incomplete);
     end if;
-  elsif old.status='done' and auth.uid() is not null and old.creator_id is distinct from auth.uid() then
-    raise exception using errcode='42501',message='เฉพาะผู้มอบหมายงานเท่านั้นที่เปิดงานใหม่ได้';
+  else
+    raise exception using errcode='42501',message='สถานะงานหลักเปลี่ยนโดยระบบ ผู้มอบหมายเปลี่ยนได้เฉพาะเสร็จสิ้น';
   end if;
   return new;
 end $$;
@@ -56,6 +56,7 @@ begin
     values(new.task_id,task_row.creator_id,'task_auto_closed_after_assignees',jsonb_build_object(
       'closed_by_system',true,'completed_by',new.user_id));
   elsif remaining=0 then
+    perform set_config('app.task_auto_close','1',true);
     update public.tasks set status='review',updated_at=clock_timestamp(),version=version+1
     where id=new.task_id and status not in ('review','done');
     insert into public.task_events(task_id,actor_id,event_type,payload)
