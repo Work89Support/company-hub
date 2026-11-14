@@ -344,8 +344,17 @@ const THMON=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','ม�
 const THDAY=['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
 function fmtDate(mmdd,withYear){
   if(!mmdd)return '-';const p=String(mmdd).split('-').map(Number),full=p.length===3;
-  const y=full?p[0]:Number(TODAY_ISO?.slice(0,4)||new Date().getFullYear()),m=full?p[1]:p[0],d=full?p[2]:p[1],dt=new Date(y,m-1,d);
+  const rawYear=full?p[0]:Number(TODAY_ISO?.slice(0,4)||new Date().getFullYear()),y=rawYear>=2400&&rawYear<=2700?rawYear-543:rawYear,m=full?p[1]:p[0],d=full?p[2]:p[1],dt=new Date(y,m-1,d);
+  if(!Number.isFinite(y)||y<1900||y>2200||!m||m>12||!d||d>31)return 'วันที่ไม่ถูกต้อง';
   return THDAY[dt.getDay()]+' '+d+' '+THMON[m-1]+(withYear?' '+String(y+543).slice(-2):'');
+}
+function normalizeTaskDateInput(value,fallbackYear=Number(TODAY_ISO?.slice(0,4)||new Date().getFullYear())){
+  const match=String(value||'').match(/^(\d{1,4})-(\d{2})-(\d{2})$/);if(!match)return'';
+  let year=Number(match[1]);const month=Number(match[2]),day=Number(match[3]);
+  if(year>=2400&&year<=2700)year-=543;else if(year>0&&year<100)year=fallbackYear;
+  const date=new Date(year,month-1,day);
+  if(year<2000||year>2200||date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day)return'';
+  return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
 }
 const normSp=s=>(s||'').replace(/\s+/g,' ').trim();
 /* ระยะเวลาดำเนินการ (SLA) */

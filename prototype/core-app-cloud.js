@@ -396,7 +396,7 @@ async function cloudLoadTasks(){
     const [tasks,assignments,profiles,timeEntries,comments,people,workspaces,workspaceFiles]=await Promise.all([
       integrityReadAll(()=>SB.from('tasks').select('id,task_no,department_code,title,description,status,priority,creator_id,start_at,due_at,sla_minutes,closed_at,auto_close_enabled,prototype_payload,created_at,updated_at'),["id"]),
       integrityReadAll(()=>SB.from('task_assignees').select('task_id,user_id,assigned_at,acknowledged_at'),["task_id", "user_id"]),
-      integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,team_code,active').eq('active',true),["id"]),
+      integrityReadAll(()=>SB.from('profiles').select('id,email,display_name,position_title,role,department_code,team_code,active'),["id"]),
       integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
       integrityReadAll(()=>SB.from('task_comments').select('task_id,author_id,body,created_at'),["id"]),
       SB.rpc('activity_entry_people'),
@@ -407,8 +407,8 @@ async function cloudLoadTasks(){
     if(people.error)throw people.error;if(workspaces.error)throw workspaces.error;if(workspaceFiles.error)throw workspaceFiles.error;
     const directory=new Map((profiles.data||[]).map(p=>[p.id,{...p,department_codes:[p.department_code]}]));
     for(const p of people.data||[]){const existing=directory.get(p.id)||{...p,active:true,department_codes:[]};existing.department_codes=[...new Set([...existing.department_codes,p.department_code])];directory.set(p.id,existing);}
-    TASK_PROFILES.push(...directory.values());
-    TASK_PROFILES.forEach((p,i)=>{const name=p.display_name||p.email||'ผู้ใช้',colors=['#2563eb','#0f766e','#7c3aed','#c2410c','#be185d','#0369a1'];USERS[p.id]={n:name,s:name.slice(0,1).toUpperCase(),c:colors[i%colors.length]};});
+    const directoryProfiles=[...directory.values()];TASK_PROFILES.push(...directoryProfiles.filter(p=>p.active!==false));
+    directoryProfiles.forEach((p,i)=>{const name=p.display_name||p.email||'ผู้ใช้',colors=['#2563eb','#0f766e','#7c3aed','#c2410c','#be185d','#0369a1'];USERS[p.id]={n:name,s:name.slice(0,1).toUpperCase(),c:colors[i%colors.length]};});
     ASSIGNABLE=TASK_PROFILES.filter(p=>canAdminAccess()||(p.department_codes||[p.department_code]).some(d=>MANAGE_DEPTS.includes(d))||p.id===ACCESS_PROFILE?.id).map(p=>p.id);
     const byTask=new Map(),taskAck=new Map();(assignments.data||[]).forEach(a=>{if(!byTask.has(a.task_id))byTask.set(a.task_id,[]);byTask.get(a.task_id).push(a.user_id);if(!taskAck.has(a.task_id))taskAck.set(a.task_id,{});taskAck.get(a.task_id)[a.user_id]=a.acknowledged_at||'';});
     const workByTask=new Map(),filesByTask=new Map();(workspaces.data||[]).forEach(w=>{if(!workByTask.has(w.task_id))workByTask.set(w.task_id,{});workByTask.get(w.task_id)[w.user_id]=w;});(workspaceFiles.data||[]).forEach(f=>{if(!filesByTask.has(f.task_id))filesByTask.set(f.task_id,[]);filesByTask.get(f.task_id).push(f);});

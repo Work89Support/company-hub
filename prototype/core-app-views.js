@@ -101,7 +101,7 @@ RENDER.dash=function(){return isExecutiveRole()?execDash():leadDash();};
 function dashboardGraphicRows(){
   const statusMap={intake:'todo',brief:'todo',doing:'doing',review:'review',revision:'block',monthly:'doing',done:'done'};
   const mmdd=value=>{if(!value)return'';const d=new Date(value);return Number.isNaN(d.getTime())?'':String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
-  return GRAPHIC_JOBS.map(j=>({id:j.id,jobNo:j.job_no,title:j.title,dept:'GRAPHIC',status:statusMap[j.status]||'todo',prio:j.priority==='urgent'?'high':(j.priority||'mid'),priority:j.priority==='urgent'?'high':(j.priority||'mid'),assignee:j.assignee_id||j.assignee_name||'',assignees:j.assignee_id?[j.assignee_id]:[],creator:j.requester_name||'',createdAt:j.created_at,startAt:j.created_at,start:mmdd(j.created_at),due:mmdd(j.due_at),dueAt:j.due_at||'',completedAt:j.completed_at||'',spent:0,ontime:!!(j.completed_at&&j.due_at&&new Date(j.completed_at)<=new Date(j.due_at)),desc:j.brief||'',solution:'',tags:[j.work_type,j.channel].filter(Boolean),_source:'graphic',_graphicStatus:j.status}));
+  return GRAPHIC_JOBS.map(j=>({id:j.id,jobNo:j.job_no,title:j.title,dept:'GRAPHIC',status:statusMap[j.status]||'todo',prio:j.priority==='urgent'?'high':(j.priority||'mid'),priority:j.priority==='urgent'?'high':(j.priority||'mid'),assignee:j.assignee_id||j.assignee_name||'',assignees:j.assignee_id?[j.assignee_id]:[],creator:j.requester_name||'',createdAt:j.created_at,startAt:j.created_at,start:mmdd(j.created_at),due:mmdd(j.due_at),dueAt:j.due_at||'',completedAt:j.completed_at||'',spent:0,ontime:!!(j.completed_at&&j.due_at&&new Date(j.completed_at)<=new Date(j.due_at)),desc:j.brief||'',solution:'',tags:[j.work_type,j.channel].filter(Boolean),_source:'graphic',_graphicStatus:j.status,_originSource:j.source||''}));
 }
 /* Current reporting rule: the person who created/source-entered a record is its responsible person.
    Keep the original database assignment untouched so it remains available when the assignment policy changes. */
@@ -133,6 +133,14 @@ function boardIssueRows(){return PROBLEMS.map(p=>{const date=boardMmdd(p.date),o
 function boardAllWork(){return [...TASKS.map(t=>({...t,_source:'task',sourceId:t.id})),...dashboardGraphicRows().map(t=>({...t,sourceId:t.id})),...boardActivityRows(),...boardIssueRows()].map(boardResponsibilityByCreator).filter(t=>t.dept&&canViewDept(t.dept));}
 const BOARD_SOURCE_LABEL={task:'งานที่มอบหมาย',graphic:'Graphic Production',activity:'บันทึกกิจกรรม',issue:'ศูนย์ปัญหา'};
 function boardSourceLabel(t){return BOARD_SOURCE_LABEL[t._source]||'งาน';}
+function boardOriginLabel(t){
+  const raw=String(t?._payload?.source_system||t?._payload?.source||t?._originSource||t?.sourceRow?.source||'').toLowerCase();
+  if(t?._source==='graphic'&&raw.includes('trello'))return'นำเข้าจาก Trello';
+  if(raw.includes('google')||raw.includes('sheet'))return'นำเข้าจาก Google Sheets';
+  if(raw.includes('trello'))return'นำเข้าจาก Trello';
+  return t?._source==='task'?'สร้างใน Company Hub':'บันทึกใน Company Hub';
+}
+function boardCreatorLabel(t){const origin=boardOriginLabel(t);if(origin.startsWith('นำเข้าจาก'))return origin;return t.creator?`${origin} โดย ${shortName(t.creator)}`:origin;}
 function openBoardActivity(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;const hours=activityCountedDuration(row),flags=activityQualityFlags(row),owner=typeof activityOwnerLabel==='function'?activityOwnerLabel(row):row.employee_name||'ไม่ระบุพนักงาน';showModal(`<div class="modal-h"><div><span class="tag">บันทึกกิจกรรม</span><h3 style="margin-top:7px">${esc(row.activity||row.category||'กิจกรรม')}</h3><div class="muted">${esc(owner)} · ${esc(activityDateLabel(row.activity_date))} · ${esc(deptName(row.department_code))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="two"><div class="field"><label>สถานะ</label><div class="v">${esc(row.status||'-')}</div></div><div class="field"><label>เวลาที่นับได้</label><div class="v">${nf(hours)} ชม.</div></div></div><div class="field"><label>ผลการดำเนินงาน</label><div class="v" style="white-space:pre-wrap">${esc(row.result_note||'-')}</div></div>${row.operational_issue?`<div class="field"><label>ปัญหาหน้างาน</label><div class="v">${esc(row.operational_issue)}</div></div>`:''}${flags.length?`<div class="ai-note"><b>ต้องตรวจข้อมูล:</b> ${flags.map(activityQualityLabel).map(esc).join(' · ')}</div>`:''}<button class="tbtn primary" style="margin-top:12px" onclick="openBoardActivitySource('${esc(String(row.id))}')">เปิดในบันทึกกิจกรรม →</button></div>`);}
 function openBoardActivitySource(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;closeModal();ACTIVITY_FILTER.department=row.department_code||'';ACTIVITY_FILTER.query=row.employee_name||'';ACTIVITY_PAGE=1;go('activity');}
 function openBoardWork(source,id){if(source==='graphic')openGraphicJob(id);else if(source==='activity')openBoardActivity(id);else if(source==='issue')openProblem(id);else openTask(id);}
@@ -311,7 +319,7 @@ function boardTableInner(list,showDept=true){
   return `<table><thead><tr>
     <th>งาน</th>${showDept?'<th>แผนก</th>':''}<th>ผู้รับผิดชอบ</th>${th('status','สถานะ')}${th('prio','ความสำคัญ')}${th('start','วันเริ่ม')}${th('due','วันส่ง')}${th('spent','เวลาที่ใช้')}</tr></thead>
     <tbody>${list.map(t=>`<tr class="${t.prio==='high'?'trow-lead':''}" onclick="openBoardWork('${t._source||'task'}','${t.sourceId||t.id}')">
-      <td><b style="font-weight:500">${esc(t.title)}</b><div class="muted" style="font-size:10.5px"><span class="tag">${esc(boardSourceLabel(t))}</span> ${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)} · ${esc(t.creator?'โดย '+shortName(t.creator):'ไม่ระบุผู้สร้าง')}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
+      <td><b style="font-weight:500">${esc(t.title)}</b><div class="muted" style="font-size:10.5px"><span class="tag">${esc(boardSourceLabel(t))}</span> ${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)} · ${esc(boardCreatorLabel(t))}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
       ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
       <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${esc(shortName(assigneesOf(t)[0]))}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
       <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>

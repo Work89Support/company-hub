@@ -203,10 +203,11 @@ async function saveTaskDetails(id){
 function taskSlaMinutes(s){if(!s)return null;return Math.max(1,Number(s.n)||1)*(s.unit==='hr'?60:1440);}
 async function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
+  const due=normalizeTaskDateInput(d.due||addFrom(TODAY_ISO,5));if(!due)throw new Error('กำหนดส่งไม่ถูกต้อง กรุณาใช้ปี ค.ศ. เช่น 2026');
   if(CLOUD){
     if(!canCreateTask(d.dept))throw new Error('บัญชีนี้ไม่มีสิทธิ์สร้างงานในแผนก '+deptName(d.dept));
-    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],close_mode:d.closeMode==='auto_assignees'?'auto_assignees':'manual_creator',created_by:{profile_id:ACCESS_PROFILE.id,display_name:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'ผู้มอบหมาย',department_code:ACCESS_PROFILE.department_code||'',position_title:ACCESS_PROFILE.position_title||''},...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
-    const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:(d.due||addFrom(TODAY_ISO,5))+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),auto_close_enabled:false,prototype_payload:payload}).select('id,task_no').single();
+    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],source_system:'company_hub',close_mode:d.closeMode==='auto_assignees'?'auto_assignees':'manual_creator',created_by:{profile_id:ACCESS_PROFILE.id,display_name:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'ผู้มอบหมาย',department_code:ACCESS_PROFILE.department_code||'',position_title:ACCESS_PROFILE.position_title||''},...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
+    const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:due+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),auto_close_enabled:false,prototype_payload:payload}).select('id,task_no').single();
     if(inserted.error)throw inserted.error;
     const validAssignees=assignees.filter(id=>TASK_PROFILES.some(p=>p.id===id));
     if(validAssignees.length){const assigned=await SB.from('task_assignees').insert(validAssignees.map(user_id=>({task_id:inserted.data.id,user_id,assigned_by:ACCESS_PROFILE.id})));if(assigned.error)throw assigned.error;}
@@ -214,7 +215,7 @@ async function createTask(d){
     return TASKS.find(t=>t.dbId===inserted.data.id);
   }
   const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,
-    status:'todo',prio:d.prio||'mid',start:TODAY_ISO,due:d.due||addFrom(TODAY_ISO,5),spent:0,ontime:true,sla:d.sla||null,
+    status:'todo',prio:d.prio||'mid',start:TODAY_ISO,due,spent:0,ontime:true,sla:d.sla||null,
     tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],_payload:{close_mode:d.closeMode==='auto_assignees'?'auto_assignees':'manual_creator',...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})},log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
   TASKS.unshift(t);
   logFeed('🆕','#eef2ff',`<b>${shortName(t.creator)}</b> สร้างงาน <b>${t.id}</b> ${t.title} · มอบ ${assignees.map(shortName).join(', ')}`);
@@ -235,7 +236,7 @@ async function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.st
 function setAssignee(id,v){const t=TASKS.find(x=>x.id===id);t.assignee=v;
   toast('เปลี่ยนผู้รับผิดชอบเป็น '+shortName(v));refresh();openTask(id);}
 async function setPrio(id,v){const t=TASKS.find(x=>x.id===id);try{await cloudUpdateTask(t,{priority:v});}catch(e){toast('ปรับความสำคัญไม่สำเร็จ · '+(e.message||e),'info');return;}t.prio=v;toast('ปรับความสำคัญเป็น '+PRIO[v].t);refresh();openTask(id);}
-async function setDue(id,v){const t=TASKS.find(x=>x.id===id);if(!v)return;const start=d2(v)<d2(t.start)?v:t.start;try{await cloudUpdateTask(t,{due_at:v+'T23:59:59+07:00',start_at:start?d2(start)+'T00:00:00+07:00':null});}catch(e){toast('เปลี่ยนกำหนดส่งไม่สำเร็จ · '+(e.message||e),'info');return;}t.due=v;t.start=start;t.ontime=!dashboardIsOverdue(t);toast('เปลี่ยนกำหนดส่งเป็น '+fmtDate(t.due));refresh();openTask(id);}
+async function setDue(id,v){const t=TASKS.find(x=>x.id===id),due=normalizeTaskDateInput(v);if(!due){toast('กำหนดส่งไม่ถูกต้อง กรุณาใช้ปี ค.ศ. เช่น 2026','info');return;}const start=d2(due)<d2(t.start)?due:t.start;try{await cloudUpdateTask(t,{due_at:due+'T23:59:59+07:00',start_at:start?d2(start)+'T00:00:00+07:00':null});}catch(e){toast('เปลี่ยนกำหนดส่งไม่สำเร็จ · '+(e.message||e),'info');return;}t.due=due;t.start=start;t.ontime=!dashboardIsOverdue(t);toast('เปลี่ยนกำหนดส่งเป็น '+fmtDate(t.due));refresh();openTask(id);}
 async function recordTaskTime(id,h){const t=TASKS.find(x=>x.id===id),hours=Math.round(Math.max(0,Number(h)||0)*10)/10;if(!hours){toast('กรุณาระบุเวลาที่ต้องการเพิ่ม','info');return;}
   if(CLOUD){if(!isMyTaskAssignee(t)){toast('ลงเวลาได้เฉพาะงานที่มอบหมายให้คุณ','info');return;}try{const r=await SB.from('time_entries').insert({task_id:t.dbId,user_id:ACCESS_PROFILE.id,minutes:Math.round(hours*60),note:'บันทึกผ่าน Company Hub'});if(r.error)throw r.error;}catch(e){toast('บันทึกเวลาไม่สำเร็จ · '+(e.message||e),'info');return;}}
   t.spent=Math.round(((t.spent||0)+hours)*10)/10;toast('บันทึกเวลา +'+hours+' ชม. (รวม '+t.spent+' ชม.)');refresh();openTask(id);}
