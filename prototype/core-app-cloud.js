@@ -378,7 +378,7 @@ async function cloudLoadTasks(){
       integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
       integrityReadAll(()=>SB.from('task_comments').select('task_id,author_id,body,created_at'),["id"]),
       SB.rpc('activity_entry_people'),
-      integrityReadAll(()=>SB.from('task_assignee_workspaces').select('task_id,user_id,status,progress_percent,update_note,acknowledged_at,started_at,updated_at'),['task_id','user_id']),
+      integrityReadAll(()=>SB.from('task_assignee_workspaces').select('task_id,user_id,status,progress_percent,update_note,acknowledged_at,started_at,completed_at,updated_at'),['task_id','user_id']),
       integrityReadAll(()=>SB.from('task_assignee_files').select('id,task_id,user_id,file_name,storage_path,mime_type,size_bytes,created_at'),['id']),
     ]);
     if(timeEntries.error)throw timeEntries.error;if(comments.error)throw comments.error;if(tasks.error)throw tasks.error;if(assignments.error)throw assignments.error;if(profiles.error)throw profiles.error;
