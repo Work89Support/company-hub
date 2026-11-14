@@ -144,7 +144,9 @@ async function openTaskAssigneeFile(fileId){
 async function uploadTaskAssigneeFile(id){
   const t=TASKS.find(x=>x.id===id),input=document.getElementById('taskWorkFile_'+id),file=input?.files?.[0],button=document.getElementById('taskWorkUpload_'+id);
   if(!t||!file)return toast('กรุณาเลือกไฟล์','info');if(file.size>10485760)return toast('ไฟล์ต้องไม่เกิน 10 MB','info');
-  const safe=file.name.normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'-').slice(-120)||'attachment';const path=`${t.dbId}/${ACCESS_PROFILE.id}/${Date.now()}-${safe}`;
+  const rawExt=(file.name.split('.').pop()||'bin').toLowerCase(),ext=rawExt.replace(/[^a-z0-9]/g,'').slice(0,10)||'bin';
+  const objectId=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(36).slice(2,12)}`;
+  const path=`${t.dbId}/${ACCESS_PROFILE.id}/${objectId}.${ext}`;
   if(button){button.disabled=true;button.textContent='กำลังแนบ…';}
   try{
     const uploaded=await SB.storage.from('task-assignee-files').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false,cacheControl:'3600'});if(uploaded.error)throw uploaded.error;
