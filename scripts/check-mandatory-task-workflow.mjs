@@ -15,7 +15,7 @@ const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta
 const cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta.url),'utf8');
 assert.match(shell,/function taskAssignmentGate\(t\)/);
 assert.match(shell,/function startTaskAssigneeWorkspace\(id\)/);
-assert.match(shell,/▶ เริ่มดำเนินการ/);
+assert.match(shell,/▶ กำลังดำเนินการ/);
 assert.match(shell,/\[0,25,50,75,100,progress\]/);
 assert.match(shell,/function taskElapsedLabel\(start,end\)/);
 assert.match(shell,/task-work-elapsed/);
@@ -33,6 +33,10 @@ assert.match(shell,/author_id:ACCESS_PROFILE\.id,body:auditText/,'Task status hi
 assert.doesNotMatch(shell,/who:ROLE_META\[ROLE\]\.u,txt:'เปลี่ยนสถานะเป็น'/,'Task status history must never attribute a cloud action to the demo executive');
 assert.doesNotMatch(shell,/taskWorkProgress_\$\{t\.id\}" type="number"/);
 assert.match(cloud,/กดรับทราบเพื่อเปิดงาน/);
+assert.match(cloud,/function taskModalExitBlockReason\(id\)/);
+assert.match(cloud,/กรุณากดรับทราบงานก่อนออกจากหน้านี้/);
+assert.match(cloud,/กรุณากดกำลังดำเนินการก่อนออกจากหน้านี้/);
+assert.match(cloud,/if\(ACTIVE_TASK_MODAL_ID&&!taskId\)/,'A guarded task must not be replaced by another modal before acknowledgement/start');
 assert.match(cloud,/ปิดอัตโนมัติเมื่อผู้รับทุกคนกดเสร็จสิ้น/);
 assert.match(cloud,/recipientOnly/,'Assignee view must hide creator scheduling controls');
 assert.match(cloud,/started_at/);
@@ -40,6 +44,8 @@ const lockedPreview=cloud.slice(cloud.indexOf('if(lockedForAck)'),cloud.indexOf(
 assert.match(lockedPreview,/มอบหมายโดย/);
 assert.match(lockedPreview,/รับทราบและเปิดงาน/);
 assert.doesNotMatch(lockedPreview,/t\.title|t\.due|deptPill|prioPill|taskAcknowledgementUi/,'Unacknowledged assignees must not see task content or participant data');
+assert.match(lockedPreview,/,t\.id\);return;/,'Locked task modal must keep task identity so every exit path is guarded');
+assert.match(cloud,/<\/div>`,t\.id\);\n}/,'Acknowledged task modal must keep task identity until the assignee starts work');
 
 const db=new PGlite();
 await db.exec(`

@@ -14,7 +14,7 @@ assert.match(entry,/batchId,departments/,'Department tasks must retain a shared 
 assert.match(shell,/assignment_batch_id:d\.batchId/,'Task payload is missing its batch identifier');
 assert.match(shell,/scopeMatch=!PICK_MULTI_DEPTS\.length/,'Assignee picker is not constrained to selected departments');
 assert.match(css,/\.task-department-grid/,'Multi-department layout styles are missing');
-assert.match(html,/company-hub-release" content="20261114-task-timer-from-ack-1"/,'Release marker is stale');
-assert.match(html,/core-app-shell\.js\?v=20261114-task-timer-from-ack-1/,'Assignee scope cache key is stale');
+assert.match(html,/company-hub-release" content="20261114-task-ack-start-gate-1"/,'Release marker is stale');
+assert.match(html,/core-app-shell\.js\?v=20261114-task-ack-start-gate-1/,'Assignee scope cache key is stale');
 
 console.log('PASS CEO multi-department assignment: executive gate, scoped people, per-department tasks, shared batch and release cache keys');

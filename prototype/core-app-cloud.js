@@ -76,8 +76,28 @@ function actAnswer(q){
     <div style="margin-top:8px"><button class="tbtn sm" onclick="clearAF();${dep?`AF.dept='${dep.replace(/'/g,'')}';`:''}go('activity')">เปิดหน้าบันทึกกิจกรรม →</button></div>`;
 }
 
-function showModal(html){modal.innerHTML=html;overlay.classList.add('show');}
-function closeModal(){overlay.classList.remove('show');}
+let ACTIVE_TASK_MODAL_ID='';
+function taskModalExitBlockReason(id){
+  const t=TASKS.find(x=>x.id===id);if(!t||!CLOUD||!isMyTaskAssignee(t))return '';
+  if(!taskAcknowledgements(t)[ACCESS_PROFILE?.id])return 'กรุณากดรับทราบงานก่อนออกจากหน้านี้';
+  const space=taskWorkspaces(t)[ACCESS_PROFILE?.id];
+  if(!space||space.status==='todo')return 'กรุณากดกำลังดำเนินการก่อนออกจากหน้านี้';
+  return '';
+}
+function showModal(html,taskId=''){
+  if(ACTIVE_TASK_MODAL_ID&&!taskId){
+    const reason=taskModalExitBlockReason(ACTIVE_TASK_MODAL_ID);
+    if(reason){toast(reason,'info');return false;}
+  }
+  ACTIVE_TASK_MODAL_ID=taskId||'';modal.innerHTML=html;overlay.classList.add('show');return true;
+}
+function closeModal(force=false){
+  if(!force&&ACTIVE_TASK_MODAL_ID){
+    const reason=taskModalExitBlockReason(ACTIVE_TASK_MODAL_ID);
+    if(reason){toast(reason,'info');document.getElementById(reason.includes('รับทราบ')?'taskAckButton':`taskWorkStart_${ACTIVE_TASK_MODAL_ID}`)?.scrollIntoView({behavior:'smooth',block:'center'});return false;}
+  }
+  ACTIVE_TASK_MODAL_ID='';overlay.classList.remove('show');return true;
+}
 function taskCreatorInfo(t){
   const snapshot=t?._payload?.created_by||{},id=t?.creator||snapshot.profile_id||'',profile=TASK_PROFILES.find(p=>p.id===id)||ACCESS_USERS.find?.(p=>p.id===id)||(ACCESS_PROFILE?.id===id?ACCESS_PROFILE:null);
   const uuid=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(id)),name=profile?.display_name||snapshot.display_name||(!uuid&&id?shortName(id):'ไม่พบชื่อบัญชีผู้มอบหมาย');
@@ -98,8 +118,8 @@ function openTask(id){
   const dueNote=t.status==='done'?'ปิดงานแล้ว':dl>0?('เหลืออีก '+dl+' วัน'):dl===0?'ครบกำหนดวันนี้':('เกินกำหนด '+(-dl)+' วัน');
   const dueColor=t.status==='done'?'var(--green)':dl<0?'var(--red)':dl===0?'var(--amber)':'var(--muted)';
   const creator=taskCreatorInfo(t),creatorMeta=[creator.position,creator.department?deptName(creator.department):''].filter(Boolean).join(' · ');
-  const lockedForAck=CLOUD&&isMyTaskAssignee(t)&&!edit&&!taskAcknowledgements(t)[ACCESS_PROFILE?.id];
-  if(lockedForAck){showModal(`<div class="modal-h"><div><h3>มีงานใหม่มอบหมายให้คุณ</h3><div class="muted" style="font-size:11.5px">รายละเอียดงานจะเปิดหลังจากรับทราบ</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad task-ack-gate"><div class="task-assignment-meta"><span class="mini" style="background:${u(t.creator).c}">${esc(Array.from(creator.name)[0]||'?')}</span><div><small>มอบหมายโดย</small><b>${esc(creator.name)}</b>${creatorMeta?`<span>${esc(creatorMeta)}</span>`:''}</div></div><div class="task-detail-lock"><b>🔒 กดรับทราบเพื่อเปิดงาน</b><p>ชื่อเรื่อง รายละเอียด กำหนดส่ง ผู้ร่วมงาน ไฟล์ และ KPI ถูกซ่อนไว้จนกว่าคุณจะยืนยันว่าได้รับงาน</p></div><button class="tbtn primary task-ack-gate-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">✓ รับทราบและเปิดงาน</button></div>`);return;}
+  const lockedForAck=CLOUD&&isMyTaskAssignee(t)&&!taskAcknowledgements(t)[ACCESS_PROFILE?.id];
+  if(lockedForAck){showModal(`<div class="modal-h"><div><h3>มีงานใหม่มอบหมายให้คุณ</h3><div class="muted" style="font-size:11.5px">รายละเอียดงานจะเปิดหลังจากรับทราบ</div></div><button class="x" aria-label="ออกจากงาน" onclick="closeModal()">×</button></div><div class="pad task-ack-gate"><div class="task-assignment-meta"><span class="mini" style="background:${u(t.creator).c}">${esc(Array.from(creator.name)[0]||'?')}</span><div><small>มอบหมายโดย</small><b>${esc(creator.name)}</b>${creatorMeta?`<span>${esc(creatorMeta)}</span>`:''}</div></div><div class="task-detail-lock"><b>🔒 กดรับทราบเพื่อเปิดงาน</b><p>รายละเอียดทั้งหมดถูกซ่อนไว้ คุณต้องกดรับทราบก่อนจึงจะเปิดอ่านงานได้</p></div><button class="tbtn primary task-ack-gate-button" id="taskAckButton" onclick="acknowledgeTask('${t.id}')">✓ รับทราบและเปิดงาน</button></div>`,t.id);return;}
   const _sla=slaOf(t);
   const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)} ${taskAutoCloses(t)?'<span class="pill task-auto-close-pill">✓ ปิดอัตโนมัติเมื่อผู้รับทุกคนเสร็จ</span>':''}</div>
@@ -150,7 +170,7 @@ function openTask(id){
     <div class="field" style="margin-top:14px"><label>ความเคลื่อนไหว / ความคิดเห็น</label>
       <div style="display:flex;gap:6px;margin-bottom:8px"><input class="fin" id="cmtIn" placeholder="เขียนความคิดเห็น..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${t.id}')"><button class="tbtn" onclick="addComment('${t.id}')">ส่ง</button></div>
       ${(t.log||[]).map(l=>`<div class="logline"><span class="mini" style="background:${u(l.who).c}">${u(l.who).s}</span><div><b style="font-weight:500;font-size:12px">${shortName(l.who)}</b> <span class="muted" style="font-size:11px">· ${l.time}</span><div style="font-size:12px">${l.txt}</div></div></div>`).join('')||'<div class="muted" style="font-size:12px">ยังไม่มีความเคลื่อนไหว</div>'}</div>
-  </div>`);
+  </div>`,t.id);
 }
 function openDoc(id){const d=DOCS.find(x=>x.id===id);if(!d)return;
   showModal(`<div class="modal-h"><div><span class="pill" style="background:var(--blue-800)">ระเบียบ · ${d.rev}</span><h3 style="margin-top:6px">${d.title}</h3><div class="muted" style="font-size:11.5px">${d.en} · หน่วยงานเจ้าของ: ${d.owner}</div></div><button class="x" onclick="closeModal()">×</button></div>
