@@ -80,7 +80,7 @@ function taskElapsedLabel(start,end){
 function updateTaskElapsedTimers(){document.querySelectorAll('.task-work-elapsed[data-start]').forEach(el=>{el.textContent=taskElapsedLabel(el.dataset.start,el.dataset.end);});}
 if(!window._taskElapsedTicker)window._taskElapsedTicker=setInterval(updateTaskElapsedTimers,1000);
 function taskAssignmentGate(t){
-  const people=assigneesOf(t),acks=taskAcknowledgements(t),spaces=taskWorkspaces(t),acked=people.filter(id=>acks[id]),started=people.filter(id=>spaces[id]?.started_at||['doing','review','block','done'].includes(spaces[id]?.status));
+  const people=assigneesOf(t),acks=taskAcknowledgements(t),spaces=taskWorkspaces(t),acked=people.filter(id=>acks[id]),started=people.filter(id=>spaces[id]&&spaces[id].status!=='todo');
   return {total:people.length,acked:acked.length,started:started.length,ready:!people.length||(acked.length===people.length&&started.length===people.length)};
 }
 function taskCompletionGate(t){const people=assigneesOf(t),spaces=taskWorkspaces(t),completed=people.filter(id=>spaces[id]?.status==='done');return {total:people.length,completed:completed.length,ready:!people.length||completed.length===people.length};}
@@ -97,10 +97,11 @@ function taskAssigneeWorkspaceUi(t){
     const space=spaces[uid],mine=uid===ACCESS_PROFILE?.id,visible=mine||canOverview;
     if(!visible)return '';
     if(!acks[uid]||!space)return `<div class="task-work-card is-pending"><div class="task-work-title"><b>${esc(shortName(uid))}</b><span>รอรับทราบ</span></div><small>งานย่อยส่วนตัวจะเปิดหลังผู้รับกดรับทราบงาน</small></div>`;
-    const personFiles=files.filter(f=>f.user_id===uid),status=space.status||'todo',progress=Number(space.progress_percent||0),started=Boolean(space.started_at||status!=='todo'),completed=status==='done',editing=TASK_WORK_EDITING.has(t.id);
+    const personFiles=files.filter(f=>f.user_id===uid),status=space.status||'todo',progress=Number(space.progress_percent||0),started=status!=='todo',completed=status==='done',editing=TASK_WORK_EDITING.has(t.id);
     const statusChoices=Object.entries(TASK_WORK_STATUS).filter(([k])=>!['todo','done'].includes(k));
     const progressChoices=[...new Set([0,25,50,75,100,progress])].filter(n=>n>=0&&n<=100).sort((a,b)=>a-b);
-    const flow=`<div class="task-work-flow"><span class="is-done">1 รับทราบแล้ว</span><span class="${started?'is-done':'is-current'}">2 เริ่มงาน</span><span class="${started?'is-current':''}">3 อัปเดต / ส่งตรวจ</span></div>${started?`<div class="task-work-timer"><span>⏱ เวลาที่ใช้${space.completed_at?' (หยุดแล้ว)':''}</span><b class="task-work-elapsed" data-start="${esc(space.started_at)}" data-end="${esc(space.completed_at||'')}">${taskElapsedLabel(space.started_at,space.completed_at)}</b><small>เริ่ม ${new Date(space.started_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div>`:''}`;
+    const timerStart=space.started_at||space.acknowledged_at;
+    const flow=`<div class="task-work-flow"><span class="is-done">1 รับทราบ / เริ่มจับเวลา</span><span class="${started?'is-done':'is-current'}">2 เริ่มดำเนินการ</span><span class="${started?'is-current':''}">3 อัปเดต / เสร็จสิ้น</span></div><div class="task-work-timer"><span>⏱ เวลาตั้งแต่รับทราบ${space.completed_at?' (หยุดแล้ว)':''}</span><b class="task-work-elapsed" data-start="${esc(timerStart)}" data-end="${esc(space.completed_at||'')}">${taskElapsedLabel(timerStart,space.completed_at)}</b><small>รับทราบและเริ่มนับ ${new Date(timerStart).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div>`;
     const completionHint=taskAutoCloses(t)?(t.status==='done'?'ระบบปิดงานอัตโนมัติแล้ว':'แจ้งผู้มอบหมายแล้ว · รอผู้ร่วมงานให้ครบ'):'แจ้งผู้มอบหมายแล้ว · รอตรวจและปิดงาน';
     const completedSummary=`<div class="task-work-complete-summary"><div class="task-work-complete-head"><div><b>✓ เสร็จสิ้นแล้ว</b><small>${completionHint}</small></div>${mine?`<button class="tbtn sm" onclick="editCompletedTaskWorkspace('${t.id}')">แก้ไขสรุป</button>`:''}</div><div class="task-work-complete-note">${esc(space.update_note||'ไม่ได้ระบุสรุปงาน')}</div></div>`;
     const editor=mine?(completed&&!editing?completedSummary:(started?`<div class="task-work-editor"><label>สถานะของฉัน<select class="fin" id="taskWorkStatus_${t.id}">${statusChoices.map(([k,v])=>`<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}</select></label><label>ความคืบหน้า<select class="fin task-progress-select" id="taskWorkProgress_${t.id}">${progressChoices.map(n=>`<option value="${n}" ${progress===n?'selected':''}>${n}%</option>`).join('')}</select></label><label class="task-work-note">อัปเดตงาน<textarea class="fin" id="taskWorkNote_${t.id}" maxlength="5000" rows="3" placeholder="สรุปสิ่งที่ทำ ปัญหา หรือสิ่งที่รอตรวจ">${esc(space.update_note||'')}</textarea></label><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" id="taskWorkSave_${t.id}" onclick="saveTaskAssigneeWorkspace('${t.id}')">บันทึกอัปเดต</button><button class="tbtn primary" id="taskWorkComplete_${t.id}" onclick="completeTaskAssigneeWorkspace('${t.id}')">✓ เสร็จสิ้นและแจ้งผู้มอบหมาย</button></div><small class="muted">${taskAutoCloses(t)?'เมื่อผู้รับทุกคนกดเสร็จสิ้น ระบบจะปิดงานให้อัตโนมัติ':'ผู้มอบหมายจะได้รับแจ้งและเป็นผู้ตรวจปิดงาน'}</small></div>`:`<div class="task-work-start"><b>พร้อมเริ่มงานแล้ว</b><p>กดเริ่มดำเนินการก่อน ระบบจึงจะแสดงช่องอัปเดตและปุ่มเสร็จสิ้น</p><button class="tbtn primary task-work-start-btn" id="taskWorkStart_${t.id}" onclick="startTaskAssigneeWorkspace('${t.id}')">▶ เริ่มดำเนินการ</button></div>`)):(completed?completedSummary:`<div class="task-work-note-read">${esc(space.update_note||'ยังไม่มีข้อความอัปเดต')}</div>`);
@@ -110,7 +111,7 @@ function taskAssigneeWorkspaceUi(t){
     return `<div class="task-work-card"><div class="task-work-title"><div><b>${esc(shortName(uid))}</b><small>รับทราบ ${new Date(space.acknowledged_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div><span class="task-work-status is-${status}">${TASK_WORK_STATUS[status]||status}</span></div>${flow}<div class="task-work-progress"><i style="width:${progress}%"></i></div><small class="task-work-percent">${progress}%</small>${editor}<div class="task-work-files"><b>ไฟล์ของ ${esc(shortName(uid))}</b>${fileRows}${uploader}</div></div>`;
   }).join('');
   setTimeout(updateTaskElapsedTimers,0);
-  return `<div class="field task-workspaces"><div class="task-workspace-head"><div><label>งานของผู้รับผิดชอบ</label><small>แต่ละคนต้องรับทราบและกดเริ่มงาน ก่อนอัปเดต ส่งตรวจ หรือปิดงาน</small></div></div><div class="task-work-grid">${cards||'<div class="muted">คุณไม่มีสิทธิ์ดูงานย่อยของผู้รับคนอื่น</div>'}</div></div>`;
+  return `<div class="field task-workspaces"><div class="task-workspace-head"><div><label>งานของผู้รับผิดชอบ</label><small>เริ่มนับเวลาตั้งแต่กดรับทราบ แต่ยังต้องกดเริ่มดำเนินการก่อนอัปเดตหรือกดเสร็จสิ้น</small></div></div><div class="task-work-grid">${cards||'<div class="muted">คุณไม่มีสิทธิ์ดูงานย่อยของผู้รับคนอื่น</div>'}</div></div>`;
 }
 async function acknowledgeTask(id){
   const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)){toast('รับทราบได้เฉพาะผู้ที่ได้รับมอบหมาย','info');return;}
@@ -120,6 +121,7 @@ async function acknowledgeTask(id){
     let acknowledgedAt=new Date().toISOString();
     if(CLOUD&&t.dbId){const result=await SB.rpc('acknowledge_my_task',{p_task:t.dbId});if(result.error)throw result.error;acknowledgedAt=result.data||acknowledgedAt;}
     t.acknowledgements={...taskAcknowledgements(t),[ACCESS_PROFILE.id]:acknowledgedAt};
+    if(!CLOUD){const old=taskWorkspaces(t)[ACCESS_PROFILE.id]||{};t.assigneeWorkspaces={...taskWorkspaces(t),[ACCESS_PROFILE.id]:{...old,status:old.status||'todo',progress_percent:Number(old.progress_percent||0),update_note:old.update_note||'',acknowledged_at:acknowledgedAt,started_at:old.started_at||acknowledgedAt}};}
     (t.log=t.log||[]).unshift({who:ACCESS_PROFILE.id,txt:'รับทราบงาน',time:new Date(acknowledgedAt).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});
     if(CLOUD)await cloudLoadTasks();toast('รับทราบงานแล้ว และเปิดงานย่อยส่วนตัวให้แล้ว');refresh();openTask(id);
   }catch(e){toast('บันทึกรับทราบไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='✓ รับทราบงาน';}}
@@ -146,7 +148,7 @@ async function saveTaskAssigneeWorkspace(id){
 }
 async function completeTaskAssigneeWorkspace(id){
   const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)||!taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('ต้องรับทราบและเริ่มงานก่อนกดเสร็จสิ้น','info');return;}
-  const space=taskWorkspaces(t)[ACCESS_PROFILE.id];if(!space?.started_at){toast('กรุณากดเริ่มดำเนินการก่อนกดเสร็จสิ้น','info');return;}
+  const space=taskWorkspaces(t)[ACCESS_PROFILE.id];if(!space||space.status==='todo'){toast('กรุณากดเริ่มดำเนินการก่อนกดเสร็จสิ้น','info');return;}
   const note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkComplete_'+id);if(button){button.disabled=true;button.textContent='กำลังแจ้ง…';}
   try{
     if(CLOUD&&t.dbId){const result=await SB.rpc('update_my_task_workspace',{p_task:t.dbId,p_status:'done',p_progress:100,p_note:note});if(result.error)throw result.error;await cloudLoadTasks();}
