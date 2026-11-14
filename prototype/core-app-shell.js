@@ -56,7 +56,7 @@ function toast(msg,type='ok'){
 }
 function refresh(){RENDER[VIEW](BOARD_DEPT);if(typeof saveState==='function')saveState();}
 function nextTaskId(){const nums=TASKS.map(t=>Number(String(t.id).split('-').pop())).filter(Number.isFinite);return 'T-'+((nums.length?Math.max(...nums):0)+1);}
-function logFeed(ic,c,txt){FEED.unshift({u:ROLE_META[ROLE].u,ic,c,t:txt,time:'เมื่อสักครู่',live:CLOUD,account:ACCESS_PROFILE?.id});}
+function logFeed(ic,c,txt){FEED.unshift({u:me(),ic,c,t:txt,time:'เมื่อสักครู่',live:CLOUD,account:ACCESS_PROFILE?.id});}
 
 function canCreateTask(dept){return !!SB&&!!ACCESS_PROFILE&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(dept)));}
 function canManageTaskUi(t){return !!t&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(t.dept)));}
@@ -208,9 +208,11 @@ async function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.st
   if(CLOUD&&!canProgressTaskUi(t)){toast('คุณไม่มีสิทธิ์อัปเดตงานนี้','info');return;}
   if(CLOUD&&!canManageTaskUi(t)&&st==='done'){toast('ผู้รับงานส่งตรวจได้ แต่การปิดงานต้องให้หัวหน้าอนุมัติ','info');return;}
   if(st==='done'&&!taskAssignmentGate(t).ready){const g=taskAssignmentGate(t);toast(`ปิดไม่ได้ · รับทราบ ${g.acked}/${g.total} · เริ่มดำเนินการ ${g.started}/${g.total}`,'info');return;}
+  const auditText='เปลี่ยนสถานะเป็น '+STATUS[st].t;
   try{if(CLOUD&&!canManageTaskUi(t)){const r=await SB.rpc('update_my_task_progress',{p_task:t.dbId,p_status:st});if(r.error)throw r.error;}else{const changes={status:st,closed_at:st==='done'?new Date().toISOString():null};if(st!=='done'&&t._payload?.auto_closed)changes.prototype_payload={...t._payload,auto_closed:false};await cloudUpdateTask(t,changes);}}catch(e){toast('อัปเดตสถานะไม่สำเร็จ · '+(e.message||e),'info');return;}
-  t.status=st;(t.log=t.log||[]).unshift({who:ROLE_META[ROLE].u,txt:'เปลี่ยนสถานะเป็น '+STATUS[st].t,time:'เมื่อสักครู่'});
-  logFeed('🔄','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> เปลี่ยน <b>${id}</b> เป็น ${STATUS[st].t}`);
+  if(CLOUD&&t.dbId){const audit=await SB.from('task_comments').insert({task_id:t.dbId,author_id:ACCESS_PROFILE.id,body:auditText});if(audit.error)console.warn('task status audit:',audit.error.message||audit.error);}
+  t.status=st;(t.log=t.log||[]).unshift({who:me(),txt:auditText,time:'เมื่อสักครู่'});
+  logFeed('🔄','#eef2ff',`<b>${shortName(me())}</b> เปลี่ยน <b>${id}</b> เป็น ${STATUS[st].t}`);
   toast('อัปเดต '+id+' → '+STATUS[st].t);refresh();openTask(id);}
 function setAssignee(id,v){const t=TASKS.find(x=>x.id===id);t.assignee=v;
   toast('เปลี่ยนผู้รับผิดชอบเป็น '+shortName(v));refresh();openTask(id);}
@@ -229,7 +231,7 @@ async function addSub(id){
   if(!name){toast('กรุณาระบุชื่องานย่อยก่อน','info');return;}
   const t=TASKS.find(x=>x.id===id);if(CLOUD&&!canManageTaskUi(t)){toast('เฉพาะหัวหน้าหรือผู้ดูแลเท่านั้นที่มอบงานย่อยได้','info');return;}t.sub.push({t:name,who,st:'todo'});
   try{await saveTaskPayload(t);}catch(e){t.sub.pop();toast('บันทึกงานย่อยไม่สำเร็จ · '+(e.message||e),'info');return;}
-  logFeed('🔀','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> มอบงานย่อยใน <b>${id}</b> ให้ ${shortName(who)}`);
+  logFeed('🔀','#eef2ff',`<b>${shortName(me())}</b> มอบงานย่อยใน <b>${id}</b> ให้ ${shortName(who)}`);
   toast('มอบงานต่อให้ '+shortName(who)+' แล้ว');refresh();openTask(id);}
 async function toggleSub(id,i){const t=TASKS.find(x=>x.id===id),o=['todo','doing','review','done'];if(CLOUD&&!canManageTaskUi(t)){toast('เฉพาะหัวหน้าหรือผู้ดูแลเท่านั้นที่เปลี่ยนงานย่อยได้','info');return;}
   const before=t.sub[i].st;t.sub[i].st=o[(o.indexOf(t.sub[i].st)+1)%o.length];try{await saveTaskPayload(t);}catch(e){t.sub[i].st=before;toast('อัปเดตงานย่อยไม่สำเร็จ · '+(e.message||e),'info');return;}saveState();openTask(id);}
@@ -247,7 +249,7 @@ async function closeTaskWithSolution(id){
 async function addComment(id){const v=val('cmtIn').trim();if(!v)return;
   const t=TASKS.find(x=>x.id===id);if(CLOUD&&t.dbId){try{const r=await SB.from('task_comments').insert({task_id:t.dbId,author_id:ACCESS_PROFILE.id,body:v});if(r.error)throw r.error;}catch(e){toast('เพิ่มความคิดเห็นไม่สำเร็จ · '+(e.message||e),'info');return;}}
   (t.log=t.log||[]).unshift({who:ACCESS_PROFILE?.id||ROLE_META[ROLE].u,txt:v,time:'เมื่อสักครู่'});
-  logFeed('💬','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> คอมเมนต์ใน <b>${id}</b>`);
+  logFeed('💬','#eef2ff',`<b>${shortName(me())}</b> คอมเมนต์ใน <b>${id}</b>`);
   saveState();toast('เพิ่มความคิดเห็นแล้ว');openTask(id);}
 function assigneeOptions(sel){return ASSIGNABLE.map(a=>`<option value="${a}" ${sel===a?'selected':''}>${shortName(a)}</option>`).join('');}
 function deptOptions(sel){const allowed=CLOUD&&!canAdminAccess()?DEPTS.filter(d=>MANAGE_DEPTS.includes(d.code)):DEPTS;return allowed.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
@@ -450,7 +452,7 @@ function openAssigneePicker(taskId){
 async function saveAssignees(id){const t=TASKS.find(x=>x.id===id);if(!PICK.size){toast('เลือกอย่างน้อย 1 คน','info');return;}
   const selected=[...PICK];if(CLOUD&&t.dbId){try{const current=new Set(assigneesOf(t)),toAdd=selected.filter(x=>!current.has(x)),toRemove=[...current].filter(x=>!selected.includes(x));if(toAdd.length){const added=await SB.from('task_assignees').insert(toAdd.map(user_id=>({task_id:t.dbId,user_id,assigned_by:ACCESS_PROFILE.id})));if(added.error)throw added.error;}if(toRemove.length){const removed=await SB.from('task_assignees').delete().eq('task_id',t.dbId).in('user_id',toRemove);if(removed.error)throw removed.error;}}catch(e){toast('บันทึกผู้รับผิดชอบไม่สำเร็จ · '+(e.message||e),'info');return;}}
   t.assignees=selected;t.assignee=t.assignees[0];
-  logFeed('👥','#eef2ff',`<b>${shortName(ROLE_META[ROLE].u)}</b> ตั้งผู้รับผิดชอบ <b>${id}</b>: ${t.assignees.map(shortName).join(', ')}`);
+  logFeed('👥','#eef2ff',`<b>${shortName(me())}</b> ตั้งผู้รับผิดชอบ <b>${id}</b>: ${t.assignees.map(shortName).join(', ')}`);
   toast('บันทึกผู้รับผิดชอบ '+t.assignees.length+' คน');refresh();openTask(id);}
 
 /* ===== AI วิเคราะห์คำสั่ง (เก่งขึ้น) ===== */
