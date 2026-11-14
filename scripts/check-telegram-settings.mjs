@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const notificationSql=fs.readFileSync(new URL('../supabase/migrations/202610270052_ceo_telegram_notifications.sql',import.meta.url),'utf8');
 const settingsSql=fs.readFileSync(new URL('../supabase/migrations/202610270053_telegram_team_settings.sql',import.meta.url),'utf8');
 const leadSql=fs.readFileSync(new URL('../supabase/migrations/202610270054_lead_telegram_notifications.sql',import.meta.url),'utf8');
+const assigneeCompletionSql=fs.readFileSync(new URL('../supabase/migrations/202611140066_assignee_completion_telegram.sql',import.meta.url),'utf8');
 
 assert.match(notificationSql,/queue_ceo_assignment_telegram/,'CEO assignment trigger is installed');
 assert.match(notificationSql,/queue_ceo_completion_telegram/,'CEO completion trigger is installed');
@@ -24,4 +25,10 @@ assert.match(leadSql,/lower\(coalesce\(assigner_login,''\)\)='ceo2026'/,'CEO not
 assert.match(leadSql,/sender_label\|\|E' มอบหมายงาน/,'lead assignment message identifies the manager');
 assert.match(leadSql,/manager-completed:/,'completion messages remain deduplicated');
 
-console.log('PASS Telegram settings: protected Vault storage, CEO events, group test, and Thailand schedules');
+assert.match(assigneeCompletionSql,/queue_manager_assignee_completion_telegram/,'each assignee completion has its own Telegram trigger');
+assert.match(assigneeCompletionSql,/manager-assignee-completed:/,'assignee completion notices are deduplicated per completion');
+assert.match(assigneeCompletionSql,/t\.status<>'done'/,'open and review tasks are backfilled without waiting for parent close');
+assert.match(assigneeCompletionSql,/ผู้รับผิดชอบกดเสร็จสิ้นแล้ว/,'the notice clearly identifies individual completion');
+assert.match(assigneeCompletionSql,/รอผู้มอบหมายตรวจ\/ปิดงาน/,'manual close mode remains visible in the notice');
+
+console.log('PASS Telegram settings: protected Vault storage, manager events, per-assignee completion, group test, and Thailand schedules');
