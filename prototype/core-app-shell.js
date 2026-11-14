@@ -67,6 +67,13 @@ function taskAcknowledgements(t){return t?.acknowledgements&&typeof t.acknowledg
 function taskWorkspaces(t){return t?.assigneeWorkspaces&&typeof t.assigneeWorkspaces==='object'?t.assigneeWorkspaces:{};}
 function taskWorkspaceFiles(t){return Array.isArray(t?.assigneeFiles)?t.assigneeFiles:[];}
 const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา',done:'ตรวจแล้ว · เสร็จแล้ว'};
+function taskElapsedLabel(start,end){
+  const from=Date.parse(start||''),to=end?Date.parse(end):Date.now();if(!Number.isFinite(from)||!Number.isFinite(to))return 'ยังไม่เริ่มจับเวลา';
+  let seconds=Math.max(0,Math.floor((to-from)/1000));const days=Math.floor(seconds/86400);seconds%=86400;const hours=Math.floor(seconds/3600);seconds%=3600;const minutes=Math.floor(seconds/60),secs=seconds%60;
+  return `${days?days+' วัน ':''}${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+}
+function updateTaskElapsedTimers(){document.querySelectorAll('.task-work-elapsed[data-start]').forEach(el=>{el.textContent=taskElapsedLabel(el.dataset.start,el.dataset.end);});}
+if(!window._taskElapsedTicker)window._taskElapsedTicker=setInterval(updateTaskElapsedTimers,1000);
 function taskAssignmentGate(t){
   const people=assigneesOf(t),acks=taskAcknowledgements(t),spaces=taskWorkspaces(t),acked=people.filter(id=>acks[id]),started=people.filter(id=>spaces[id]?.started_at||['doing','review','block','done'].includes(spaces[id]?.status));
   return {total:people.length,acked:acked.length,started:started.length,ready:!people.length||(acked.length===people.length&&started.length===people.length)};
@@ -87,12 +94,13 @@ function taskAssigneeWorkspaceUi(t){
     const personFiles=files.filter(f=>f.user_id===uid),status=space.status||'todo',progress=Number(space.progress_percent||0),started=Boolean(space.started_at||status!=='todo');
     const statusChoices=Object.entries(TASK_WORK_STATUS).filter(([k])=>k!=='todo');
     const progressChoices=[...new Set([0,25,50,75,100,progress])].filter(n=>n>=0&&n<=100).sort((a,b)=>a-b);
-    const flow=`<div class="task-work-flow"><span class="is-done">1 รับทราบแล้ว</span><span class="${started?'is-done':'is-current'}">2 เริ่มงาน</span><span class="${started?'is-current':''}">3 อัปเดต / ส่งตรวจ</span></div>`;
+    const flow=`<div class="task-work-flow"><span class="is-done">1 รับทราบแล้ว</span><span class="${started?'is-done':'is-current'}">2 เริ่มงาน</span><span class="${started?'is-current':''}">3 อัปเดต / ส่งตรวจ</span></div>${started?`<div class="task-work-timer"><span>⏱ เวลาที่ใช้${space.completed_at?' (หยุดแล้ว)':''}</span><b class="task-work-elapsed" data-start="${esc(space.started_at)}" data-end="${esc(space.completed_at||'')}">${taskElapsedLabel(space.started_at,space.completed_at)}</b><small>เริ่ม ${new Date(space.started_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div>`:''}`;
     const editor=mine?(started?`<div class="task-work-editor"><label>สถานะของฉัน<select class="fin" id="taskWorkStatus_${t.id}">${statusChoices.map(([k,v])=>`<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}</select></label><label>ความคืบหน้า<select class="fin task-progress-select" id="taskWorkProgress_${t.id}">${progressChoices.map(n=>`<option value="${n}" ${progress===n?'selected':''}>${n}%</option>`).join('')}</select></label><label class="task-work-note">อัปเดตงาน<textarea class="fin" id="taskWorkNote_${t.id}" maxlength="5000" rows="3" placeholder="สรุปสิ่งที่ทำ ปัญหา หรือสิ่งที่รอตรวจ">${esc(space.update_note||'')}</textarea></label><button class="tbtn primary" id="taskWorkSave_${t.id}" onclick="saveTaskAssigneeWorkspace('${t.id}')">บันทึกอัปเดต</button></div>`:`<div class="task-work-start"><b>พร้อมเริ่มงานแล้ว</b><p>กดเริ่มดำเนินการก่อน ระบบจึงจะแสดงช่องอัปเดต ความคืบหน้า และส่งตรวจ</p><button class="tbtn primary task-work-start-btn" id="taskWorkStart_${t.id}" onclick="startTaskAssigneeWorkspace('${t.id}')">▶ เริ่มดำเนินการ</button></div>`):`<div class="task-work-note-read">${esc(space.update_note||'ยังไม่มีข้อความอัปเดต')}</div>`;
     const fileRows=personFiles.map(f=>`<div class="task-work-file"><button class="gp-file-link" onclick="openTaskAssigneeFile('${f.id}')">📎 ${esc(f.file_name)}</button><small>${Math.max(1,Math.round(Number(f.size_bytes||0)/1024))} KB</small>${mine?`<button class="tbtn sm danger" onclick="deleteTaskAssigneeFile('${t.id}','${f.id}')">ลบ</button>`:''}</div>`).join('')||'<small class="muted">ยังไม่มีไฟล์แนบ</small>';
     const uploader=mine?`<div class="task-work-upload"><input type="file" id="taskWorkFile_${t.id}" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/csv,application/zip,.docx,.xlsx,.pptx"><button class="tbtn" id="taskWorkUpload_${t.id}" onclick="uploadTaskAssigneeFile('${t.id}')">แนบไฟล์</button></div>`:'';
     return `<div class="task-work-card"><div class="task-work-title"><div><b>${esc(shortName(uid))}</b><small>รับทราบ ${new Date(space.acknowledged_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div><span class="task-work-status is-${status}">${TASK_WORK_STATUS[status]||status}</span></div>${flow}<div class="task-work-progress"><i style="width:${progress}%"></i></div><small class="task-work-percent">${progress}%</small>${editor}<div class="task-work-files"><b>ไฟล์ของ ${esc(shortName(uid))}</b>${fileRows}${uploader}</div></div>`;
   }).join('');
+  setTimeout(updateTaskElapsedTimers,0);
   return `<div class="field task-workspaces"><div class="task-workspace-head"><div><label>งานของผู้รับผิดชอบ</label><small>แต่ละคนต้องรับทราบและกดเริ่มงาน ก่อนอัปเดต ส่งตรวจ หรือปิดงาน</small></div></div><div class="task-work-grid">${cards||'<div class="muted">คุณไม่มีสิทธิ์ดูงานย่อยของผู้รับคนอื่น</div>'}</div></div>`;
 }
 async function acknowledgeTask(id){
@@ -123,7 +131,7 @@ async function saveTaskAssigneeWorkspace(id){
   if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
   try{
     if(CLOUD&&t.dbId){const result=await SB.rpc('update_my_task_workspace',{p_task:t.dbId,p_status:status,p_progress:progress,p_note:note});if(result.error)throw result.error;await cloudLoadTasks();}
-    else {const old=taskWorkspaces(t)[ACCESS_PROFILE.id]||{};t.assigneeWorkspaces={...taskWorkspaces(t),[ACCESS_PROFILE.id]:{...old,status,progress_percent:progress,update_note:note,acknowledged_at:taskAcknowledgements(t)[ACCESS_PROFILE.id],started_at:status==='doing'?(old.started_at||new Date().toISOString()):old.started_at}};}
+    else {const old=taskWorkspaces(t)[ACCESS_PROFILE.id]||{};t.assigneeWorkspaces={...taskWorkspaces(t),[ACCESS_PROFILE.id]:{...old,status,progress_percent:progress,update_note:note,acknowledged_at:taskAcknowledgements(t)[ACCESS_PROFILE.id],started_at:status==='doing'?(old.started_at||new Date().toISOString()):old.started_at,completed_at:status==='done'?(old.completed_at||new Date().toISOString()):null}};}
     toast('อัปเดตงานย่อยแล้ว');refresh();openTask(id);
   }catch(e){toast('อัปเดตงานย่อยไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='บันทึกอัปเดต';}}
 }
