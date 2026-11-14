@@ -12,7 +12,7 @@ const cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta
 assert.match(shell,/done:'ตรวจแล้ว · เสร็จแล้ว'/);
 assert.match(shell,/if\(status==='done'\)progress=100/);
 assert.match(cloud,/auto_close_enabled/);
-assert.match(cloud,/ระบบจะปิดงานอัตโนมัติเมื่อครบกำหนด/);
+assert.match(cloud,/ปิดอัตโนมัติเมื่อครบกำหนดและทุกคนรับทราบ\/เริ่มงานแล้ว/);
 
 const db=new PGlite();
 await db.exec(`
