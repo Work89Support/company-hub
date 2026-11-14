@@ -21,6 +21,8 @@ assert.match(views,/return t\?\._source==='task'\?'สร้างใน Company
 assert.match(views,/\$\{origin\} โดย \$\{shortName\(t\.creator\)\}/);
 assert.match(cloud,/directoryProfiles\.filter\(p=>p\.active!==false\)/,'inactive profiles stay out of assignment lists');
 assert.match(cloud,/directoryProfiles\.forEach/,'inactive historical names remain resolvable');
+assert.match(data,/function bangkokDateISO/,'timestamps use the organization calendar date');
+assert.match(cloud,/start=bangkokDateISO\(row\.start_at\),due=bangkokDateISO\(row\.due_at\)/,'task dates do not shift one day in UTC');
 assert.match(shell,/source_system:'company_hub'/,'new native tasks record provenance');
 assert.match(migration,/extract\(year from due_at\) between 2400 and 2700/);
 assert.match(migration,/extract\(year from start_at\) between 1 and 99/);

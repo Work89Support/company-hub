@@ -366,6 +366,7 @@ const slaOf=t=>t.sla||{n:Math.max(1,Math.round((DFROM(t.due)-DFROM(t.start))/864
 const slaText=t=>{const s=slaOf(t);return s.n+' '+slaUnitTxt(s.unit);};
 const slaOverdue=t=>{if(t.status==='done')return false;const s=slaOf(t);if(s.unit!=='day')return false;return addFrom(t.start,s.n)<TODAY_ISO;};
 function bangkokTodayISO(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:ORG_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=t=>parts.find(p=>p.type===t)?.value;return `${get('year')}-${get('month')}-${get('day')}`;}
+function bangkokDateISO(value){if(!value)return'';const date=new Date(value);if(Number.isNaN(date.getTime()))return'';const parts=new Intl.DateTimeFormat('en-CA',{timeZone:ORG_TIMEZONE,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date),get=t=>parts.find(p=>p.type===t)?.value;return `${get('year')}-${get('month')}-${get('day')}`;}
 const TODAY_ISO=bangkokTodayISO(),TODAY_MMDD=TODAY_ISO.slice(5);
 function annStatus(a){const from=d2(a.from),until=d2(a.until);if(until&&until<TODAY_ISO)return{t:'หมดอายุ',c:'var(--gray)'};if(from&&from>TODAY_ISO)return{t:'ยังไม่เริ่ม',c:'var(--amber)'};return{t:'กำลังใช้',c:'var(--green)'};}
 function av(id,cls='mini'){const x=u(id);return `<span class="${cls}" style="background:${x.c}">${x.s}</span>`;}
