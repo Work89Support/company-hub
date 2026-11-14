@@ -9,10 +9,10 @@ const autoFull=fs.readFileSync(new URL('../supabase/migrations/202610250048_due_
 const auto=autoFull.split('create extension if not exists pg_cron')[0];
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const cloud=fs.readFileSync(new URL('../prototype/core-app-cloud.js',import.meta.url),'utf8');
-assert.match(shell,/done:'ตรวจแล้ว · เสร็จแล้ว'/);
-assert.match(shell,/if\(status==='done'\)progress=100/);
+assert.match(shell,/done:'เสร็จสิ้นแล้ว'/);
+assert.match(shell,/p_status:'done',p_progress:100/);
 assert.match(cloud,/auto_close_enabled/);
-assert.match(cloud,/ปิดอัตโนมัติเมื่อครบกำหนดและทุกคนรับทราบ\/เริ่มงานแล้ว/);
+assert.match(shell,/auto_close_enabled:false/,'New UI-created tasks must not use legacy due-date auto close');
 
 const db=new PGlite();
 await db.exec(`
