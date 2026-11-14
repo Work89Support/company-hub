@@ -60,13 +60,16 @@ function logFeed(ic,c,txt){FEED.unshift({u:me(),ic,c,t:txt,time:'เมื่อ
 
 function canCreateTask(dept){return !!SB&&!!ACCESS_PROFILE&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(dept)));}
 function canManageTaskUi(t){return !!t&&(canAdminAccess()||(AUTH_DB_ROLE==='lead'&&MANAGE_DEPTS.includes(t.dept)));}
+function canCloseTaskUi(t){return !!t&&(!CLOUD||ACCESS_PROFILE?.id===t.creator);}
+function taskCloseMode(t){return t?._payload?.close_mode==='auto_assignees'?'auto_assignees':'manual_creator';}
+function taskAutoCloses(t){return taskCloseMode(t)==='auto_assignees';}
 function isMyTaskAssignee(t){return !!t&&!!ACCESS_PROFILE&&assigneesOf(t).includes(ACCESS_PROFILE.id);}
 function canProgressTaskUi(t){return canManageTaskUi(t)||isMyTaskAssignee(t);}
 function canEditTaskDetails(t){return !!t&&(!CLOUD||ACCESS_PROFILE?.id===t.creator);}
 function taskAcknowledgements(t){return t?.acknowledgements&&typeof t.acknowledgements==='object'?t.acknowledgements:{};}
 function taskWorkspaces(t){return t?.assigneeWorkspaces&&typeof t.assigneeWorkspaces==='object'?t.assigneeWorkspaces:{};}
 function taskWorkspaceFiles(t){return Array.isArray(t?.assigneeFiles)?t.assigneeFiles:[];}
-const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา',done:'ตรวจแล้ว · เสร็จแล้ว'};
+const TASK_WORK_STATUS={todo:'ยังไม่เริ่ม',doing:'กำลังทำ',review:'ส่งตรวจ',block:'ติดปัญหา',done:'เสร็จสิ้นแล้ว'};
 const TASK_WORK_EDITING=new Set();
 function editCompletedTaskWorkspace(id){TASK_WORK_EDITING.add(id);openTask(id);}
 function taskElapsedLabel(start,end){
@@ -80,6 +83,7 @@ function taskAssignmentGate(t){
   const people=assigneesOf(t),acks=taskAcknowledgements(t),spaces=taskWorkspaces(t),acked=people.filter(id=>acks[id]),started=people.filter(id=>spaces[id]?.started_at||['doing','review','block','done'].includes(spaces[id]?.status));
   return {total:people.length,acked:acked.length,started:started.length,ready:!people.length||(acked.length===people.length&&started.length===people.length)};
 }
+function taskCompletionGate(t){const people=assigneesOf(t),spaces=taskWorkspaces(t),completed=people.filter(id=>spaces[id]?.status==='done');return {total:people.length,completed:completed.length,ready:!people.length||completed.length===people.length};}
 function taskAcknowledgementUi(t){
   const assignees=assigneesOf(t),acks=taskAcknowledgements(t),mine=ACCESS_PROFILE?.id&&acks[ACCESS_PROFILE.id],myWorkspace=ACCESS_PROFILE?.id&&taskWorkspaces(t)[ACCESS_PROFILE.id],acked=assignees.filter(id=>acks[id]);
   const rows=assignees.map(id=>`<span class="task-ack-person ${acks[id]?'is-acked':''}">${acks[id]?'✓':'○'} ${esc(shortName(id))}${acks[id]?` <small>${new Date(acks[id]).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small>`:''}</span>`).join('');
@@ -94,11 +98,12 @@ function taskAssigneeWorkspaceUi(t){
     if(!visible)return '';
     if(!acks[uid]||!space)return `<div class="task-work-card is-pending"><div class="task-work-title"><b>${esc(shortName(uid))}</b><span>รอรับทราบ</span></div><small>งานย่อยส่วนตัวจะเปิดหลังผู้รับกดรับทราบงาน</small></div>`;
     const personFiles=files.filter(f=>f.user_id===uid),status=space.status||'todo',progress=Number(space.progress_percent||0),started=Boolean(space.started_at||status!=='todo'),completed=status==='done',editing=TASK_WORK_EDITING.has(t.id);
-    const statusChoices=Object.entries(TASK_WORK_STATUS).filter(([k])=>k!=='todo');
+    const statusChoices=Object.entries(TASK_WORK_STATUS).filter(([k])=>!['todo','done'].includes(k));
     const progressChoices=[...new Set([0,25,50,75,100,progress])].filter(n=>n>=0&&n<=100).sort((a,b)=>a-b);
     const flow=`<div class="task-work-flow"><span class="is-done">1 รับทราบแล้ว</span><span class="${started?'is-done':'is-current'}">2 เริ่มงาน</span><span class="${started?'is-current':''}">3 อัปเดต / ส่งตรวจ</span></div>${started?`<div class="task-work-timer"><span>⏱ เวลาที่ใช้${space.completed_at?' (หยุดแล้ว)':''}</span><b class="task-work-elapsed" data-start="${esc(space.started_at)}" data-end="${esc(space.completed_at||'')}">${taskElapsedLabel(space.started_at,space.completed_at)}</b><small>เริ่ม ${new Date(space.started_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})}</small></div>`:''}`;
-    const completedSummary=`<div class="task-work-complete-summary"><div class="task-work-complete-head"><div><b>✓ ส่งงานแล้ว</b><small>รอผู้มอบหมายตรวจและปิดงาน</small></div>${mine?`<button class="tbtn sm" onclick="editCompletedTaskWorkspace('${t.id}')">แก้ไขข้อมูล</button>`:''}</div><div class="task-work-complete-note">${esc(space.update_note||'ไม่ได้ระบุสรุปงาน')}</div></div>`;
-    const editor=mine?(completed&&!editing?completedSummary:(started?`<div class="task-work-editor"><label>สถานะของฉัน<select class="fin" id="taskWorkStatus_${t.id}">${statusChoices.map(([k,v])=>`<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}</select></label><label>ความคืบหน้า<select class="fin task-progress-select" id="taskWorkProgress_${t.id}">${progressChoices.map(n=>`<option value="${n}" ${progress===n?'selected':''}>${n}%</option>`).join('')}</select></label><label class="task-work-note">อัปเดตงาน<textarea class="fin" id="taskWorkNote_${t.id}" maxlength="5000" rows="3" placeholder="สรุปสิ่งที่ทำ ปัญหา หรือสิ่งที่รอตรวจ">${esc(space.update_note||'')}</textarea></label><button class="tbtn primary" id="taskWorkSave_${t.id}" onclick="saveTaskAssigneeWorkspace('${t.id}')">บันทึกอัปเดต</button></div>`:`<div class="task-work-start"><b>พร้อมเริ่มงานแล้ว</b><p>กดเริ่มดำเนินการก่อน ระบบจึงจะแสดงช่องอัปเดต ความคืบหน้า และส่งตรวจ</p><button class="tbtn primary task-work-start-btn" id="taskWorkStart_${t.id}" onclick="startTaskAssigneeWorkspace('${t.id}')">▶ เริ่มดำเนินการ</button></div>`)):(completed?completedSummary:`<div class="task-work-note-read">${esc(space.update_note||'ยังไม่มีข้อความอัปเดต')}</div>`);
+    const completionHint=taskAutoCloses(t)?(t.status==='done'?'ระบบปิดงานอัตโนมัติแล้ว':'แจ้งผู้มอบหมายแล้ว · รอผู้ร่วมงานให้ครบ'):'แจ้งผู้มอบหมายแล้ว · รอตรวจและปิดงาน';
+    const completedSummary=`<div class="task-work-complete-summary"><div class="task-work-complete-head"><div><b>✓ เสร็จสิ้นแล้ว</b><small>${completionHint}</small></div>${mine?`<button class="tbtn sm" onclick="editCompletedTaskWorkspace('${t.id}')">แก้ไขสรุป</button>`:''}</div><div class="task-work-complete-note">${esc(space.update_note||'ไม่ได้ระบุสรุปงาน')}</div></div>`;
+    const editor=mine?(completed&&!editing?completedSummary:(started?`<div class="task-work-editor"><label>สถานะของฉัน<select class="fin" id="taskWorkStatus_${t.id}">${statusChoices.map(([k,v])=>`<option value="${k}" ${status===k?'selected':''}>${v}</option>`).join('')}</select></label><label>ความคืบหน้า<select class="fin task-progress-select" id="taskWorkProgress_${t.id}">${progressChoices.map(n=>`<option value="${n}" ${progress===n?'selected':''}>${n}%</option>`).join('')}</select></label><label class="task-work-note">อัปเดตงาน<textarea class="fin" id="taskWorkNote_${t.id}" maxlength="5000" rows="3" placeholder="สรุปสิ่งที่ทำ ปัญหา หรือสิ่งที่รอตรวจ">${esc(space.update_note||'')}</textarea></label><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="tbtn" id="taskWorkSave_${t.id}" onclick="saveTaskAssigneeWorkspace('${t.id}')">บันทึกอัปเดต</button><button class="tbtn primary" id="taskWorkComplete_${t.id}" onclick="completeTaskAssigneeWorkspace('${t.id}')">✓ เสร็จสิ้นและแจ้งผู้มอบหมาย</button></div><small class="muted">${taskAutoCloses(t)?'เมื่อผู้รับทุกคนกดเสร็จสิ้น ระบบจะปิดงานให้อัตโนมัติ':'ผู้มอบหมายจะได้รับแจ้งและเป็นผู้ตรวจปิดงาน'}</small></div>`:`<div class="task-work-start"><b>พร้อมเริ่มงานแล้ว</b><p>กดเริ่มดำเนินการก่อน ระบบจึงจะแสดงช่องอัปเดตและปุ่มเสร็จสิ้น</p><button class="tbtn primary task-work-start-btn" id="taskWorkStart_${t.id}" onclick="startTaskAssigneeWorkspace('${t.id}')">▶ เริ่มดำเนินการ</button></div>`)):(completed?completedSummary:`<div class="task-work-note-read">${esc(space.update_note||'ยังไม่มีข้อความอัปเดต')}</div>`);
     const canEditFiles=mine&&(!completed||editing);
     const fileRows=personFiles.map(f=>`<div class="task-work-file"><button class="gp-file-link" onclick="openTaskAssigneeFile('${f.id}')">📎 ${esc(f.file_name)}</button><small>${Math.max(1,Math.round(Number(f.size_bytes||0)/1024))} KB</small>${canEditFiles?`<button class="tbtn sm danger" onclick="deleteTaskAssigneeFile('${t.id}','${f.id}')">ลบ</button>`:''}</div>`).join('')||'<small class="muted">ยังไม่มีไฟล์แนบ</small>';
     const uploader=canEditFiles?`<div class="task-work-upload"><input type="file" id="taskWorkFile_${t.id}" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,text/plain,text/csv,application/zip,.docx,.xlsx,.pptx"><button class="tbtn" id="taskWorkUpload_${t.id}" onclick="uploadTaskAssigneeFile('${t.id}')">แนบไฟล์</button></div>`:'';
@@ -130,14 +135,24 @@ async function startTaskAssigneeWorkspace(id){
 }
 async function saveTaskAssigneeWorkspace(id){
   const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)||!taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('ต้องรับทราบงานก่อนอัปเดตงานย่อย','info');return;}
-  const status=val('taskWorkStatus_'+id);let progress=Number(val('taskWorkProgress_'+id));const note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkSave_'+id);if(status==='done')progress=100;
+  const status=val('taskWorkStatus_'+id);const progress=Number(val('taskWorkProgress_'+id));const note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkSave_'+id);
   if(!TASK_WORK_STATUS[status]||!Number.isInteger(progress)||progress<0||progress>100){toast('กรุณาระบุสถานะและความคืบหน้า 0–100%','info');return;}
   if(button){button.disabled=true;button.textContent='กำลังบันทึก…';}
   try{
     if(CLOUD&&t.dbId){const result=await SB.rpc('update_my_task_workspace',{p_task:t.dbId,p_status:status,p_progress:progress,p_note:note});if(result.error)throw result.error;await cloudLoadTasks();}
     else {const old=taskWorkspaces(t)[ACCESS_PROFILE.id]||{};t.assigneeWorkspaces={...taskWorkspaces(t),[ACCESS_PROFILE.id]:{...old,status,progress_percent:progress,update_note:note,acknowledged_at:taskAcknowledgements(t)[ACCESS_PROFILE.id],started_at:status==='doing'?(old.started_at||new Date().toISOString()):old.started_at,completed_at:status==='done'?(old.completed_at||new Date().toISOString()):null}};}
-    TASK_WORK_EDITING.delete(id);toast(status==='done'?'ส่งงานแล้ว · รอผู้มอบหมายตรวจและปิดงาน':'อัปเดตงานย่อยแล้ว');refresh();openTask(id);
+    TASK_WORK_EDITING.delete(id);toast('อัปเดตงานย่อยแล้ว');refresh();openTask(id);
   }catch(e){toast('อัปเดตงานย่อยไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='บันทึกอัปเดต';}}
+}
+async function completeTaskAssigneeWorkspace(id){
+  const t=TASKS.find(x=>x.id===id);if(!t||!isMyTaskAssignee(t)||!taskAcknowledgements(t)[ACCESS_PROFILE.id]){toast('ต้องรับทราบและเริ่มงานก่อนกดเสร็จสิ้น','info');return;}
+  const space=taskWorkspaces(t)[ACCESS_PROFILE.id];if(!space?.started_at){toast('กรุณากดเริ่มดำเนินการก่อนกดเสร็จสิ้น','info');return;}
+  const note=val('taskWorkNote_'+id).trim(),button=document.getElementById('taskWorkComplete_'+id);if(button){button.disabled=true;button.textContent='กำลังแจ้ง…';}
+  try{
+    if(CLOUD&&t.dbId){const result=await SB.rpc('update_my_task_workspace',{p_task:t.dbId,p_status:'done',p_progress:100,p_note:note});if(result.error)throw result.error;await cloudLoadTasks();}
+    else {const old=taskWorkspaces(t)[ACCESS_PROFILE.id]||{};t.assigneeWorkspaces={...taskWorkspaces(t),[ACCESS_PROFILE.id]:{...old,status:'done',progress_percent:100,update_note:note,completed_at:old.completed_at||new Date().toISOString()}};if(taskAutoCloses(t)&&assigneesOf(t).every(uid=>taskWorkspaces(t)[uid]?.status==='done'))t.status='done';}
+    TASK_WORK_EDITING.delete(id);toast(taskAutoCloses(t)?'แจ้งผู้มอบหมายแล้ว · ระบบจะปิดเมื่อทุกคนเสร็จ':'แจ้งผู้มอบหมายเพื่อตรวจปิดงานแล้ว');refresh();openTask(id);
+  }catch(e){toast('แจ้งเสร็จสิ้นไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='✓ เสร็จสิ้นและแจ้งผู้มอบหมาย';}}
 }
 function taskFileRowById(fileId){for(const t of TASKS){const row=taskWorkspaceFiles(t).find(f=>f.id===fileId);if(row)return row;}return null;}
 async function openTaskAssigneeFile(fileId){
@@ -188,8 +203,8 @@ async function createTask(d){
   const assignees=(d.assignees&&d.assignees.length)?d.assignees:(d.assignee?[d.assignee]:['a']);
   if(CLOUD){
     if(!canCreateTask(d.dept))throw new Error('บัญชีนี้ไม่มีสิทธิ์สร้างงานในแผนก '+deptName(d.dept));
-    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],created_by:{profile_id:ACCESS_PROFILE.id,display_name:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'ผู้มอบหมาย',department_code:ACCESS_PROFILE.department_code||'',position_title:ACCESS_PROFILE.position_title||''},...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
-    const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:(d.due||addFrom(TODAY_ISO,5))+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),prototype_payload:payload}).select('id,task_no').single();
+    const payload={tags:d.tags||[],sop:sopForDept(d.dept),sub:[],close_mode:d.closeMode==='auto_assignees'?'auto_assignees':'manual_creator',created_by:{profile_id:ACCESS_PROFILE.id,display_name:ACCESS_PROFILE.display_name||ACCESS_PROFILE.email||'ผู้มอบหมาย',department_code:ACCESS_PROFILE.department_code||'',position_title:ACCESS_PROFILE.position_title||''},...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})};
+    const inserted=await SB.from('tasks').insert({department_code:d.dept,title:normSp(d.title)||'งานใหม่',description:normSp(d.desc),status:'todo',priority:d.prio||'mid',creator_id:ACCESS_PROFILE.id,start_at:TODAY_ISO+'T00:00:00+07:00',due_at:(d.due||addFrom(TODAY_ISO,5))+'T23:59:59+07:00',sla_minutes:taskSlaMinutes(d.sla),auto_close_enabled:false,prototype_payload:payload}).select('id,task_no').single();
     if(inserted.error)throw inserted.error;
     const validAssignees=assignees.filter(id=>TASK_PROFILES.some(p=>p.id===id));
     if(validAssignees.length){const assigned=await SB.from('task_assignees').insert(validAssignees.map(user_id=>({task_id:inserted.data.id,user_id,assigned_by:ACCESS_PROFILE.id})));if(assigned.error)throw assigned.error;}
@@ -198,7 +213,7 @@ async function createTask(d){
   }
   const t={id:nextTaskId(),dept:d.dept,title:normSp(d.title)||'งานใหม่',creator:ROLE_META[ROLE].u,assignee:assignees[0],assignees,
     status:'todo',prio:d.prio||'mid',start:TODAY_ISO,due:d.due||addFrom(TODAY_ISO,5),spent:0,ontime:true,sla:d.sla||null,
-    tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],_payload:d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{},log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
+    tags:d.tags||[],sop:sopForDept(d.dept),desc:normSp(d.desc),sub:[],_payload:{close_mode:d.closeMode==='auto_assignees'?'auto_assignees':'manual_creator',...(d.batchId?{assignment_batch_id:d.batchId,assignment_departments:d.departments||[d.dept]}:{})},log:[{who:ROLE_META[ROLE].u,txt:'สร้างงาน',time:'เมื่อสักครู่'}]};
   TASKS.unshift(t);
   logFeed('🆕','#eef2ff',`<b>${shortName(t.creator)}</b> สร้างงาน <b>${t.id}</b> ${t.title} · มอบ ${assignees.map(shortName).join(', ')}`);
   return t;
@@ -206,8 +221,9 @@ async function createTask(d){
 async function cloudUpdateTask(t,changes){if(!CLOUD||!t.dbId)return;const r=await SB.from('tasks').update(changes).eq('id',t.dbId).select('id').single();if(r.error)throw r.error;}
 async function setTaskStatus(id,st){const t=TASKS.find(x=>x.id===id);if(!t||t.status===st)return;
   if(CLOUD&&!canProgressTaskUi(t)){toast('คุณไม่มีสิทธิ์อัปเดตงานนี้','info');return;}
-  if(CLOUD&&!canManageTaskUi(t)&&st==='done'){toast('ผู้รับงานส่งตรวจได้ แต่การปิดงานต้องให้หัวหน้าอนุมัติ','info');return;}
-  if(st==='done'&&!taskAssignmentGate(t).ready){const g=taskAssignmentGate(t);toast(`ปิดไม่ได้ · รับทราบ ${g.acked}/${g.total} · เริ่มดำเนินการ ${g.started}/${g.total}`,'info');return;}
+  if(CLOUD&&(st==='done'||t.status==='done')&&!canCloseTaskUi(t)){toast('เฉพาะผู้มอบหมายงานคนนี้เท่านั้นที่ปิดหรือเปิดงานใหม่ได้','info');return;}
+  if(st==='done'&&taskAutoCloses(t)){toast('งานนี้ตั้งปิดอัตโนมัติ · ระบบจะปิดเมื่อผู้รับทุกคนกดเสร็จสิ้น','info');return;}
+  if(st==='done'&&!taskCompletionGate(t).ready){const g=taskCompletionGate(t);toast(`ปิดไม่ได้ · ผู้รับกดเสร็จสิ้น ${g.completed}/${g.total} คน`,'info');return;}
   const auditText='เปลี่ยนสถานะเป็น '+STATUS[st].t;
   try{if(CLOUD&&!canManageTaskUi(t)){const r=await SB.rpc('update_my_task_progress',{p_task:t.dbId,p_status:st});if(r.error)throw r.error;}else{const changes={status:st,closed_at:st==='done'?new Date().toISOString():null};if(st!=='done'&&t._payload?.auto_closed)changes.prototype_payload={...t._payload,auto_closed:false};await cloudUpdateTask(t,changes);}}catch(e){toast('อัปเดตสถานะไม่สำเร็จ · '+(e.message||e),'info');return;}
   if(CLOUD&&t.dbId){const audit=await SB.from('task_comments').insert({task_id:t.dbId,author_id:ACCESS_PROFILE.id,body:auditText});if(audit.error)console.warn('task status audit:',audit.error.message||audit.error);}
@@ -238,7 +254,7 @@ async function toggleSub(id,i){const t=TASKS.find(x=>x.id===id),o=['todo','doing
 async function saveSolution(id){const t=TASKS.find(x=>x.id===id),sol=val('solIn').trim();
   if(!sol){toast('ยังไม่ได้กรอกวิธีแก้','info');return;}if(CLOUD&&t.dbId){try{if(canManageTaskUi(t)){const r=await SB.from('knowledge_articles').insert({source_task_id:t.dbId,department_code:t.dept,title:t.title,problem:t.desc||t.title,solution:sol,status:'review',created_by:ACCESS_PROFILE.id,prototype_payload:{tags:t.tags||[]}});if(r.error)throw r.error;await saveTaskPayload(t,{solution_proposal:sol});}else{const r=await SB.rpc('submit_my_task_solution',{p_task:t.dbId,p_solution:sol});if(r.error)throw r.error;}await cloudLoadKnowledge();}catch(e){toast('บันทึกวิธีแก้ไม่สำเร็จ · '+(e.message||e),'info');return;}}t.solution=sol;saveState();toast('บันทึกวิธีแก้เข้าคิวตรวจคลังความรู้แล้ว');openTask(id);}
 async function closeTaskWithSolution(id){
-  const t=TASKS.find(x=>x.id===id),gate=taskAssignmentGate(t);if(!gate.ready){toast(`ปิดไม่ได้ · รับทราบ ${gate.acked}/${gate.total} · เริ่มดำเนินการ ${gate.started}/${gate.total}`,'info');return;}const sol=(val('solIn')||t.solution||'').trim(),before=t.status;t.status='done';
+  const t=TASKS.find(x=>x.id===id);if(!canCloseTaskUi(t)){toast('เฉพาะผู้มอบหมายงานคนนี้เท่านั้นที่ปิดงานได้','info');return;}if(taskAutoCloses(t)){toast('งานนี้ตั้งปิดอัตโนมัติ · รอผู้รับทุกคนกดเสร็จสิ้น','info');return;}const gate=taskCompletionGate(t);if(!gate.ready){toast(`ปิดไม่ได้ · ผู้รับกดเสร็จสิ้น ${gate.completed}/${gate.total} คน`,'info');return;}const sol=(val('solIn')||t.solution||'').trim(),before=t.status;t.status='done';
   if(CLOUD&&t.dbId){try{await cloudUpdateTask(t,{status:'done',closed_at:new Date().toISOString()});if(sol&&!t.solution){const r=await SB.from('knowledge_articles').insert({source_task_id:t.dbId,department_code:t.dept,title:t.title,problem:t.desc||t.title,solution:sol,status:'review',created_by:ACCESS_PROFILE.id,prototype_payload:{tags:t.tags||[]}});if(r.error)throw r.error;await cloudLoadKnowledge();}if(sol)await saveTaskPayload(t,{solution_proposal:sol});t.solution=sol;toast(sol?'ปิดงานแล้ว และส่งวิธีแก้เข้าคิวตรวจคลังความรู้':'ปิดงาน '+id+' แล้ว');closeModal();refresh();return;}catch(e){t.status=before;toast('ปิดงานไม่สำเร็จ · '+(e.message||e),'info');return;}}
   if(sol){t.solution=sol;const kbid='KB-'+String(KB.length+9).padStart(2,'0');
     KB.unshift({id:kbid,dept:t.dept,title:t.title.length>44?t.title.slice(0,44)+'…':t.title,problem:t.desc||t.title,solution:sol,from:t.id,tags:t.tags});
