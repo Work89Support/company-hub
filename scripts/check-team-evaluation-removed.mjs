@@ -10,7 +10,7 @@ const reporting=read('reporting-integrity.js');
 assert.doesNotMatch(ux,/connected-systems\.js/,'Connected systems page is still loaded by the UI');
 assert.doesNotMatch(cloud,/connectedSystems|ผลประเมินทีมจากระบบเชื่อมต่อ/,'Manual still exposes the removed team evaluation page');
 assert.doesNotMatch(html,/connected-systems\.js/,'HTML still loads the removed team evaluation page');
-assert.match(html,/company-hub-release" content="20261114-remove-action-tracker-1"/,'Release marker is stale');
-assert.match(reporting,/ux-system\.js\?v=20261114-remove-action-tracker-1/,'UX cache key is stale');
+assert.match(html,/company-hub-release" content="20261114-employee-account-summary-1"/,'Release marker is stale');
+assert.match(reporting,/ux-system\.js\?v=20261114-employee-account-summary-1/,'UX cache key is stale');
 
 console.log('PASS team evaluation page, shortcut and manual entry are removed from the loaded UI');

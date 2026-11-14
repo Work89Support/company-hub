@@ -203,7 +203,7 @@ RENDER.tracker=function(){
 };
 
 // Load the common presentation layer after all feature modules have registered.
-if(!document.querySelector('script[data-company-ux]')){const script=document.createElement('script');script.src='ux-system.js?v=20261114-remove-action-tracker-1';script.dataset.companyUx='1';document.head.append(script);}
+if(!document.querySelector('script[data-company-ux]')){const script=document.createElement('script');script.src='ux-system.js?v=20261114-employee-account-summary-1';script.dataset.companyUx='1';document.head.append(script);}
 
 // Department history and shared support room release (15 Oct 2026).
 if(!document.querySelector('link[data-staff-mobility]')){const link=document.createElement('link');link.rel='stylesheet';link.href='staff-mobility-chat.css?v=20261016-chat-layout-3';link.dataset.staffMobility='1';document.head.append(link);}

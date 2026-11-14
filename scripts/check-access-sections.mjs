@@ -17,6 +17,13 @@ d.getElementById('saveAccessBtn').disabled=false;d.getElementById('editUserEmail
 assert.ok(s.includes("new_active:document.getElementById('editUserActive').value==='true'"),'status selector writes the chosen active state');
 for(const label of ['หัวหน้า 1','หัวหน้า 2','หัวหน้า 3','รอง 1','รอง 2','รอง 3','ยังไม่กำหนดระดับ'])assert.ok(!s.includes(label),`numbered hierarchy removed: ${label}`);
 assert.ok(s.includes('ประเภทผู้ใช้งาน'),'employee directory uses the simplified user type');assert.ok(s.includes('ACCESS_USER_LEVEL'),'employee directory keeps the simplified head/staff filter');
+assert.ok(s.includes('<div class="lbl">เปิดใช้งาน</div>'),'account summary labels the active flag precisely');
+assert.ok(s.includes('หัวหน้า / ผู้บริหาร / ผู้ดูแล'),'privileged account count names every included role');
+assert.ok(s.includes('“เปิดใช้งาน” หมายถึงบัญชีไม่ถูกระงับ'),'account summary explains that active does not prove login readiness');
+assert.ok(!s.includes('<h3>ความพร้อมเข้าใช้งาน</h3>'),'duplicate readiness card is removed');
+const levelCss=fs.readFileSync(new URL('../prototype/employee-levels.css',import.meta.url),'utf8');
+assert.ok(levelCss.includes('.employee-level-filter .searchbox>input'),'employee search has dedicated input layout');
+assert.ok(levelCss.includes('padding:9px 13px 9px 42px'),'employee search reserves space for its icon');
 assert.ok(!s.includes('set_user_login_policy'),'employee UI cannot re-enable a device or IP gate');
 assert.ok(!s.includes('set_user_device_status'),'employee UI has no device approval flow');
 console.log('PASS access updates include editable login email and keep role and department scope free of device/IP gates');

@@ -15,6 +15,6 @@ assert.doesNotMatch(views,/go\('tracker'\)|เปิด Action Tracker|Go-live C
 assert.doesNotMatch(admin,/go\('tracker'\)|ดูรายการงานจริงได้ที่ Action Tracker/,'Knowledge or activity surfaces still link to Action Tracker');
 assert.doesNotMatch(cloud,/id:'tracker',ic:'i-clipboard',tt:'Action Tracker'/,'Manual still exposes Action Tracker');
 assert.match(shell,/if\(v==='tracker'\)v=homeView\(\)/,'Stale Action Tracker navigation is not redirected');
-assert.match(html,/company-hub-release" content="20261114-remove-action-tracker-1"/,'Release marker is stale');
+assert.match(html,/company-hub-release" content="20261114-employee-account-summary-1"/,'Release marker is stale');
 
 console.log('PASS Action Tracker menu, dashboard shortcuts and manual entry are removed');
