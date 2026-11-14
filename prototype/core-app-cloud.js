@@ -90,14 +90,16 @@ function taskDescriptionHtml(value){
 }
 function openTask(id){
   const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),progress=canProgressTaskUi(t),logTime=!CLOUD||isMyTaskAssignee(t);
-  const allowedStatus=edit?Object.keys(STATUS):['todo','doing','review','block'];
-  const sSel=progress?`<div class="statusbtns">${allowedStatus.map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`:statusPill(t.status);
+  const gate=taskAssignmentGate(t),allowedStatus=edit?Object.keys(STATUS):['todo','doing','review','block'];
+  const sSel=progress?`<div class="statusbtns">${allowedStatus.map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" ${s==='done'&&!gate.ready?'disabled title="ผู้รับผิดชอบต้องรับทราบและเริ่มดำเนินการให้ครบ"':''} onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`:statusPill(t.status);
   const aBox=`<div style="display:flex;align-items:center;gap:8px;padding-top:4px">${avStack(assigneesOf(t))}<span style="font-size:12.5px">${assigneesOf(t).map(shortName).join(', ')||'ยังไม่มอบหมาย'}</span>${edit?`<button class="tbtn sm" style="margin-left:auto" onclick="openAssigneePicker('${t.id}')">แก้ / เพิ่มคน</button>`:''}</div>`;
   const pSel=edit?`<div class="statusbtns">${Object.keys(PRIO).map(pk=>`<button class="stbtn ${t.prio===pk?'active':''}" style="--c:${PRIO[pk].c}" onclick="setPrio('${t.id}','${pk}')">${PRIO[pk].t}</button>`).join('')}</div>`:prioPill(t.prio);
   const dl=Math.round((DFROM(t.due)-DFROM(TODAY_ISO))/86400000);
   const dueNote=t.status==='done'?'ปิดงานแล้ว':dl>0?('เหลืออีก '+dl+' วัน'):dl===0?'ครบกำหนดวันนี้':('เกินกำหนด '+(-dl)+' วัน');
   const dueColor=t.status==='done'?'var(--green)':dl<0?'var(--red)':dl===0?'var(--amber)':'var(--muted)';
   const creator=taskCreatorInfo(t),creatorMeta=[creator.position,creator.department?deptName(creator.department):''].filter(Boolean).join(' · ');
+  const lockedForAck=CLOUD&&isMyTaskAssignee(t)&&!edit&&!taskAcknowledgements(t)[ACCESS_PROFILE?.id];
+  if(lockedForAck){showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${prioPill(t.prio)}</div><h3>${esc(t.title)}</h3><div class="muted" style="font-size:11.5px">${esc(t.id)} · กำหนด ${fmtDate(t.due)}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="task-assignment-meta"><span class="mini" style="background:${u(t.creator).c}">${esc(Array.from(creator.name)[0]||'?')}</span><div><small>มอบหมายโดย</small><b>${esc(creator.name)}</b>${creatorMeta?`<span>${esc(creatorMeta)}</span>`:''}</div></div><div class="task-detail-lock"><b>🔒 กดรับทราบเพื่อเปิดรายละเอียดงาน</b><p>ระบบจะแสดงบรีฟ ไฟล์ และพื้นที่อัปเดตงาน หลังคุณยืนยันว่าได้รับมอบหมายแล้ว</p></div>${taskAcknowledgementUi(t)}</div>`);return;}
   const _sla=slaOf(t);
   const _slaNote=_sla.unit==='day'?`นับจากวันเริ่ม ${fmtDate(t.start)} ควรเสร็จภายใน ${fmtDate(addFrom(t.start,_sla.n))}`+(addFrom(t.start,_sla.n)>t.due?' · กระชั้นกว่ากำหนดส่ง':''):`ต้องเสร็จภายใน ${_sla.n} ชั่วโมงหลังเริ่มงาน`;
   showModal(`<div class="modal-h"><div><div style="margin-bottom:6px">${deptPill(t.dept)} ${statusPill(t.status)} ${prioPill(t.prio)} ${t._payload?.auto_closed?'<span class="pill task-auto-close-pill">⏱ ปิดอัตโนมัติตามกำหนด</span>':''}</div>
@@ -113,7 +115,7 @@ function openTask(id){
     <div class="two">
       <div class="field"><label>กำหนดส่ง</label>
         <input type="date" class="fin" value="${d2(t.due)}" ${edit?'':'disabled'} onchange="setDue('${t.id}',this.value)">
-        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}${t.autoCloseEnabled&&t.status!=='done'?' · ระบบจะปิดงานอัตโนมัติเมื่อครบกำหนด':''}</div></div>
+        <div style="font-size:11px;margin-top:4px;color:${dueColor}">เริ่ม ${fmtDate(t.start)} · ${dueNote}${t.autoCloseEnabled&&t.status!=='done'?' · ปิดอัตโนมัติเมื่อครบกำหนดและทุกคนรับทราบ/เริ่มงานแล้ว':''}</div></div>
       <div class="field"><label>เวลาที่ใช้ (ชม.)</label>
         <div style="display:flex;gap:6px;align-items:center"><b>${t.spent||0}</b><span class="muted">ชม. รวม</span>
           ${logTime?`<input type="number" min="0.1" step="0.5" class="fin" id="spent_${t.id}" placeholder="เพิ่มครั้งนี้" style="max-width:105px"><button class="tbtn sm" onclick="setSpent('${t.id}')">+ บันทึก</button><button class="tbtn sm" onclick="addSpent('${t.id}',1)">+1 ชม.</button>`:'<span class="muted" style="font-size:11px">ผู้รับงานเป็นผู้ลงเวลา</span>'}</div></div>
@@ -141,7 +143,7 @@ function openTask(id){
       `<div class="field"><label>วิธีแก้ปัญหา / ผลการดำเนินงาน</label><textarea id="solIn" rows="2" placeholder="พิมพ์วิธีแก้ แล้วกด 'อนุมัติ/ปิดงาน' → ระบบเก็บเข้าคลังความรู้อัตโนมัติ"></textarea></div>`}
     <div style="display:flex;gap:8px;margin-top:2px;flex-wrap:wrap">
       ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">${sic('i-save')} บันทึกวิธีแก้</button>`:''}
-      ${edit&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button>`:''}
+      ${edit&&t.status!=='done'?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" ${gate.ready?'':`disabled title="รอรับทราบ ${gate.acked}/${gate.total} และเริ่มดำเนินการ ${gate.started}/${gate.total}"`} onclick="closeTaskWithSolution('${t.id}')">✓ อนุมัติ/ปิดงาน</button><span class="task-close-gate ${gate.ready?'is-ready':''}">${gate.ready?'พร้อมปิดงาน':`รอรับทราบ ${gate.acked}/${gate.total} · เริ่มดำเนินการ ${gate.started}/${gate.total}`}</span>`:''}
       ${edit&&t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
 
     <div class="field" style="margin-top:14px"><label>ความเคลื่อนไหว / ความคิดเห็น</label>
@@ -376,7 +378,7 @@ async function cloudLoadTasks(){
       integrityReadAll(()=>SB.from('time_entries').select('task_id,user_id,minutes,note,created_at'),["id"]),
       integrityReadAll(()=>SB.from('task_comments').select('task_id,author_id,body,created_at'),["id"]),
       SB.rpc('activity_entry_people'),
-      integrityReadAll(()=>SB.from('task_assignee_workspaces').select('task_id,user_id,status,progress_percent,update_note,acknowledged_at,updated_at'),['task_id','user_id']),
+      integrityReadAll(()=>SB.from('task_assignee_workspaces').select('task_id,user_id,status,progress_percent,update_note,acknowledged_at,started_at,updated_at'),['task_id','user_id']),
       integrityReadAll(()=>SB.from('task_assignee_files').select('id,task_id,user_id,file_name,storage_path,mime_type,size_bytes,created_at'),['id']),
     ]);
     if(timeEntries.error)throw timeEntries.error;if(comments.error)throw comments.error;if(tasks.error)throw tasks.error;if(assignments.error)throw assignments.error;if(profiles.error)throw profiles.error;
