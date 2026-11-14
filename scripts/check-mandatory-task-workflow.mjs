@@ -18,8 +18,12 @@ assert.match(shell,/\[0,25,50,75,100,progress\]/);
 assert.match(shell,/function taskElapsedLabel\(start,end\)/);
 assert.match(shell,/task-work-elapsed/);
 assert.doesNotMatch(shell,/taskWorkProgress_\$\{t\.id\}" type="number"/);
-assert.match(cloud,/กดรับทราบเพื่อเปิดรายละเอียดงาน/);
+assert.match(cloud,/กดรับทราบเพื่อเปิดงาน/);
 assert.match(cloud,/started_at/);
+const lockedPreview=cloud.slice(cloud.indexOf('if(lockedForAck)'),cloud.indexOf('const _sla='));
+assert.match(lockedPreview,/มอบหมายโดย/);
+assert.match(lockedPreview,/รับทราบและเปิดงาน/);
+assert.doesNotMatch(lockedPreview,/t\.title|t\.due|deptPill|prioPill|taskAcknowledgementUi/,'Unacknowledged assignees must not see task content or participant data');
 
 const db=new PGlite();
 await db.exec(`
