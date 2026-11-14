@@ -20,7 +20,9 @@ assert.match(source,/saveGraphicFileEdit/);
 assert.match(source,/deleteGraphicCheck/);
 assert.match(source,/saveGraphicCheckEdit/);
 assert.match(source,/confirmDeleteGraphicJob/,'graphic managers receive a guarded card deletion flow');
-assert.match(source,/canManageGraphic\(\).*ลบการ์ด/s,'card deletion is restricted to graphic managers');
+assert.match(source,/function canDeleteJob\(job\).*canEditJob\(job\)/s,'card deletion follows creator, assignee and manager edit scope');
+assert.match(source,/gp-delete-job-button[^`]+ลบการ์ดงาน/,'card detail header has an explicit delete button distinct from close');
+assert.match(source,/closeButton\.title='ปิดหน้าต่าง'/,'the X control is explicitly labelled as close only');
 assert.match(source,/type='final'/,'new delivery links are always Final');
 assert.match(source,/GF\.freshness=GF\.freshness\|\|'current'/,'current work is the default graphic view');
 assert.match(source,/job\.status==='done'.*Date\.now\(\)-updated<=30\*86400000\?'current':'history'/s,'recently completed cards remain visible in the done column');
@@ -39,7 +41,7 @@ assert.match(source,/brief=gpNormalizeBriefInput\(val\('gbBrief'\)\)/,'graphic b
 assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\?\/g,'\\n'\)/,'brief line endings are normalized without collapsing newlines');
 assert.match(source,/briefValue\.textContent=gpBriefText\(job\.brief\)\|\|'-'/,'graphic detail displays preserved line breaks');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
-assert.match(html,/graphic-production-v2\.js\?v=20261113-graphic-delete-all-status-1/,'graphic all-status delete release is cache-busted');
+assert.match(html,/graphic-production-v2\.js\?v=20261114-graphic-delete-button-1/,'graphic explicit delete-button release is cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 assert.match(shell,/task_assignees'\)\.insert\(validAssignees\.map/,'general tasks persist multiple assignees for every department');
@@ -63,6 +65,8 @@ assert.match(fs.readFileSync(new URL('../prototype/core-app-shell.js',import.met
 assert.match(migration,/create or replace function public\.can_edit_graphic_job/);
 assert.match(migration,/graphic_job_members/,'linked Trello members are valid editors');
 assert.match(migration,/graphic-job-files/,'private image bucket is provisioned');
+const deleteMigration=fs.readFileSync(new URL('../supabase/migrations/202611140061_graphic_job_editor_delete.sql',import.meta.url),'utf8');
+assert.match(deleteMigration,/using \(public\.can_edit_graphic_job\(id\)\)/,'database deletion policy permits only card editors');
 assert.match(migration,/not exists\(select 1 from public\.profiles p where p\.id=m\.linked_profile_id and p\.active\)/,'inactive profile links are cleared');
 
 console.log('PASS Graphic Production personal scope, account ownership, checklist permissions, private brief images and editable delivery links');

@@ -104,6 +104,9 @@
   function canEditJob(job){
     return !!job&&(canManageGraphic()||job.created_by===ACCESS_PROFILE?.id||gpJobAssignedToProfile(job,ACCESS_PROFILE?.id));
   }
+  function canDeleteJob(job){
+    return canEditJob(job);
+  }
   function safeFileName(name){return String(name||'file').normalize('NFKC').replace(/[^\p{L}\p{N}._-]+/gu,'-').slice(-120)||'file';}
   function suggestedLinkName(job,type,url){
     if(type==='final')return `${job?.title||'งานกราฟิก'} · Final`;
@@ -171,6 +174,12 @@
   }
   function enhanceJobModal(id){
     const job=GRAPHIC_JOBS.find(j=>j.id===id),files=gpJobFiles(id),checks=gpJobChecks(id),editable=canEditJob(job),pad=document.querySelector('#modal .pad');if(!pad)return;
+    const header=document.querySelector('#modal .modal-h'),closeButton=header?.querySelector('.x');
+    if(header&&closeButton&&canDeleteJob(job)){
+      const actions=document.createElement('div');actions.className='gp-modal-head-actions';
+      actions.innerHTML=`<button type="button" class="tbtn danger gp-delete-job-button" onclick="confirmDeleteGraphicJob('${id}')">ลบการ์ดงาน</button>`;
+      closeButton.title='ปิดหน้าต่าง';closeButton.setAttribute('aria-label','ปิดหน้าต่าง');closeButton.before(actions);
+    }
     const fileField=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent.startsWith('ไฟล์งาน'));
     if(fileField){
       const rows=[...fileField.querySelectorAll('.gp-file-row')];rows.forEach((row,i)=>{const f=files[i];if(!f)return;const tag=row.querySelector('.tag');if(tag)tag.textContent=FILE_LABEL[f.file_type]||f.file_type;const link=row.querySelector('a');if(f.storage_path&&link){const b=document.createElement('button');b.className='gp-file-link';b.textContent=f.name||'เปิดภาพ';b.onclick=()=>openGraphicFile(f.id);link.replaceWith(b);const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.dataset.graphicStorage=f.id;img.dataset.previewLink=f.url||'';img.onerror=()=>graphicPreviewFallback(img);row.prepend(img);}else if(gpImageLike(f)&&!row.querySelector('img')){const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.src=f.preview_url||f.url;img.alt=`ภาพตัวอย่าง ${f.name||'ไฟล์งาน'}`;img.referrerPolicy='no-referrer';img.dataset.previewLink=f.url||img.src;img.onerror=()=>graphicPreviewFallback(img);row.prepend(img);}if(editable){const actions=document.createElement('div');actions.className='gp-file-actions';actions.innerHTML=`<button class="tbtn sm" onclick="editGraphicFile('${f.id}')">แก้ไข</button><button class="tbtn sm danger" onclick="deleteGraphicFile('${f.id}')">ลบ</button>`;row.append(actions);}});
@@ -185,8 +194,8 @@
     if(canManageGraphic()){
       const owner=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent==='ผู้รับผิดชอบ');
       if(owner)owner.innerHTML=`<label>ผู้รับผิดชอบ</label>${gpAssigneeMultiControl('gjAssignees',gpJobAssigneeIds(job))}<button type="button" class="tbtn primary sm" style="margin-top:10px" onclick="updateGraphicAssignees('${id}')">บันทึกผู้รับผิดชอบ</button><small>เลือกได้หลายคน ทุกคนจะเห็นงานนี้ใน “งานของฉัน”</small>`;
-      pad.insertAdjacentHTML('beforeend',`<div class="gp-delete-zone"><div><b>นำการ์ดนี้ออก</b><small>ลบได้ทุกสถานะสำหรับหัวหน้า/ผู้ดูแลกราฟิก · งานจาก Trello อาจกลับมาอีกหากยังอยู่ที่ต้นทาง</small></div><button type="button" class="tbtn danger" onclick="confirmDeleteGraphicJob('${id}')">ลบการ์ดงาน</button></div>`);
     }
+    if(canDeleteJob(job))pad.insertAdjacentHTML('beforeend',`<div class="gp-delete-zone"><div><b>ลบการ์ดงานนี้</b><small>ลบได้ทุกสถานะสำหรับผู้สร้าง ผู้รับผิดชอบ หรือหัวหน้า · งานจาก Trello อาจกลับมาอีกหากยังอยู่ที่ต้นทาง</small></div><button type="button" class="tbtn danger" onclick="confirmDeleteGraphicJob('${id}')">ลบการ์ดงาน</button></div>`);
     hydratePrivatePreviews();
   }
   openGraphicJob=async function(id){
@@ -203,13 +212,13 @@
   window.deleteGraphicFile=async function(id){const f=GRAPHIC_FILES.find(x=>x.id===id);if(!f||!confirm(`ลบ “${f.name||'ไฟล์นี้'}” ออกจากงานใช่หรือไม่?`))return;try{const r=await SB.from('graphic_job_files').delete().eq('id',id);if(r.error)throw r.error;if(f.storage_path)await SB.storage.from('graphic-job-files').remove([f.storage_path]);GRAPHIC_FILES=GRAPHIC_FILES.filter(x=>x.id!==id);await openGraphicJob(f.job_id);toast('ลบไฟล์แล้ว');}catch(e){toast('ลบไฟล์ไม่สำเร็จ · '+(e.message||e),'info');}};
 
   window.confirmDeleteGraphicJob=function(id){
-    const job=GRAPHIC_JOBS.find(x=>x.id===id);if(!job||!canManageGraphic()){toast('เฉพาะหัวหน้า/ผู้ดูแลกราฟิกเท่านั้นที่ลบการ์ดได้','info');return;}
+    const job=GRAPHIC_JOBS.find(x=>x.id===id);if(!job||!canDeleteJob(job)){toast('ลบได้เฉพาะผู้สร้าง ผู้รับผิดชอบ หรือหัวหน้าที่ดูแลแผนก','info');return;}
     const privateFiles=gpJobFiles(id).filter(file=>file.storage_path);
     if(privateFiles.length){toast(`งานนี้มีภาพแนบ ${privateFiles.length} ไฟล์ กรุณาลบภาพแนบก่อนลบการ์ด เพื่อไม่ให้มีไฟล์ตกค้าง`,'info');return;}
     showModal(`<div class="modal-h"><div><h3>ยืนยันลบการ์ด G-${job.job_no}</h3><div class="muted">${esc(job.title)}</div></div><button class="x" onclick="openGraphicJob('${id}')">×</button></div><div class="pad"><div class="gp-delete-warning"><b>ลบแล้วกู้คืนจาก Company Hub ไม่ได้</b><span>Checklist ลิงก์ และประวัติของการ์ดนี้จะถูกลบตามไปด้วย${job.source==='Trello'?' · การ์ดนี้มาจาก Trello และอาจถูกนำเข้ากลับมาอีกหากยังไม่ลบหรือปิดที่ต้นทาง':''}</span></div><label class="checkbox gp-delete-confirm"><input id="gpDeleteConfirm" type="checkbox" onchange="document.getElementById('gpDeleteButton').disabled=!this.checked"> ยืนยันว่าตรวจสอบการ์ดถูกต้องแล้ว</label><div class="ux-modal-actions"><button class="tbtn" onclick="openGraphicJob('${id}')">ยกเลิก</button><button id="gpDeleteButton" class="tbtn danger" disabled onclick="deleteGraphicJob('${id}')">ลบการ์ดงาน</button></div></div>`);
   };
   window.deleteGraphicJob=async function(id){
-    const job=GRAPHIC_JOBS.find(x=>x.id===id),button=document.getElementById('gpDeleteButton');if(!job||!canManageGraphic())return;if(button)button.disabled=true;
+    const job=GRAPHIC_JOBS.find(x=>x.id===id),button=document.getElementById('gpDeleteButton');if(!job||!canDeleteJob(job))return;if(button)button.disabled=true;
     try{const result=await SB.from('graphic_jobs').delete().eq('id',id).select('id').single();if(result.error)throw result.error;GRAPHIC_JOBS=GRAPHIC_JOBS.filter(x=>x.id!==id);GRAPHIC_FILES=GRAPHIC_FILES.filter(x=>x.job_id!==id);GRAPHIC_CHECKS=GRAPHIC_CHECKS.filter(x=>x.job_id!==id);GRAPHIC_JOB_MEMBERS=GRAPHIC_JOB_MEMBERS.filter(x=>x.job_id!==id);closeModal();RENDER.graphic();toast(`ลบการ์ด G-${job.job_no} แล้ว`);}catch(e){if(button)button.disabled=false;toast('ลบการ์ดไม่สำเร็จ · '+(e.message||e),'info');}
   };
 
