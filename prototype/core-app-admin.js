@@ -338,7 +338,6 @@ RENDER.sop=function(){
   <div class="tiles" style="margin-bottom:18px">
     ${DOCS.map(doc=>`<div class="tile" onclick="openDoc('${doc.id}')"><span class="pill" style="background:var(--blue-800);margin-bottom:8px">ระเบียบ · ${doc.rev}</span><h4>${doc.title}</h4><div class="meta">${doc.en} · ${doc.owner}</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดอ่าน →</div></div>`).join('')}
     <div class="tile" onclick="go('monthly')"><span class="pill" style="background:var(--green);margin-bottom:8px">แบบฟอร์ม</span><h4>แบบฟอร์มรายงานผลการดำเนินงานประจำเดือน</h4><div class="meta">กรอกอัตโนมัติ · Export Word/Excel/PDF</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดฟอร์ม →</div></div>
-    <div class="tile" onclick="go('tracker')"><span class="pill" style="background:var(--sky);margin-bottom:8px">ทะเบียนจริง</span><h4>Action Tracker (มติประชุมและ Action Plan)</h4><div class="meta">ติดตามเจ้าของงาน · กำหนดส่ง · หลักฐาน · สถานะ · แยกกลุ่ม/แผนก/ระดับ</div><div style="margin-top:8px;font-size:12px;color:var(--blue-700)">เปิดทะเบียน →</div></div>
   </div>
   <div class="sect-title">${sic('i-book')} คู่มือปฏิบัติงาน (SOP)</div>
   ${filterBarLite('ค้นหาคู่มือ SOP')}
@@ -373,7 +372,7 @@ RENDER.ann=function(){
         <div class="time">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 ${fmtDate(a.from)}${a.until?('–'+fmtDate(a.until)):''}`:''}</div>
         <div style="margin-top:6px;font-size:11.5px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span style="color:var(--green)">✓ รับทราบ ${ack}/${aud.length}</span><span class="muted">💬 ตอบกลับ ${(a.comments||[]).length}</span>${meNeed?'<span class="pill" style="background:var(--amber);font-size:10px">คุณยังไม่รับทราบ — คลิกเพื่อรับทราบ</span>':''}</div></div></div>`;}).join('')}</div></div>
     <div class="card"><div class="card-h"><h3>${sic('i-bell')} ${CLOUD?'ความเคลื่อนไหวในรอบใช้งานนี้':'ฟีดงานรวม'}</h3></div><div class="pad">
-      ${FEED.filter(f=>!CLOUD||(f.live&&f.account===ACCESS_PROFILE?.id)).map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')||'<p class="muted">ยังไม่มีความเคลื่อนไหวในรอบใช้งานนี้ · ดูรายการงานจริงได้ที่ Action Tracker</p>'}</div></div>
+      ${FEED.filter(f=>!CLOUD||(f.live&&f.account===ACCESS_PROFILE?.id)).map(f=>`<div class="feed-item"><span class="fi" style="background:${f.c}">${f.ic}</span><div style="flex:1">${f.t}<div class="muted" style="font-size:10.5px">${f.time}</div></div></div>`).join('')||'<p class="muted">ยังไม่มีความเคลื่อนไหวในรอบใช้งานนี้ · ดูรายการงานจริงได้ที่บอร์ดงาน</p>'}</div></div>
   </div>`;
 };
 RENDER.talk=function(){

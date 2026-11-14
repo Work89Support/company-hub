@@ -66,7 +66,6 @@ const checks = [
   ['Meeting Action Tracker loads normalized production rows', /async function cloudLoadImplementationActions\(\)[\s\S]*implementation_actions/],
   ['Meeting Action Tracker persists status and evidence', /function saveImplementationAction\(id\)[\s\S]*update\(\{status,evidence\}\)/],
   ['Marketing report includes permitted Graphic rows', /REP_DEPT==='MKT'\?\['MKT','GRAPHIC'\]/],
-  ['Executive dashboard shows rollout stop criteria', /Go-live Control[\s\S]*เกณฑ์หยุด/],
   ['Timeline uses the current Bangkok date', /const TODAY_ISO=bangkokTodayISO\(\),TODAY_MMDD=TODAY_ISO\.slice\(5\)/],
   ['Timeline explains start, due, status, and today marker', /วิธีอ่าน:[\s\S]*เส้นแดง = วันนี้[\s\S]*งานที่ต้องจัดการก่อน/],
   ['Timeline separates event dates from real deadlines', /_deadline:false[\s\S]*ไม่นับวันที่เกิดปัญหา\/วันที่บันทึก/],

@@ -513,13 +513,13 @@ function setRole(r){
 /* ===== Navigation groups + Simple mode ===== */
 const NAVGROUPS=[
  {label:'งาน', items:['dash','myTasks','board','graphic','timeline','problems','activity']},
- {label:'วัดผล & รายงาน', items:['kpi','reports','monthly','tracker']},
+ {label:'วัดผล & รายงาน', items:['kpi','reports','monthly']},
  {label:'องค์กร & ความรู้', items:['org','users','files','sop','kb','ann','talk']},
 ];
 const ROLE_ALLOW={
  staff:['myTasks','board','graphic','problems','activity','org','files','sop','kb','ann','talk'],
- lead:['dash','myTasks','board','graphic','timeline','problems','activity','kpi','reports','monthly','tracker','org','files','sop','kb','ann','talk'],
- exec:['dash','board','graphic','timeline','problems','activity','kpi','reports','monthly','tracker','org','users','files','sop','kb','ann','talk'],
+ lead:['dash','myTasks','board','graphic','timeline','problems','activity','kpi','reports','monthly','org','files','sop','kb','ann','talk'],
+ exec:['dash','board','graphic','timeline','problems','activity','kpi','reports','monthly','org','users','files','sop','kb','ann','talk'],
 };
 const SIMPLE_ALLOW={
  staff:['myTasks','board','graphic','ann'],
@@ -555,7 +555,7 @@ function buildNav(){
   deptLabel.style.display=visibleDeptList.length?'':'none';
   deptNav.innerHTML=visibleDeptList.map(d=>`<button type="button" class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
 }
-function go(v,arg){main.classList.remove('graphic-board-view');VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
+function go(v,arg){if(v==='tracker')v=homeView();main.classList.remove('graphic-board-view');VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
 function navGo(v){F={...F,q:'',source:v==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};go(v);}
 function myTasks(){const m=ROLE_META[ROLE].u;if(isExecutiveRole())return TASKS;return TASKS.filter(t=>assigneesOf(t).includes(m)||t.creator===m);}
 function crumb(...parts){return `<div class="crumb">${parts.map((p,i)=>i===parts.length-1?`<b>${p}</b>`:p).join(' / ')}</div>`;}

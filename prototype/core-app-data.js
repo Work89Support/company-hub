@@ -308,7 +308,7 @@ const ROLE_META={
 const NAV = {
   dash:{ic:'i-dash',t:'แดชบอร์ด'}, myTasks:{ic:'i-check',t:'งานของฉัน'}, board:{ic:'i-board',t:'บอร์ดงาน'},
   graphic:{ic:'i-grid',t:'Graphic Production'},
-  timeline:{ic:'i-calendar',t:'ไทม์ไลน์'}, kpi:{ic:'i-target',t:'KPI แดชบอร์ด'}, reports:{ic:'i-report',t:'รายงานสรุป'}, monthly:{ic:'i-doc',t:'รายงานประจำเดือน'}, tracker:{ic:'i-clipboard',t:'Action Tracker'},
+  timeline:{ic:'i-calendar',t:'ไทม์ไลน์'}, kpi:{ic:'i-target',t:'KPI แดชบอร์ด'}, reports:{ic:'i-report',t:'รายงานสรุป'}, monthly:{ic:'i-doc',t:'รายงานประจำเดือน'},
   org:{ic:'i-org',t:'แผนผังองค์กร'}, users:{ic:'i-users',t:'จัดการพนักงาน'}, files:{ic:'i-folder',t:'คลังไฟล์จากงาน'}, sop:{ic:'i-book',t:'คลัง SOP / คู่มือ'}, kb:{ic:'i-bulb',t:'คลังความรู้'}, ann:{ic:'i-megaphone',t:'ประกาศ & อัปเดต'}, talk:{ic:'i-chat',t:'Talk to Data'}, problems:{ic:'i-warning',t:'ศูนย์ปัญหา'}, activity:{ic:'i-clipboard',t:'บันทึกกิจกรรม'},
 };
 /* helper: SVG line icon */

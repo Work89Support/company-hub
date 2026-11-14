@@ -214,9 +214,6 @@ function execDash(){
     <div class="card click" onclick="go('problems')"><div class="card-h"><h3>${sic('i-warning')} ปัญหาหน้างาน</h3><span class="act">Supabase</span></div><div class="pad"><div class="val" style="font-size:28px;font-weight:700">${nf(PROBLEMS.length)}</div><div class="muted">ยังไม่ปิด ${nf(openIssues.length)} · ยืนยันวิธีแก้แล้ว ${nf(verifiedIssues)}</div></div></div>
     <div class="card click" onclick="go('activity')"><div class="card-h"><h3>${sic('i-clipboard')} บันทึกกิจกรรม</h3><span class="act">Supabase Live</span></div><div class="pad"><div class="val" style="font-size:28px;font-weight:700">${ACTIVITY_READY?nf(activityRows.length):'…'}</div><div class="muted">${ACTIVITY_READY?`ต้องตรวจข้อมูล ${nf(activityReview)} · ตรวจเวลา ${nf(activityTimeReview)}`:'กำลังโหลดข้อมูลตามสิทธิ์'}</div></div></div>
   </div>
-  <div class="card" style="margin-top:16px"><div class="card-h"><h3>${sic('i-clipboard')} Go-live Control · Action Plan จากมติประชุม</h3><span class="act" onclick="go('tracker')" style="cursor:pointer">เปิด Action Tracker →</span></div><div class="pad"><div class="grid" style="grid-template-columns:repeat(4,1fr)">${[
-    ['เสร็จแล้ว',`${rolloutDone}/${IMPLEMENTATION_ACTIONS.length||0}`,'var(--green)'],['เกินกำหนด',rolloutOverdue.length,'var(--red)'],['3X ยังไม่ปิด',`${x3Open.length}/${x3Issues.length}`,'var(--amber)'],['SOP ในฐาน',SOP_RECORDS.length,'var(--blue-700)']
-  ].map(r=>`<div class="ai-note" style="margin:0"><div class="muted" style="font-size:11px">${r[0]}</div><b style="font-size:22px;color:${r[2]}">${r[1]}</b></div>`).join('')}</div><div class="muted" style="font-size:11.5px;margin-top:10px"><b>เกณฑ์หยุด:</b> สิทธิ์รั่วไหลข้ามแผนก · Daily Activity สูญหาย/ผิดปกติเป็นวงกว้าง · 3X backlog เพิ่ม · ยอดรายงานผู้บริหารไม่ตรงฐาน</div></div></div>
   ${ACTIVITY_READY&&typeof activityReadinessBlock==='function'?activityReadinessBlock(true):''}`;
 }
 
