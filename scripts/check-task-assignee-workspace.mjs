@@ -12,6 +12,8 @@ assert.match(shell,/function saveTaskAssigneeWorkspace\(id\)/);
 assert.match(shell,/function uploadTaskAssigneeFile\(id\)/);
 assert.match(shell,/taskAcknowledgements\(t\)\[ACCESS_PROFILE\.id\]&&taskWorkspaces\(t\)\[ACCESS_PROFILE\.id\]/);
 assert.match(shell,/SB\.storage\.from\('task-assignee-files'\)/);
+assert.match(shell,/rawExt\.replace\(\/\[\^a-z0-9\]\/g,''\)/,'Storage object keys must remain ASCII-safe');
+assert.match(shell,/p_name:file\.name/,'The original Thai filename must remain visible in metadata');
 assert.match(cloud,/task_assignee_workspaces/);
 assert.match(cloud,/task_assignee_files/);
 assert.match(cloud,/taskAssigneeWorkspaceUi\(t\)/);
