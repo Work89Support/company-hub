@@ -89,7 +89,7 @@ function taskDescriptionHtml(value){
   return lines.map(line=>`<p class="${/^[📌📁💬✅⚠]/u.test(line)?'task-description-section':''}">${esc(line)}</p>`).join('');
 }
 function openTask(id){
-  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),close=canCloseTaskUi(t),progress=edit,recipientOnly=CLOUD&&isMyTaskAssignee(t)&&!edit&&!close,logTime=!CLOUD||isMyTaskAssignee(t);
+  const t=TASKS.find(x=>x.id===id);if(!t)return;const sop=SOPS.find(s=>s.id===t.sop),edit=canManageTaskUi(t),close=canCloseTaskUi(t),progress=!CLOUD&&edit,recipientOnly=CLOUD&&isMyTaskAssignee(t)&&!edit&&!close,logTime=!CLOUD||isMyTaskAssignee(t);
   const gate=taskCompletionGate(t),allowedStatus=edit?Object.keys(STATUS).filter(s=>s!=='done'||(close&&!taskAutoCloses(t))):[];
   const sSel=progress?`<div class="statusbtns">${allowedStatus.map(s=>`<button class="stbtn ${t.status===s?'active':''}" style="--c:${STATUS[s].c}" ${s==='done'&&!gate.ready?'disabled title="ผู้รับผิดชอบต้องรับทราบและเริ่มดำเนินการให้ครบ"':''} onclick="setTaskStatus('${t.id}','${s}')">${t.status===s?'● ':''}${STATUS[s].t}</button>`).join('')}</div>`:statusPill(t.status);
   const aBox=`<div style="display:flex;align-items:center;gap:8px;padding-top:4px">${avStack(assigneesOf(t))}<span style="font-size:12.5px">${assigneesOf(t).map(shortName).join(', ')||'ยังไม่มอบหมาย'}</span>${edit?`<button class="tbtn sm" style="margin-left:auto" onclick="openAssigneePicker('${t.id}')">แก้ / เพิ่มคน</button>`:''}</div>`;
@@ -145,7 +145,7 @@ function openTask(id){
       ${!t.solution?`<button class="tbtn" onclick="saveSolution('${t.id}')">${sic('i-save')} บันทึกวิธีแก้</button>`:''}
       ${close&&t.status!=='done'&&!taskAutoCloses(t)?`<button class="tbtn primary" style="background:var(--green);border-color:var(--green)" ${gate.ready?'':`disabled title="รอผู้รับกดเสร็จสิ้น ${gate.completed}/${gate.total} คน"`} onclick="closeTaskWithSolution('${t.id}')">✓ ตรวจและปิดงาน</button><span class="task-close-gate ${gate.ready?'is-ready':''}">${gate.ready?'ผู้รับทุกคนเสร็จแล้ว · พร้อมตรวจปิดงาน':`รอผู้รับกดเสร็จสิ้น ${gate.completed}/${gate.total} คน`}</span>`:''}
       ${close&&t.status!=='done'&&taskAutoCloses(t)?`<span class="task-close-gate">งานนี้จะปิดอัตโนมัติเมื่อผู้รับทุกคนกดเสร็จสิ้น</span>`:''}
-      ${close&&t.status==='done'?`<button class="tbtn" onclick="setTaskStatus('${t.id}','doing')">↩ เปิดงานใหม่</button>`:''}</div>
+      </div>
 
     <div class="field" style="margin-top:14px"><label>ความเคลื่อนไหว / ความคิดเห็น</label>
       <div style="display:flex;gap:6px;margin-bottom:8px"><input class="fin" id="cmtIn" placeholder="เขียนความคิดเห็น..." style="flex:1" onkeydown="if(event.key==='Enter')addComment('${t.id}')"><button class="tbtn" onclick="addComment('${t.id}')">ส่ง</button></div>
