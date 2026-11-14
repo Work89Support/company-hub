@@ -66,6 +66,7 @@ assert.ok((await db.query('select started_at from task_assignee_workspaces where
 await db.query("select update_my_task_workspace($1,'done',100,'เสร็จแล้ว')",[task]);
 assert.ok((await db.query('select completed_at from task_assignee_workspaces where task_id=$1 and user_id=$2',[task,a])).rows[0].completed_at);
 await db.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
+await assert.rejects(()=>db.query("update tasks set status='doing' where id=$1",[task]),/เปลี่ยนได้เฉพาะเสร็จสิ้น/);
 await assert.rejects(()=>db.query("update tasks set status='done' where id=$1",[task]),/1\/2 รับทราบ.*1\/2 เริ่มงาน/);
 assert.equal((await db.query('select auto_close_due_tasks() n')).rows[0].n,0,'scheduled close must not bypass incomplete assignees');
 await db.query("select set_config('request.jwt.claim.sub',$1,false)",[b]);
@@ -81,6 +82,7 @@ assert.equal((await db.query('select status from tasks where id=$1',[task])).row
 await db.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
 await db.query("update tasks set status='done' where id=$1",[task]);
 assert.equal((await db.query('select status from tasks where id=$1',[task])).rows[0].status,'done');
+await assert.rejects(()=>db.query("update tasks set status='doing' where id=$1",[task]),/เปลี่ยนได้เฉพาะเสร็จสิ้น/);
 const autoTask='00000000-0000-4000-8000-000000000011';
 await db.query("insert into tasks(id,creator_id,due_at,prototype_payload) values($1,$2,now()+interval '1 day',$3::jsonb)",[autoTask,owner,JSON.stringify({close_mode:'auto_assignees'})]);
 await db.query('insert into task_assignees(task_id,user_id,assigned_by) values($1,$2,$3),($1,$4,$3)',[autoTask,a,owner,b]);
