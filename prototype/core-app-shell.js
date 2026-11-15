@@ -519,14 +519,16 @@ const NAVGROUPS=[
 const ROLE_ALLOW={
  staff:['myTasks','board','graphic','problems','activity','org','files','sop','kb','ann','talk'],
  lead:['dash','myTasks','board','graphic','timeline','problems','activity','kpi','reports','monthly','org','files','sop','kb','ann','talk'],
- exec:['dash','board','graphic','timeline','problems','activity','kpi','reports','monthly','org','users','files','sop','kb','ann','talk'],
+ exec:['dash','myTasks','board','graphic','timeline','problems','activity','kpi','reports','monthly','org','users','files','sop','kb','ann','talk'],
 };
 const SIMPLE_ALLOW={
  staff:['myTasks','board','graphic','ann'],
- lead:['dash','board','graphic','kpi','reports','ann'],
- exec:['dash','board','graphic','kpi','reports','ann'],
+ lead:['dash','myTasks','board','graphic','kpi','reports','ann'],
+ exec:['dash','myTasks','board','graphic','kpi','reports','ann'],
 };
 let SIMPLE=false;
+const MOBILE_NAV_QUERY='(max-width:960px)';
+function isMobileNavigation(){return typeof window!=='undefined'&&window.matchMedia?.(MOBILE_NAV_QUERY).matches;}
 function homeView(){
   const preferred=ROLE_META[ROLE]?.home||'dash',allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||[];
   return allow.includes(preferred)?preferred:(allow.includes('dash')?'dash':(allow[0]||'board'));
@@ -535,15 +537,18 @@ function toggleSimple(){SIMPLE=!SIMPLE;try{localStorage.setItem('ch_simple',SIMP
   go(homeView());
   toast(SIMPLE?'เปิดโหมดง่าย — แสดงเฉพาะเมนูหลัก':'แสดงทุกเมนูแล้ว');}
 function buildNav(){
-  let allow=(SIMPLE?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||Object.keys(NAV);
+  const mobile=isMobileNavigation();
+  // Mobile always exposes every view permitted for the signed-in role. A
+  // remembered desktop "simple mode" must never make a required menu vanish.
+  let allow=((SIMPLE&&!mobile)?SIMPLE_ALLOW:ROLE_ALLOW)[ROLE]||Object.keys(NAV);
   if(!canViewDept('GRAPHIC'))allow=allow.filter(k=>k!=='graphic');
   if(!CLOUD||!canAdminAccess())allow=allow.filter(k=>k!=='users');
-  let html=`<button type="button" class="navitem simpletgl" onclick="toggleSimple()"><span class="ic">${sic(SIMPLE?'i-grid':'i-check')}</span>${SIMPLE?'โหมดครบ (ทุกเมนู)':'โหมดง่าย (เมนูหลัก)'}</button>`;
-  if(SIMPLE)html+=`<button type="button" class="navitem ${VIEW===homeView()?'active':''}" onclick="navGo(homeView())"><span class="ic">${sic('i-dash')}</span>กลับหน้าแรก</button>`;
+  let html=mobile?'<div class="mobile-menu-note"><b>เมนูทั้งหมด</b><span>แสดงครบตามสิทธิ์บัญชีนี้</span></div>':`<button type="button" class="navitem simpletgl" onclick="toggleSimple()"><span class="ic">${sic(SIMPLE?'i-grid':'i-check')}</span>${SIMPLE?'โหมดครบ (ทุกเมนู)':'โหมดง่าย (เมนูหลัก)'}</button>`;
+  if(SIMPLE&&!mobile)html+=`<button type="button" class="navitem ${VIEW===homeView()?'active':''}" onclick="navGo(homeView())"><span class="ic">${sic('i-dash')}</span>กลับหน้าแรก</button>`;
   NAVGROUPS.forEach(g=>{
     const its=g.items.filter(k=>allow.includes(k));
     if(!its.length)return;
-    if(!SIMPLE) html+=`<div class="navgroup">${g.label}</div>`;
+    if(!SIMPLE||mobile) html+=`<div class="navgroup">${g.label}</div>`;
     html+=its.map(k=>{
       const badge=k==='myTasks'?`<span class="badge">${myTasks().filter(t=>t.status!=='done').length}</span>`:'';
       return `<button type="button" class="navitem ${k===VIEW?'active':''}" data-view="${k}" onclick="navGo('${k}')"><span class="ic">${sic(NAV[k].ic)}</span>${NAV[k].t}${badge}</button>`;
@@ -554,6 +559,12 @@ function buildNav(){
   const visibleDeptList=DEPTS.filter(d=>visibleCodes.has(d.code));
   deptLabel.style.display=visibleDeptList.length?'':'none';
   deptNav.innerHTML=visibleDeptList.map(d=>`<button type="button" class="navitem" style="padding:6px 12px" onclick="goBoardFiltered({dept:'${d.code}'})"><span class="ic" style="color:${d.color}">●</span>${d.name}</button>`).join('');
+}
+if(typeof window!=='undefined'&&window.matchMedia){
+  const mobileNavMedia=window.matchMedia(MOBILE_NAV_QUERY);
+  const rebuildMobileNavigation=()=>{if(document.getElementById('nav'))buildNav();};
+  if(mobileNavMedia.addEventListener)mobileNavMedia.addEventListener('change',rebuildMobileNavigation);
+  else if(mobileNavMedia.addListener)mobileNavMedia.addListener(rebuildMobileNavigation);
 }
 function go(v,arg){if(v==='tracker')v=homeView();main.classList.remove('graphic-board-view');VIEW=v;if(v==='board')BOARD_DEPT=arg||'';document.body.classList.remove('nav-open');buildNav();updateBell();window.scrollTo(0,0);RENDER[v](arg);if(typeof saveState==='function')saveState();}
 function navGo(v){F={...F,q:'',source:v==='timeline'?'work':'',dept:'',status:'',prio:'',assignee:'',period:'',dateFrom:'',dateTo:'',reportFrom:'',reportTo:''};go(v);}

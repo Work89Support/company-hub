@@ -40,12 +40,15 @@ for(const role of ['staff','lead','exec']){
   assert.ok(roleAllow[role].every(view=>allViews.includes(view)),`${role} references an unknown view`);
 }
 assert.ok(roleAllow.staff.includes('myTasks'),'Staff must have a personal work entry point');
+for(const role of ['staff','lead','exec'])assert.ok(simpleAllow[role].includes('myTasks'),`${role} simple mode must retain required work`);
 assert.ok(!roleAllow.staff.includes('users'),'Staff must not see employee administration');
 assert.ok(roleAllow.lead.includes('kpi')&&roleAllow.lead.includes('reports'),'Lead needs KPI and reporting');
 assert.ok(!roleAllow.lead.includes('users'),'Lead must not see employee administration by default');
 assert.ok(roleAllow.exec.includes('users'),'Executive/admin shell needs employee administration');
 assert.match(app,/if\(!CLOUD\|\|!canAdminAccess\(\)\)allow=allow\.filter\(k=>k!==['"]users['"]\)/,'User administration needs a live admin gate');
 assert.match(app,/if\(!canViewDept\(['"]GRAPHIC['"]\)\)allow=allow\.filter\(k=>k!==['"]graphic['"]\)/,'Graphic navigation needs a department gate');
+assert.match(shell,/\(SIMPLE&&!mobile\)\?SIMPLE_ALLOW:ROLE_ALLOW/,'Mobile navigation must ignore remembered simple mode');
+assert.match(shell,/mobile-menu-note/,'Mobile navigation needs a visible completeness note');
 
 assert.ok(contrast('#182338','#ffffff')>=7,'Primary light text contrast regressed');
 assert.ok(contrast('#53617a','#ffffff')>=4.5,'Secondary light text contrast regressed');
@@ -59,6 +62,7 @@ assert.match(ux,/@media\(max-width:600px\)[\s\S]*min-width:44px[\s\S]*height:44p
 assert.match(ux,/@media\(max-width:600px\)[\s\S]*grid-template-columns:minmax\(0,1fr\)/,'Mobile summary must collapse to one column');
 assert.match(ux,/@media\(max-width:600px\)[\s\S]*font-size:16px/,'Mobile form controls must avoid browser zoom');
 assert.match(ux,/max-height:calc\(100dvh - 16px\)/,'Mobile modal must fit the dynamic viewport');
+assert.match(html,/width:min\(280px,88vw\)[^}]*overflow-y:auto/,'Mobile menu must fit and scroll within the viewport');
 assert.match(workflows,/scroll-snap-type:x proximity/,'Wide workflow boards need contained horizontal navigation');
 assert.match(ux,/overflow-wrap:anywhere/,'Long text needs a wrapping fallback');
 assert.match(ux,/clamp\(23px,2\.2vw,30px\)/,'Page titles need a zoom-friendly fluid scale');
