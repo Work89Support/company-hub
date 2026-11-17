@@ -5,6 +5,8 @@ let ASSIGNABLE=['a','b','c','d','e','f','lead_gr','lead_crm','lead_mkt'];
 const me=()=>ACCESS_PROFILE?.id||ROLE_META[ROLE].u;
 const annAudienceIds=a=>(a.audienceIds&&a.audienceIds.length)?a.audienceIds:ASSIGNABLE;
 const nextAnnId=()=>'A'+(++ANN_SEQ);
+const canManageAnnouncement=a=>!!a&&(a.who===me()||canAdminAccess());
+const annHtml=value=>esc(value).replace(/\n/g,'<br>');
 function pendingAcks(){return ANN.filter(a=>annStatus(a).t!=='หมดอายุ'&&annAudienceIds(a).includes(me())&&!(a.acks||[]).includes(me()));}
 function updateBell(){const el=document.getElementById('bell');if(!el)return;const n=pendingAcks().length;el.innerHTML='<svg class="svic"><use href="#i-bell"></use></svg>'+(n?` <span style="background:var(--red);color:#fff;border-radius:20px;padding:0 6px;font-size:10px">${n}</span>`:'');}
 async function ackAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;a.acks=a.acks||[];
@@ -26,10 +28,11 @@ function showAckPopup(manual){
 function openAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;const st=annStatus(a);
   const aud=annAudienceIds(a),ack=a.acks||[],pend=aud.filter(x=>!ack.includes(x));
   const canSee=a.who===me()||isExecutiveRole()||AUTH_DB_ROLE==='lead';const iRecip=aud.includes(me()),iAck=ack.includes(me());
-  showModal(`<div class="modal-h"><div><div style="margin-bottom:4px"><span class="pill" style="background:${st.c}">${st.t}</span></div><h3>${a.pin?'📌 ':''}${a.title}</h3>
+  showModal(`<div class="modal-h"><div><div style="margin-bottom:4px"><span class="pill" style="background:${st.c}">${st.t}</span></div><h3>${a.pin?'📌 ':''}${esc(a.title)}</h3>
     <div class="muted" style="font-size:11.5px">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 มีผล ${fmtDate(a.from)}${a.until?(' – '+fmtDate(a.until)):' (ไม่มีสิ้นสุด)'}`:''}</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad" id="anndetail">
-    <div class="v" style="font-size:13.5px;line-height:1.65">${a.body}</div>
+    ${canManageAnnouncement(a)?`<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px"><button class="tbtn" onclick="openAnnForm('${a.id}')">✏️ แก้ไข</button><button class="tbtn danger" onclick="confirmDeleteAnn('${a.id}')">🗑 ลบ</button></div>`:''}
+    <div class="v" style="font-size:13.5px;line-height:1.65">${annHtml(a.body)}</div>
     ${iRecip?(iAck?`<div class="ai-note" style="margin-top:12px">✅ คุณรับทราบประกาศนี้แล้ว</div>`:`<button class="tbtn primary" style="margin-top:12px" onclick="ackAnn('${a.id}')">✓ กดรับทราบ</button>`):`<div class="muted" style="margin-top:12px;font-size:12px">คุณไม่ได้อยู่ในผู้รับของประกาศนี้</div>`}
     <div class="field" style="margin-top:14px"><label>สถานะการรับทราบ — ${ack.length}/${aud.length} คน</label>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${ack.length?avStack(ack):'<span class="muted" style="font-size:12px">ยังไม่มีใครรับทราบ</span>'}</div>
@@ -274,25 +277,30 @@ function assigneeOptions(sel){return ASSIGNABLE.map(a=>`<option value="${a}" ${s
 function deptOptions(sel){const allowed=CLOUD&&!canAdminAccess()?DEPTS.filter(d=>MANAGE_DEPTS.includes(d.code)):DEPTS;return allowed.map(d=>`<option value="${d.code}" ${sel===d.code?'selected':''}>${d.name}</option>`).join('');}
 
 /* Announcements */
-function openAnnForm(){PICK=new Set();PICK_QUERY='';PICK_DEPT='';PICK_POSITION='';PICK_MULTI_DEPTS=[];showModal(`<div class="modal-h"><div><h3>${sic('i-megaphone')} ประกาศ / สั่งการใหม่</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
+function openAnnForm(id=''){const a=id?ANN.find(x=>x.id===id):null;if(id&&!a)return;if(a&&!canManageAnnouncement(a)){toast('แก้ไขได้เฉพาะผู้สร้างหรือผู้ดูแลระบบ','info');return;}PICK=new Set(a?annAudienceIds(a):[]);PICK_QUERY='';PICK_DEPT='';PICK_POSITION='';PICK_MULTI_DEPTS=[];showModal(`<div class="modal-h"><div><h3>${sic('i-megaphone')} ${a?'แก้ไขประกาศ':'ประกาศ / สั่งการใหม่'}</h3><div class="muted" style="font-size:11.5px">เลือกผู้รับได้หลายคน / ทั้งกลุ่ม / ทั้งบริษัท</div></div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad">
-    <div class="field"><label>หัวข้อ</label><input class="fin" id="annT" placeholder="เช่น ปรับเป้าหมายทีมสัปดาห์นี้"></div>
-    <div class="field"><label>รายละเอียด (พิมพ์หรือพูด)</label><textarea class="fin" id="annB" rows="3" placeholder="เนื้อหาประกาศ"></textarea>
+    <div class="field"><label>หัวข้อ</label><input class="fin" id="annT" value="${esc(a?.title||'')}" placeholder="เช่น ปรับเป้าหมายทีมสัปดาห์นี้"></div>
+    <div class="field"><label>รายละเอียด (พิมพ์หรือพูด)</label><textarea class="fin" id="annB" rows="3" placeholder="เนื้อหาประกาศ">${esc(a?.body||'')}</textarea>
       <button class="tbtn sm" style="margin-top:6px" onclick="voiceDictate('annB')">${sic('i-mic')} พูดใส่</button></div>
-    <div class="two"><div class="field"><label>มีผลตั้งแต่</label><input type="date" class="fin" id="annFrom" value="${TODAY_ISO}"></div>
-      <div class="field"><label>ถึงวันที่ (เว้นว่าง = ไม่มีกำหนดสิ้นสุด)</label><input type="date" class="fin" id="annUntil"></div></div>
-    <label class="checkbox" style="margin-bottom:12px"><input type="checkbox" id="annPin"> 📌 ปักหมุดไว้ด้านบน</label>
+    <div class="two"><div class="field"><label>มีผลตั้งแต่</label><input type="date" class="fin" id="annFrom" value="${esc(a?.from||TODAY_ISO)}"></div>
+      <div class="field"><label>ถึงวันที่ (เว้นว่าง = ไม่มีกำหนดสิ้นสุด)</label><input type="date" class="fin" id="annUntil" value="${esc(a?.until||'')}"></div></div>
+    <label class="checkbox" style="margin-bottom:12px"><input type="checkbox" id="annPin" ${a?.pin?'checked':''}> 📌 ปักหมุดไว้ด้านบน</label>
     <div class="field"><label>ส่งถึง (เลือกกลุ่ม/หลายคน — ไม่เลือก = ทั้งบริษัท)</label><div id="pickerBox"></div></div>
-    <button class="tbtn primary" onclick="postAnn()">${sic('i-megaphone')} โพสต์ & แจ้งเตือน</button></div>`);renderPicker();}
-async function postAnn(){const t=normSp(val('annT'));
+    <button class="tbtn primary" onclick="postAnn('${a?.id||''}')">${sic('i-megaphone')} ${a?'บันทึกการแก้ไข':'โพสต์ & แจ้งเตือน'}</button></div>`);renderPicker();}
+async function postAnn(editId=''){const t=normSp(val('annT')),editing=editId?ANN.find(x=>x.id===editId):null;
   if(!t){toast('กรุณาใส่หัวข้อประกาศ','info');return;}
+  if(editId&&(!editing||!canManageAnnouncement(editing))){toast('แก้ไขได้เฉพาะผู้สร้างหรือผู้ดูแลระบบ','info');return;}
   const sel=[...PICK];const all=(!sel.length||sel.length>=ASSIGNABLE.length),targetIds=all?[...ASSIGNABLE]:sel;
   const audience=all?(canAdminAccess()?'ทั้งบริษัท':'ทุกคนในแผนกที่จัดการ'):sel.map(shortName).join(', ');
   const from=val('annFrom')||TODAY_ISO,until=val('annUntil')||'';
-  if(CLOUD){try{const r=await SB.rpc('post_announcement',{p_title:t,p_body:normSp(val('annB')),p_starts_on:from,p_ends_on:until||null,p_pinned:document.getElementById('annPin').checked,p_recipients:targetIds});if(r.error)throw r.error;await cloudLoadAnnouncements();}catch(e){toast('โพสต์ประกาศไม่สำเร็จ · '+(e.message||e),'info');return;}}
-  else ANN.unshift({id:nextAnnId(),who:me(),pin:document.getElementById('annPin').checked,title:t,body:normSp(val('annB')),time:'เมื่อสักครู่',audience,from,until,audienceIds:targetIds,acks:[],comments:[]});
-  logFeed('📢','#eef2ff',`<b>${shortName(me())}</b> ประกาศ: ${t} → ${audience}`);
-  closeModal();toast('โพสต์ประกาศ & แจ้งเตือนถึง '+(all?'ทั้งบริษัท':sel.length+' คน'));go('ann');}
+  const payload={p_title:t,p_body:normSp(val('annB')),p_starts_on:from,p_ends_on:until||null,p_pinned:document.getElementById('annPin').checked,p_recipients:targetIds};
+  if(CLOUD){try{const r=editing?await SB.rpc('update_announcement',{p_announcement:editing.dbId,...payload}):await SB.rpc('post_announcement',payload);if(r.error)throw r.error;await cloudLoadAnnouncements();}catch(e){toast((editing?'แก้ไข':'โพสต์')+'ประกาศไม่สำเร็จ · '+(e.message||e),'info');return;}}
+  else if(editing){Object.assign(editing,{pin:payload.p_pinned,title:t,body:payload.p_body,audience,from,until,audienceIds:targetIds});editing.acks=(editing.acks||[]).filter(x=>targetIds.includes(x));}
+  else ANN.unshift({id:nextAnnId(),who:me(),pin:payload.p_pinned,title:t,body:payload.p_body,time:'เมื่อสักครู่',audience,from,until,audienceIds:targetIds,acks:[],comments:[]});
+  logFeed(editing?'✏️':'📢','#eef2ff',`<b>${shortName(me())}</b> ${editing?'แก้ไข':'ประกาศ'}: ${esc(t)} → ${esc(audience)}`);
+  closeModal();toast(editing?'บันทึกการแก้ไขแล้ว':'โพสต์ประกาศ & แจ้งเตือนถึง '+(all?'ทั้งบริษัท':sel.length+' คน'));go('ann');}
+function confirmDeleteAnn(id){const a=ANN.find(x=>x.id===id);if(!a||!canManageAnnouncement(a)){toast('ลบได้เฉพาะผู้สร้างหรือผู้ดูแลระบบ','info');return;}showModal(`<div class="modal-h"><div><h3>ยืนยันลบประกาศ</h3><div class="muted" style="font-size:11.5px">การลบไม่สามารถย้อนกลับได้</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="ai-note"><b>${esc(a.title)}</b><br>รายชื่อผู้รับ สถานะรับทราบ และความคิดเห็นของประกาศนี้จะถูกลบด้วย</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="tbtn" onclick="openAnn('${a.id}')">ยกเลิก</button><button class="tbtn danger" id="deleteAnnBtn" onclick="deleteAnn('${a.id}')">ลบประกาศ</button></div></div>`);}
+async function deleteAnn(id){const a=ANN.find(x=>x.id===id);if(!a||!canManageAnnouncement(a)){toast('ลบได้เฉพาะผู้สร้างหรือผู้ดูแลระบบ','info');return;}const button=document.getElementById('deleteAnnBtn');if(button){button.disabled=true;button.textContent='กำลังลบ…';}if(CLOUD){try{const r=await SB.rpc('delete_announcement',{p_announcement:a.dbId});if(r.error)throw r.error;await cloudLoadAnnouncements();}catch(e){toast('ลบประกาศไม่สำเร็จ · '+(e.message||e),'info');if(button){button.disabled=false;button.textContent='ลบประกาศ';}return;}}else{const index=ANN.indexOf(a);if(index>=0)ANN.splice(index,1);}logFeed('🗑','#fff1f2',`<b>${shortName(me())}</b> ลบประกาศ: ${esc(a.title)}`);closeModal();toast('ลบประกาศแล้ว');go('ann');}
 
 /* Export */
 function downloadRows(rows,name){
