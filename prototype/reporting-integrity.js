@@ -64,7 +64,7 @@ const integrityLogin=onLoggedIn;
 onLoggedIn=async function(session){const r=await integrityLogin(session);if(!CLOUD||!ACCESS_PROFILE)return r;
  if(!INTEGRITY_TIMER){
   const changes=()=>{clearTimeout(window.integrityDebounce);window.integrityDebounce=setTimeout(integrityRefresh,700);};
-  let channel=SB.channel('reporting-integrity');for(const table of ['tasks','task_assignees','time_entries','task_comments','operational_issues','announcements','announcement_recipients','announcement_comments','kpi_definitions','kpi_results','kpi_work_links','profiles','profile_departments','graphic_job_members'])channel=channel.on('postgres_changes',{event:'*',schema:'public',table},changes);channel.subscribe();
+  let channel=SB.channel('reporting-integrity');for(const table of ['tasks','task_assignees','time_entries','task_comments','operational_issues','announcements','announcement_recipients','announcement_comments','announcement_revisions','kpi_definitions','kpi_results','kpi_work_links','profiles','profile_departments','graphic_job_members'])channel=channel.on('postgres_changes',{event:'*',schema:'public',table},changes);channel.subscribe();
   // Poll as well: installations need not publish every table to realtime.
   INTEGRITY_TIMER=setInterval(()=>{if(!document.hidden)integrityRefresh();},60000);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)integrityRefresh();});

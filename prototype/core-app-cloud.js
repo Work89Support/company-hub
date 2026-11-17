@@ -373,16 +373,18 @@ async function cloudLoad(){
 async function cloudLoadAnnouncements(){
   if(!SB)return;ANN.length=0;
   try{
-    const [ann,recipients,comments]=await Promise.all([
-      integrityReadAll(()=>SB.from('announcements').select('id,creator_id,title,body,starts_on,ends_on,pinned,created_at'),["id"]),
+    const [ann,recipients,comments,revisions]=await Promise.all([
+      integrityReadAll(()=>SB.from('announcements').select('id,creator_id,title,body,starts_on,ends_on,pinned,revision_no,created_at,updated_at'),["id"]),
       integrityReadAll(()=>SB.from('announcement_recipients').select('announcement_id,profile_id,acknowledged_at'),["announcement_id", "profile_id"]),
       integrityReadAll(()=>SB.from('announcement_comments').select('announcement_id,author_id,body,created_at'),["id"]),
+      integrityReadAll(()=>SB.from('announcement_revisions').select('id,announcement_id,revision_no,changed_by,changed_at,previous_title,previous_body,previous_starts_on,previous_ends_on,previous_pinned,previous_recipients,change_summary'),["id"]),
     ]);
-    if(ann.error)throw ann.error;if(recipients.error)throw recipients.error;if(comments.error)throw comments.error;
-    const recBy=new Map(),ackBy=new Map(),commentBy=new Map();
+    if(ann.error)throw ann.error;if(recipients.error)throw recipients.error;if(comments.error)throw comments.error;if(revisions.error)throw revisions.error;
+    const recBy=new Map(),ackBy=new Map(),commentBy=new Map(),revisionBy=new Map();
     if(!recipients.error)(recipients.data||[]).forEach(x=>{if(!recBy.has(x.announcement_id))recBy.set(x.announcement_id,[]);recBy.get(x.announcement_id).push(x.profile_id);if(x.acknowledged_at){if(!ackBy.has(x.announcement_id))ackBy.set(x.announcement_id,[]);ackBy.get(x.announcement_id).push(x.profile_id);}});
     if(!comments.error)(comments.data||[]).sort((a,b)=>a.created_at.localeCompare(b.created_at)).forEach(x=>{if(!commentBy.has(x.announcement_id))commentBy.set(x.announcement_id,[]);commentBy.get(x.announcement_id).push({who:x.author_id,text:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'})});});
-    (ann.data||[]).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.created_at.localeCompare(a.created_at)).forEach(x=>{const audienceIds=recBy.get(x.id)||[];ANN.push({id:x.id,dbId:x.id,who:x.creator_id,pin:x.pinned,title:x.title,body:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),audience:audienceIds.length?audienceIds.map(shortName).join(', '):'ทั้งบริษัท',from:x.starts_on,until:x.ends_on||'',audienceIds,acks:ackBy.get(x.id)||[],comments:commentBy.get(x.id)||[]});});
+    (revisions.data||[]).sort((a,b)=>b.revision_no-a.revision_no).forEach(x=>{if(!revisionBy.has(x.announcement_id))revisionBy.set(x.announcement_id,[]);revisionBy.get(x.announcement_id).push({no:x.revision_no,who:x.changed_by,at:x.changed_at,time:new Date(x.changed_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),fields:x.change_summary||[],title:x.previous_title,body:x.previous_body,from:x.previous_starts_on,until:x.previous_ends_on||'',pin:x.previous_pinned,audienceIds:x.previous_recipients||[]});});
+    (ann.data||[]).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.created_at.localeCompare(a.created_at)).forEach(x=>{const audienceIds=recBy.get(x.id)||[],history=revisionBy.get(x.id)||[];ANN.push({id:x.id,dbId:x.id,who:x.creator_id,pin:x.pinned,title:x.title,body:x.body,time:new Date(x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),updatedTime:new Date(x.updated_at||x.created_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE,dateStyle:'short',timeStyle:'short'}),revision:x.revision_no||1,history,audience:audienceIds.length?audienceIds.map(shortName).join(', '):'ทั้งบริษัท',from:x.starts_on,until:x.ends_on||'',audienceIds,acks:ackBy.get(x.id)||[],comments:commentBy.get(x.id)||[]});});
   }catch(e){console.warn('announcement load:',e.message||e);throw e;}
 }
 async function cloudLoadKnowledge(){

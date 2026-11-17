@@ -29,10 +29,11 @@ function openAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;const st=annSta
   const aud=annAudienceIds(a),ack=a.acks||[],pend=aud.filter(x=>!ack.includes(x));
   const canSee=a.who===me()||isExecutiveRole()||AUTH_DB_ROLE==='lead';const iRecip=aud.includes(me()),iAck=ack.includes(me());
   showModal(`<div class="modal-h"><div><div style="margin-bottom:4px"><span class="pill" style="background:${st.c}">${st.t}</span></div><h3>${a.pin?'📌 ':''}${esc(a.title)}</h3>
-    <div class="muted" style="font-size:11.5px">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 มีผล ${fmtDate(a.from)}${a.until?(' – '+fmtDate(a.until)):' (ไม่มีสิ้นสุด)'}`:''}</div></div><button class="x" onclick="closeModal()">×</button></div>
+    <div class="muted" style="font-size:11.5px">${shortName(a.who)} · ${a.time} · 📨 ${a.audience||'ทั้งบริษัท'}${a.from?` · 🗓 มีผล ${fmtDate(a.from)}${a.until?(' – '+fmtDate(a.until)):' (ไม่มีสิ้นสุด)'}`:''}</div>${a.history?.length?`<div style="margin-top:5px"><span class="pill" style="background:var(--amber);font-size:10px">✏️ แก้ไขแล้ว ${a.history.length} ครั้ง · ล่าสุด ${esc(a.updatedTime)}</span></div>`:''}</div><button class="x" onclick="closeModal()">×</button></div>
   <div class="pad" id="anndetail">
     ${canManageAnnouncement(a)?`<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px"><button class="tbtn" onclick="openAnnForm('${a.id}')">✏️ แก้ไข</button><button class="tbtn danger" onclick="confirmDeleteAnn('${a.id}')">🗑 ลบ</button></div>`:''}
     <div class="v" style="font-size:13.5px;line-height:1.65">${annHtml(a.body)}</div>
+    ${a.history?.length?`<button class="tbtn sm" style="margin-top:12px" onclick="openAnnHistory('${a.id}')">🕘 ดูประวัติการแก้ไข (${a.history.length})</button>`:''}
     ${iRecip?(iAck?`<div class="ai-note" style="margin-top:12px">✅ คุณรับทราบประกาศนี้แล้ว</div>`:`<button class="tbtn primary" style="margin-top:12px" onclick="ackAnn('${a.id}')">✓ กดรับทราบ</button>`):`<div class="muted" style="margin-top:12px;font-size:12px">คุณไม่ได้อยู่ในผู้รับของประกาศนี้</div>`}
     <div class="field" style="margin-top:14px"><label>สถานะการรับทราบ — ${ack.length}/${aud.length} คน</label>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">${ack.length?avStack(ack):'<span class="muted" style="font-size:12px">ยังไม่มีใครรับทราบ</span>'}</div>
@@ -45,6 +46,7 @@ function openAnn(id){const a=ANN.find(x=>x.id===id);if(!a)return;const st=annSta
     </div>
   </div>`);
 }
+function openAnnHistory(id){const a=ANN.find(x=>x.id===id);if(!a)return;const items=a.history||[];showModal(`<div class="modal-h"><div><h3>🕘 ประวัติการแก้ไข</h3><div class="muted" style="font-size:11.5px">${esc(a.title)} · เวอร์ชันปัจจุบัน ${a.revision||1}</div></div><button class="x" onclick="openAnn('${a.id}')">×</button></div><div class="pad">${items.length?items.map((h,i)=>`<div class="card pad" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>แก้ไขโดย ${esc(shortName(h.who))}</b><span class="muted" style="font-size:11px">${esc(h.time)}</span></div><div style="margin-top:6px;font-size:12px"><span class="pill" style="background:var(--amber)">แก้: ${(h.fields||[]).map(esc).join(', ')||'ข้อมูลประกาศ'}</span></div><details style="margin-top:8px"><summary style="cursor:pointer;font-size:12px;color:var(--blue-700)">ดูข้อมูลก่อนแก้ไข</summary><div style="margin-top:8px"><b>${esc(h.title)}</b><div class="v" style="margin-top:5px;font-size:12.5px;line-height:1.6">${annHtml(h.body)}</div></div></details></div>`).join(''):'<div class="muted">ยังไม่มีประวัติการแก้ไข</div>'}</div>`);}
 async function addAnnComment(id){const a=ANN.find(x=>x.id===id);const v=normSp(val('annCmt_'+id));if(!v)return;
   if(CLOUD&&a.dbId){try{const r=await SB.from('announcement_comments').insert({announcement_id:a.dbId,author_id:ACCESS_PROFILE.id,body:v});if(r.error)throw r.error;}catch(e){toast('ตอบกลับไม่สำเร็จ · '+(e.message||e),'info');return;}}
   a.comments=a.comments||[];a.comments.push({who:me(),text:v,time:'เมื่อสักครู่'});
@@ -295,7 +297,7 @@ async function postAnn(editId=''){const t=normSp(val('annT')),editing=editId?ANN
   const from=val('annFrom')||TODAY_ISO,until=val('annUntil')||'';
   const payload={p_title:t,p_body:normSp(val('annB')),p_starts_on:from,p_ends_on:until||null,p_pinned:document.getElementById('annPin').checked,p_recipients:targetIds};
   if(CLOUD){try{const r=editing?await SB.rpc('update_announcement',{p_announcement:editing.dbId,...payload}):await SB.rpc('post_announcement',payload);if(r.error)throw r.error;await cloudLoadAnnouncements();}catch(e){toast((editing?'แก้ไข':'โพสต์')+'ประกาศไม่สำเร็จ · '+(e.message||e),'info');return;}}
-  else if(editing){Object.assign(editing,{pin:payload.p_pinned,title:t,body:payload.p_body,audience,from,until,audienceIds:targetIds});editing.acks=(editing.acks||[]).filter(x=>targetIds.includes(x));}
+  else if(editing){editing.history=editing.history||[];editing.history.unshift({no:editing.revision||1,who:me(),time:'เมื่อสักครู่',fields:['ข้อมูลประกาศ'],title:editing.title,body:editing.body,from:editing.from,until:editing.until,pin:editing.pin,audienceIds:[...(editing.audienceIds||[])]});Object.assign(editing,{pin:payload.p_pinned,title:t,body:payload.p_body,audience,from,until,audienceIds:targetIds,revision:(editing.revision||1)+1,updatedTime:'เมื่อสักครู่'});editing.acks=[];}
   else ANN.unshift({id:nextAnnId(),who:me(),pin:payload.p_pinned,title:t,body:payload.p_body,time:'เมื่อสักครู่',audience,from,until,audienceIds:targetIds,acks:[],comments:[]});
   logFeed(editing?'✏️':'📢','#eef2ff',`<b>${shortName(me())}</b> ${editing?'แก้ไข':'ประกาศ'}: ${esc(t)} → ${esc(audience)}`);
   closeModal();toast(editing?'บันทึกการแก้ไขแล้ว':'โพสต์ประกาศ & แจ้งเตือนถึง '+(all?'ทั้งบริษัท':sel.length+' คน'));go('ann');}
