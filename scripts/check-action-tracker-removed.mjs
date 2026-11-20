@@ -1,1 +1,20 @@
-m´ÎàßΩ©bu™‡∫gß∂«+äõl˝»^rFú∂*'∂∂úëÍÎzj/yŸ£±KÅÊ⁄±Ó∏ÿ[ûÈ¢äw‚ïÍ(∫◊‚ïÊ€≠Ê§n∑öëÈ‹°◊ù¢Îi∫€©ä{hñ)ﬁ≤áÂzx-Ü{¶◊^rá^uÁ(uËß¶ÎaÖÈiv+)ï¨≠Ü+&zÀÅË¢ûõ≠äznµ¯•y◊üjÈm~äÏµÿß¢ã≠¶Îh∫⁄nµ¯•y◊üjÈm~äÏµ⁄.
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const read=name=>fs.readFileSync(new URL('../prototype/'+name,import.meta.url),'utf8');
+const html=read('index.html');
+const data=read('core-app-data.js');
+const shell=read('core-app-shell.js');
+const views=read('core-app-views.js');
+const admin=read('core-app-admin.js');
+const cloud=read('core-app-cloud.js');
+
+assert.doesNotMatch(data,/tracker:\{ic:'i-clipboard',t:'Action Tracker'/,'Action Tracker still exists in navigation metadata');
+assert.doesNotMatch(shell,/items:\[[^\]]*'tracker'|(?:lead|exec):\[[^\]]*'tracker'/,'Action Tracker still exists in a role menu');
+assert.doesNotMatch(views,/go\('tracker'\)|‡πÄ‡∏õ‡∏¥‡∏î Action Tracker|Go-live Control ¬∑ Action Plan/,'Dashboard still links to Action Tracker');
+assert.doesNotMatch(admin,/go\('tracker'\)|‡∏î‡∏π‡∏£‡∏≤‡∏¢‡∏Å‡∏≤‡∏£‡∏á‡∏≤‡∏ô‡∏à‡∏£‡∏¥‡∏á‡πÑ‡∏î‡πâ‡∏ó‡∏µ‡πà Action Tracker/,'Knowledge or activity surfaces still link to Action Tracker');
+assert.doesNotMatch(cloud,/id:'tracker',ic:'i-clipboard',tt:'Action Tracker'/,'Manual still exposes Action Tracker');
+assert.match(shell,/if\(v==='tracker'\)v=homeView\(\)/,'Stale Action Tracker navigation is not redirected');
+assert.match(html,/company-hub-release" content="20261120-member-task-leads-1"/,'Release marker is stale');
+
+console.log('PASS Action Tracker menu, dashboard shortcuts and manual entry are removed');
