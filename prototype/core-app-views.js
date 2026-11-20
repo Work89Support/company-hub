@@ -106,7 +106,7 @@ function dashboardGraphicRows(){
 /* Current reporting rule: the person who created/source-entered a record is its responsible person.
    Keep the original database assignment untouched so it remains available when the assignment policy changes. */
 function boardResponsibilityByCreator(t){
-  if(t?._source==='activity'&&Array.isArray(t.assignees)&&t.assignees.length)return t;
+  if((t?._source==='activity'||t?._source==='task')&&Array.isArray(t.assignees)&&t.assignees.length)return t;
   const creator=String(t?.creator||'').trim();
   return creator?{...t,assignee:creator,assignees:[creator],_responsibilityBasis:'creator'}:t;
 }
@@ -140,7 +140,18 @@ function boardOriginLabel(t){
   if(raw.includes('trello'))return'นำเข้าจาก Trello';
   return t?._source==='task'?'สร้างใน Company Hub':'บันทึกใน Company Hub';
 }
-function boardCreatorLabel(t){const origin=boardOriginLabel(t);if(origin.startsWith('นำเข้าจาก'))return origin;return t.creator?`${origin} โดย ${shortName(t.creator)}`:origin;}
+function boardCreatorLabel(t){const origin=boardOriginLabel(t);if(origin.startsWith('นำเข้าจาก'))return origin;return t.creator?`${origin} โดย ${taskCreatorInfo(t).name}`:origin;}
+function boardTaskProgress(t){
+  if(t?._source!=='task')return null;
+  const people=assigneesOf(t),spaces=taskWorkspaces(t),done=people.filter(id=>spaces[id]?.status==='done'),started=people.filter(id=>spaces[id]&&spaces[id].status!=='todo');
+  return {total:people.length,done:done.length,started:started.length,mineDone:!!(ACCESS_PROFILE?.id&&done.includes(ACCESS_PROFILE.id))};
+}
+function boardTaskStatus(t){
+  const progress=boardTaskProgress(t);if(!progress||t.status==='done'||!progress.total)return statusPill(t.status);
+  const derived=progress.started?'doing':t.status,remaining=Math.max(0,progress.total-progress.done);
+  const detail=progress.done?(progress.mineDone?`คุณส่งแล้ว · รออีก ${remaining} คน`:`ส่งแล้ว ${progress.done}/${progress.total} คน`):(progress.started?`เริ่มแล้ว ${progress.started}/${progress.total} คน`:'รอผู้รับทราบ');
+  return `<div class="board-task-status">${statusPill(derived)}<small>${esc(detail)}</small></div>`;
+}
 function openBoardActivity(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;const hours=activityCountedDuration(row),flags=activityQualityFlags(row),owner=typeof activityOwnerLabel==='function'?activityOwnerLabel(row):row.employee_name||'ไม่ระบุพนักงาน';showModal(`<div class="modal-h"><div><span class="tag">บันทึกกิจกรรม</span><h3 style="margin-top:7px">${esc(row.activity||row.category||'กิจกรรม')}</h3><div class="muted">${esc(owner)} · ${esc(activityDateLabel(row.activity_date))} · ${esc(deptName(row.department_code))}</div></div><button class="x" onclick="closeModal()">×</button></div><div class="pad"><div class="two"><div class="field"><label>สถานะ</label><div class="v">${esc(row.status||'-')}</div></div><div class="field"><label>เวลาที่นับได้</label><div class="v">${nf(hours)} ชม.</div></div></div><div class="field"><label>ผลการดำเนินงาน</label><div class="v" style="white-space:pre-wrap">${esc(row.result_note||'-')}</div></div>${row.operational_issue?`<div class="field"><label>ปัญหาหน้างาน</label><div class="v">${esc(row.operational_issue)}</div></div>`:''}${flags.length?`<div class="ai-note"><b>ต้องตรวจข้อมูล:</b> ${flags.map(activityQualityLabel).map(esc).join(' · ')}</div>`:''}<button class="tbtn primary" style="margin-top:12px" onclick="openBoardActivitySource('${esc(String(row.id))}')">เปิดในบันทึกกิจกรรม →</button></div>`);}
 function openBoardActivitySource(id){const row=ACTIVITY_ROWS.find(r=>String(r.id)===String(id));if(!row)return;closeModal();ACTIVITY_FILTER.department=row.department_code||'';ACTIVITY_FILTER.query=row.employee_name||'';ACTIVITY_PAGE=1;go('activity');}
 function openBoardWork(source,id){if(source==='graphic')openGraphicJob(id);else if(source==='activity')openBoardActivity(id);else if(source==='issue')openProblem(id);else openTask(id);}
@@ -319,7 +330,7 @@ function boardTableInner(list,showDept=true){
       <td><b style="font-weight:500">${esc(t.title)}</b><div class="muted" style="font-size:10.5px"><span class="tag">${esc(boardSourceLabel(t))}</span> ${esc(t._source==='graphic'?'G-'+(t.jobNo||t.id):t.sourceId||t.id)} · ${esc(boardCreatorLabel(t))}${t.sub&&t.sub.length?` · ↳ ${t.sub.length} งานย่อย`:''}</div></td>
       ${showDept?`<td>${deptPill(t.dept)}</td>`:''}
       <td><div class="people">${avStack(assigneesOf(t))}<span style="font-size:12px">${esc(shortName(assigneesOf(t)[0]))}${assigneesOf(t).length>1?` +${assigneesOf(t).length-1}`:''}</span></div></td>
-      <td>${statusPill(t.status)}</td><td>${prioPill(t.prio)}</td>
+      <td>${boardTaskStatus(t)}</td><td>${prioPill(t.prio)}</td>
       <td class="nowrap">${t.start?fmtDate(t.start,true):'<span class="date-missing">ยังไม่ระบุ</span>'}</td>
       <td class="nowrap">${t.due?fmtDate(t.due,true):'<span class="date-missing">ยังไม่ระบุ</span>'} ${t._deadline!==false&&dashboardIsOverdue(t)?'<span style="color:var(--red)" title="เกินกำหนด">⚠</span>':''}</td><td class="muted nowrap">${t.spent?t.spent+' ชม.':'-'}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td colspan="${showDept?7:6}">รวม ${list.length} งาน</td><td>${totalSpent}ชม.</td></tr></tfoot></table>`;
