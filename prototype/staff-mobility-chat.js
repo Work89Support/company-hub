@@ -96,25 +96,48 @@ function supportChatBytes(value){
   const n=Number(value)||0;if(n<1024)return `${n} B`;if(n<1048576)return `${(n/1024).toFixed(1)} KB`;return `${(n/1048576).toFixed(1)} MB`;
 }
 function supportChatIsImage(row){return String(row.attachment_mime||'').startsWith('image/');}
+function supportChatAttachmentUrl(path){
+  const cached=SUPPORT_CHAT_ATTACHMENT_URLS.get(path);
+  if(!cached)return '';
+  if(typeof cached==='string'){SUPPORT_CHAT_ATTACHMENT_URLS.delete(path);return '';}
+  if(cached.expiresAt>Date.now()+30000)return cached.url||'';
+  SUPPORT_CHAT_ATTACHMENT_URLS.delete(path);return '';
+}
+function supportChatCacheAttachmentUrl(path,url,ttlSeconds=3600){
+  if(path&&url)SUPPORT_CHAT_ATTACHMENT_URLS.set(path,{url,expiresAt:Date.now()+Math.max(60,Number(ttlSeconds)||3600)*1000});
+  return url||'';
+}
+async function supportChatCreateAttachmentUrl(path,ttlSeconds=3600,downloadName=''){
+  const options=downloadName?{download:downloadName}:undefined;
+  const result=await SB.storage.from('chat-attachments').createSignedUrl(path,ttlSeconds,options);
+  if(result.error)throw result.error;
+  return supportChatCacheAttachmentUrl(path,result.data?.signedUrl,ttlSeconds);
+}
 function supportChatAttachment(row){
   if(!row.attachment_path)return '';
-  const url=SUPPORT_CHAT_ATTACHMENT_URLS.get(row.attachment_path),name=esc(row.attachment_name||'ไฟล์แนบ'),size=supportChatBytes(row.attachment_size);
-  if(supportChatIsImage(row))return `<button class="chat-image-attachment" data-path="${esc(row.attachment_path)}" data-name="${name}" onclick="supportChatOpenAttachment(this.dataset.path,this.dataset.name)" aria-label="เปิดรูป ${name}">${url?`<img src="${esc(url)}" alt="${name}">`:'<span>กำลังโหลดรูป…</span>'}<small>${name} · ${size}</small></button>`;
+  const url=supportChatAttachmentUrl(row.attachment_path),name=esc(row.attachment_name||'ไฟล์แนบ'),size=supportChatBytes(row.attachment_size);
+  if(supportChatIsImage(row))return `<button class="chat-image-attachment" data-path="${esc(row.attachment_path)}" data-name="${name}" onclick="supportChatOpenAttachment(this.dataset.path,this.dataset.name)" aria-label="เปิดรูป ${name}">${url?`<img src="${esc(url)}" alt="${name}" onerror="supportChatRefreshAttachment(this)">`:'<span>กำลังโหลดรูป…</span>'}<small>${name} · ${size}</small></button>`;
   return `<button class="chat-file-attachment" data-path="${esc(row.attachment_path)}" data-name="${name}" onclick="supportChatOpenAttachment(this.dataset.path,this.dataset.name)"><span>📎</span><span><b>${name}</b><small>${size||'ไฟล์แนบ'}</small></span><em>ดาวน์โหลด</em></button>`;
 }
 async function hydrateSupportChatAttachments(){
-  const missing=SUPPORT_CHAT_ROWS.filter(row=>row.attachment_path&&!SUPPORT_CHAT_ATTACHMENT_URLS.has(row.attachment_path));
+  const missing=[...new Map(SUPPORT_CHAT_ROWS.filter(row=>row.attachment_path&&!supportChatAttachmentUrl(row.attachment_path)).map(row=>[row.attachment_path,row])).values()];
   if(!missing.length)return;
   let changed=false;
   await Promise.all(missing.map(async row=>{
-    const result=await SB.storage.from('chat-attachments').createSignedUrl(row.attachment_path,3600);
-    if(result.data?.signedUrl){SUPPORT_CHAT_ATTACHMENT_URLS.set(row.attachment_path,result.data.signedUrl);changed=true;}
+    try{if(await supportChatCreateAttachmentUrl(row.attachment_path,3600))changed=true;}catch(_error){}
   }));
   if(changed&&(VIEW==='supportChat'||document.getElementById('support-chat-floating')))renderSupportChatMessages(false);
 }
+async function supportChatRefreshAttachment(image){
+  const button=image?.closest?.('.chat-image-attachment'),path=button?.dataset.path;
+  if(!path||image.dataset.refreshing==='1')return;
+  image.dataset.refreshing='1';SUPPORT_CHAT_ATTACHMENT_URLS.delete(path);
+  try{const url=await supportChatCreateAttachmentUrl(path,3600);if(url){image.src=url;delete image.dataset.refreshing;}}
+  catch(_error){image.alt='โหลดรูปไม่สำเร็จ';}
+}
 async function supportChatOpenAttachment(path,name){
-  let url=SUPPORT_CHAT_ATTACHMENT_URLS.get(path);
-  if(!url){const result=await SB.storage.from('chat-attachments').createSignedUrl(path,300,{download:name});if(result.error){toast('เปิดไฟล์ไม่สำเร็จ · '+result.error.message,'info');return;}url=result.data?.signedUrl;}
+  let url='';
+  try{url=await supportChatCreateAttachmentUrl(path,300,name);}catch(error){toast('เปิดไฟล์ไม่สำเร็จ · '+(error.message||error),'info');return;}
   if(url)window.open(url,'_blank','noopener');
 }
 function supportChatMessagesMarkup(){

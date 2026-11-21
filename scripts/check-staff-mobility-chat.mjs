@@ -24,6 +24,9 @@ for(const token of ['openSupportChatFloating','supportChatFloatingMinimize','tog
 assert.match(migration40,/room members read chat messages/);
 assert.match(migration40,/chat members read attachments/);
 assert.match(migration40,/10485760/,'attachment limit must remain 10 MB');
+for(const token of ['supportChatAttachmentUrl','supportChatCacheAttachmentUrl','supportChatRefreshAttachment'])assert.ok(source.includes(token),`missing durable chat attachment behavior ${token}`);
+assert.match(source,/expiresAt>Date\.now\(\)\+30000/,'expired signed attachment URLs must be refreshed');
+assert.match(source,/onerror="supportChatRefreshAttachment\(this\)"/,'broken chat images must request a fresh signed URL');
 assert.match(migration41,/message_type in \('message','problem','update','sticker'\)/);
 assert.match(migration41,/support_chat_messages_sticker_key_check/);
 for(const token of ['create table if not exists public.chat_push_subscriptions','set_chat_push_subscription_owner','users register own push subscriptions'])assert.ok(migration42.includes(token),`missing Web Push schema ${token}`);
