@@ -42,7 +42,8 @@ assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\
 assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic detail preserves line breaks while rendering safe links');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
 assert.match(html,/graphic-production-v2\.js\?v=20261122-document-preview-1/,'graphic document preview release is cache-busted');
-assert.match(html,/department-workflows\.css\?v=20261122-document-preview-1/,'responsive document preview styles are cache-busted');
+assert.match(html,/core-app-views\.js\?v=20261122-card-readability-1/,'readable board-card markup is cache-busted');
+assert.match(html,/department-workflows\.css\?v=20261122-card-readability-1/,'readable board-card styles are cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 assert.match(shell,/task_assignees'\)\.insert\(validAssignees\.map/,'general tasks persist multiple assignees for every department');
@@ -52,6 +53,9 @@ assert.match(views,/remove=canManageGraphic\(\)\?`<button[^`]+gp-card-delete[^`]
 assert.match(views,/function gpMoveCardOrder/,'manual card movement is available');
 assert.match(views,/วันที่สร้าง · ล่าสุดก่อน/,'created-date sorting is available');
 assert.match(views,/วันที่แก้ไข · ล่าสุดก่อน/,'updated-date sorting is available');
+assert.match(views,/gp-card-due \$\{late\?'is-late':''\}/,'deadline is rendered as a dedicated highlighted block');
+assert.match(views,/สร้างการ์ด/,'created date has a distinct label');
+assert.match(views,/แก้ไขล่าสุด/,'latest edited date has a distinct label');
 const briefHelpers=source.slice(source.indexOf('function gpNormalizeBriefInput'),source.indexOf('function gpJobAssignedToProfile'));
 const briefContext={};vm.createContext(briefContext);vm.runInContext(`${briefHelpers};result=[gpNormalizeBriefInput('1.\\r\\n2.\\r\\n3.'),gpBriefText('1. 2. 3.'),gpBriefText('Version 1. 2. stays')];`,briefContext);
 assert.deepEqual(Array.from(briefContext.result),['1.\n2.\n3.','1.\n2.\n3.','Version 1. 2. stays'],'entered line breaks and conservative legacy list formatting behave as expected');
@@ -64,6 +68,7 @@ assert.match(source,/signedFileUrl\(file,false\)/,'file preview must request an 
 assert.match(source,/if\(gpPreviewable\(file\)\)return openGraphicPreview\(id\)/,'previewable file open action must use the in-page preview');
 const workflowCss=fs.readFileSync(new URL('../prototype/department-workflows.css',import.meta.url),'utf8');
 for(const token of ['.gp-lightbox','.gp-lightbox-stage','.gp-lightbox-nav','.gp-document-preview','.gp-lightbox-stage iframe','@media(max-width:700px)'])assert.ok(workflowCss.includes(token),`missing responsive file preview style ${token}`);
+for(const token of ['.gp-card-due','.gp-card-due.is-late','.gp-card-dates>span','font-size:15px','minmax(300px,320px)'])assert.ok(workflowCss.includes(token),`missing desktop card readability style ${token}`);
 assert.match(source,/queueMicrotask\(hydratePrivatePreviews\)/,'private board images receive signed preview URLs after render');
 assert.doesNotMatch(source,/catch\{img\.remove\(\);?\}/,'private preview errors are not silently removed');
 assert.doesNotMatch(source,/<option value="working">/,'new links no longer offer unfinished working files');
