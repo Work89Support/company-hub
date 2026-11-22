@@ -42,7 +42,7 @@ assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\
 assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic detail preserves line breaks while rendering safe links');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
 assert.match(html,/graphic-production-v2\.js\?v=20261122-document-preview-1/,'graphic document preview release is cache-busted');
-assert.match(html,/core-app-views\.js\?v=20261122-review-not-overdue-1/,'review-state deadline fix is cache-busted');
+assert.match(html,/core-app-views\.js\?v=20261122-move-without-final-1/,'legacy-card completion fix is cache-busted');
 assert.match(html,/department-workflows\.css\?v=20261122-review-not-overdue-1/,'review-state deadline styles are cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
@@ -57,6 +57,9 @@ assert.match(views,/function gpLate\(j\).*\['done','review'\]\.includes\(j\.stat
 assert.match(views,/gp-card-due \$\{submitted\?'is-submitted':late\?'is-late':''\}/,'review and overdue cards use distinct highlighted states');
 assert.match(views,/submitted\?'ส่งงานแล้ว'/,'review cards explain that work was submitted');
 assert.match(views,/submitted\?'รอตรวจ'/,'review cards show the pending-review state instead of overdue');
+const completionGuard=views.slice(views.indexOf('function graphicCompletionMissing'),views.indexOf('async function moveGraphicJob'));
+assert.doesNotMatch(completionGuard,/แนบลิงก์ไฟล์ Final|file_type==='final'/,'moving legacy cards to done does not require a Final link');
+assert.match(completionGuard,/ทำ Checklist ให้ครบ/,'checklist completion remains enforced');
 assert.match(views,/สร้างการ์ด/,'created date has a distinct label');
 assert.match(views,/แก้ไขล่าสุด/,'latest edited date has a distinct label');
 const briefHelpers=source.slice(source.indexOf('function gpNormalizeBriefInput'),source.indexOf('function gpJobAssignedToProfile'));
