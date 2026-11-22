@@ -39,10 +39,10 @@ assert.match(source,/gpJobAssigneeIds\(job\)\.includes\(id\)/,'each selected ass
 assert.match(source,/graphicPreviewFallback/,'failed legacy previews remain visible with a source-file fallback');
 assert.match(source,/brief=gpNormalizeBriefInput\(val\('gbBrief'\)\)/,'graphic brief save preserves entered line breaks');
 assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\?\/g,'\\n'\)/,'brief line endings are normalized without collapsing newlines');
-assert.match(source,/briefValue\.textContent=gpBriefText\(job\.brief\)\|\|'-'/,'graphic detail displays preserved line breaks');
+assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic detail preserves line breaks while rendering safe links');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
-assert.match(html,/graphic-production-v2\.js\?v=20261122-inline-image-preview-1/,'graphic inline image preview release is cache-busted');
-assert.match(html,/department-workflows\.css\?v=20261122-inline-image-preview-1/,'responsive preview styles are cache-busted');
+assert.match(html,/graphic-production-v2\.js\?v=20261122-inline-links-1/,'graphic inline link release is cache-busted');
+assert.match(html,/department-workflows\.css\?v=20261122-inline-links-1/,'responsive preview and link styles are cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 assert.match(shell,/task_assignees'\)\.insert\(validAssignees\.map/,'general tasks persist multiple assignees for every department');
@@ -58,6 +58,8 @@ assert.deepEqual(Array.from(briefContext.result),['1.\n2.\n3.','1.\n2.\n3.','Ver
 assert.match(source,/gpImageFile/,'uploaded Company Hub images can become board covers');
 assert.match(source,/gpImageLike/,'legacy image attachments without preview_url can still become previews');
 for(const token of ['openGraphicPreview','graphicPreviewStep','graphicPreviewGo','closeGraphicPreview','gp-lightbox-dialog'])assert.ok(source.includes(token),`missing in-page reference preview behavior ${token}`);
+for(const token of ['gpBriefHtml','gp-brief-link','target="_blank"','noopener noreferrer'])assert.ok(source.includes(token),`missing safe clickable brief link behavior ${token}`);
+assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic brief renders sanitized clickable links');
 assert.match(source,/signedFileUrl\(file,false\)/,'image preview must request an inline signed URL without forced download');
 assert.match(source,/if\(gpImageLike\(file\)\)return openGraphicPreview\(id\)/,'image open action must use the in-page preview');
 const workflowCss=fs.readFileSync(new URL('../prototype/department-workflows.css',import.meta.url),'utf8');

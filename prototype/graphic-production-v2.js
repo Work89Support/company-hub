@@ -41,6 +41,11 @@
   function gpNormalizePerson(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/\([^)]*\)/g,'').replace(/[^\p{L}\p{N}]+/gu,'');}
   function gpNormalizeBriefInput(value){return String(value==null?'':value).replace(/\r\n?/g,'\n').trim();}
   function gpBriefText(value){const text=gpNormalizeBriefInput(value);if(!text||text.includes('\n'))return text;return /^(?:\d+[.)]|[-•])(?:\s|$)/.test(text)?text.replace(/\s+(?=(?:\d+[.)]|[-•])(?:\s|$))/g,'\n'):text;}
+  function gpBriefHtml(value){
+    const text=gpBriefText(value)||'-',pattern=/https?:\/\/[^\s<>"']+/gi;let html='',cursor=0,match;
+    while((match=pattern.exec(text))){let url=match[0],suffix='';while(/[),.;!?]$/.test(url)){suffix=url.slice(-1)+suffix;url=url.slice(0,-1);}html+=esc(text.slice(cursor,match.index));const safe=gpSafeHttpUrl(url);html+=safe?`<a class="gp-brief-link" href="${esc(safe)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`:esc(url);html+=esc(suffix);cursor=match.index+match[0].length;}
+    return html+esc(text.slice(cursor));
+  }
   function gpJobAssignedToProfile(job,id){return !!id&&gpJobAssigneeIds(job).includes(id);}
   const jobFreshness=typeof gpFreshness==='function'?gpFreshness:function(job){const updated=Date.parse(job.status==='done'?(job.completed_at||job.updated_at||job.trello_last_activity_at||job.created_at||''):(job.trello_last_activity_at||job.updated_at||job.created_at||''));if(job.status==='done')return Number.isFinite(updated)&&Date.now()-updated<=30*86400000?'current':'history';if(job.source!=='Trello')return'current';return Number.isFinite(updated)&&Date.now()-updated>30*86400000?'stale':'current';};
   function gpScope(){
@@ -218,7 +223,7 @@
   openGraphicJob=async function(id){
     await originalOpenGraphicJob(id);
     const job=GRAPHIC_JOBS.find(item=>item.id===id),briefField=[...document.querySelectorAll('#modal .field')].find(field=>field.querySelector('label')?.textContent.trim()==='บรีฟ');
-    const briefValue=briefField?.querySelector('.v');if(briefValue&&job)briefValue.textContent=gpBriefText(job.brief)||'-';
+    const briefValue=briefField?.querySelector('.v');if(briefValue&&job){briefValue.classList.add('gp-brief-content');briefValue.innerHTML=gpBriefHtml(job.brief);}
     enhanceJobModal(id);
   };
 
