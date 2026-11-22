@@ -43,7 +43,7 @@ assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic d
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
 assert.match(html,/graphic-production-v2\.js\?v=20261122-document-preview-1/,'graphic document preview release is cache-busted');
 assert.match(html,/core-app-views\.js\?v=20261122-move-without-final-1/,'legacy-card completion fix is cache-busted');
-assert.match(html,/department-workflows\.css\?v=20261122-review-not-overdue-1/,'review-state deadline styles are cache-busted');
+assert.match(html,/department-workflows\.css\?v=20261122-graphic-font-desktop-1/,'desktop graphic typography release is cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 assert.match(shell,/task_assignees'\)\.insert\(validAssignees\.map/,'general tasks persist multiple assignees for every department');
@@ -75,6 +75,7 @@ assert.match(source,/if\(gpPreviewable\(file\)\)return openGraphicPreview\(id\)/
 const workflowCss=fs.readFileSync(new URL('../prototype/department-workflows.css',import.meta.url),'utf8');
 for(const token of ['.gp-lightbox','.gp-lightbox-stage','.gp-lightbox-nav','.gp-document-preview','.gp-lightbox-stage iframe','@media(max-width:700px)'])assert.ok(workflowCss.includes(token),`missing responsive file preview style ${token}`);
 for(const token of ['.gp-card-due','.gp-card-due.is-late','.gp-card-due.is-submitted','.gp-card-dates>span','font-size:15px','minmax(300px,320px)'])assert.ok(workflowCss.includes(token),`missing desktop card readability style ${token}`);
+for(const token of ['@media(min-width:901px)','font-size:18px','font-size:16px','minmax(340px,360px)'])assert.ok(workflowCss.includes(token),`missing enlarged desktop graphic typography ${token}`);
 assert.match(source,/queueMicrotask\(hydratePrivatePreviews\)/,'private board images receive signed preview URLs after render');
 assert.doesNotMatch(source,/catch\{img\.remove\(\);?\}/,'private preview errors are not silently removed');
 assert.doesNotMatch(source,/<option value="working">/,'new links no longer offer unfinished working files');
