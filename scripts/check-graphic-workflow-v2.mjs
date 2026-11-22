@@ -41,7 +41,8 @@ assert.match(source,/brief=gpNormalizeBriefInput\(val\('gbBrief'\)\)/,'graphic b
 assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\?\/g,'\\n'\)/,'brief line endings are normalized without collapsing newlines');
 assert.match(source,/briefValue\.textContent=gpBriefText\(job\.brief\)\|\|'-'/,'graphic detail displays preserved line breaks');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
-assert.match(html,/graphic-production-v2\.js\?v=20261114-graphic-delete-button-1/,'graphic explicit delete-button release is cache-busted');
+assert.match(html,/graphic-production-v2\.js\?v=20261122-inline-image-preview-1/,'graphic inline image preview release is cache-busted');
+assert.match(html,/department-workflows\.css\?v=20261122-inline-image-preview-1/,'responsive preview styles are cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
 const entryWizard=fs.readFileSync(new URL('../prototype/entry-wizard.js',import.meta.url),'utf8');
 assert.match(shell,/task_assignees'\)\.insert\(validAssignees\.map/,'general tasks persist multiple assignees for every department');
@@ -56,6 +57,11 @@ const briefContext={};vm.createContext(briefContext);vm.runInContext(`${briefHel
 assert.deepEqual(Array.from(briefContext.result),['1.\n2.\n3.','1.\n2.\n3.','Version 1. 2. stays'],'entered line breaks and conservative legacy list formatting behave as expected');
 assert.match(source,/gpImageFile/,'uploaded Company Hub images can become board covers');
 assert.match(source,/gpImageLike/,'legacy image attachments without preview_url can still become previews');
+for(const token of ['openGraphicPreview','graphicPreviewStep','graphicPreviewGo','closeGraphicPreview','gp-lightbox-dialog'])assert.ok(source.includes(token),`missing in-page reference preview behavior ${token}`);
+assert.match(source,/signedFileUrl\(file,false\)/,'image preview must request an inline signed URL without forced download');
+assert.match(source,/if\(gpImageLike\(file\)\)return openGraphicPreview\(id\)/,'image open action must use the in-page preview');
+const workflowCss=fs.readFileSync(new URL('../prototype/department-workflows.css',import.meta.url),'utf8');
+for(const token of ['.gp-lightbox','.gp-lightbox-stage','.gp-lightbox-nav','@media(max-width:700px)'])assert.ok(workflowCss.includes(token),`missing responsive image preview style ${token}`);
 assert.match(source,/queueMicrotask\(hydratePrivatePreviews\)/,'private board images receive signed preview URLs after render');
 assert.doesNotMatch(source,/catch\{img\.remove\(\);?\}/,'private preview errors are not silently removed');
 assert.doesNotMatch(source,/<option value="working">/,'new links no longer offer unfinished working files');
