@@ -140,7 +140,7 @@ async function listRegistry(admin: any, actor: any) {
   const ids = profiles.map((profile: any) => profile.id);
   const devices = ids.length
     ? await admin.from("user_access_devices")
-      .select("id,profile_id,device_label,request_kind,status,requested_at,approved_at,reviewed_at,review_note,created_at,updated_at")
+      .select("id,profile_id,device_label,request_kind,status,requested_at,approved_at,reviewed_at,review_note,first_seen_at,last_seen_at")
       .in("profile_id", ids).order("requested_at", { ascending: false })
     : { data: [], error: null };
   if (devices.error) throw devices.error;
