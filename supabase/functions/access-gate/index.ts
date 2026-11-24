@@ -205,7 +205,7 @@ async function reviewDevice(admin: any, actor: any, body: Record<string, unknown
   const target = await actorContext(admin, device.data.profile_id);
   if (target.id === actor.id) return { allowed: false, error: "ไม่สามารถอนุมัติอุปกรณ์ของตนเอง" };
 
-  if (!await isDeviceApprover(admin, actor.id)) return { allowed: false, error: "เฉพาะคุณแม็กหรือ AMM ผู้ดูแลระบบเท่านั้นที่อนุมัติอุปกรณ์ได้" };
+  if (!await isDeviceApprover(admin, actor.id)) return { allowed: false, error: "เฉพาะคุณแม็ก คุณพี หรือ AMM เท่านั้นที่อนุมัติอุปกรณ์ได้" };
 
   const now = new Date().toISOString();
   if (decision === "approve") {
@@ -335,7 +335,7 @@ export default {
       if (existing.data?.status === "pending") return json({
         allowed: false,
         state: "pending",
-        reason: "ส่งคำขออุปกรณ์แล้ว กรุณารอคุณแม็กหรือ AMM อนุมัติ",
+        reason: "ส่งคำขออุปกรณ์แล้ว กรุณารอคุณแม็ก คุณพี หรือ AMM อนุมัติ",
         request_reason: existing.data.request_reason || "",
       });
 
@@ -349,7 +349,7 @@ export default {
       if (isInitial && action !== "request_initial") return json({
         allowed: false,
         state: "needs_initial_request",
-        reason: "ยืนยัน 2FA แล้ว กรุณาส่งคำขอลงทะเบียนเครื่องแรกให้คุณแม็กหรือ AMM อนุมัติ",
+        reason: "ยืนยัน 2FA แล้ว กรุณาส่งคำขอลงทะเบียนเครื่องแรกให้คุณแม็ก คุณพี หรือ AMM อนุมัติ",
       });
       if (!isInitial && action !== "request_change") return json({
         allowed: false,
@@ -367,7 +367,7 @@ export default {
         profile_id: actorId, device_key_hash: keyHash, device_label: label,
         status: "pending", request_kind: isInitial ? "initial" : "replacement",
         request_reason: requestReason, requested_at: now,
-        review_note: "รอคุณแม็กหรือ AMM ตรวจสอบ",
+        review_note: "รอคุณแม็ก คุณพี หรือ AMM ตรวจสอบ",
         first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
       }).select("*").single();
       if (inserted.error) throw inserted.error;
@@ -377,8 +377,8 @@ export default {
         `📱 คำขออนุมัติอุปกรณ์ Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
         `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์: ${label}\n` +
         `ประเภท: ${isInitial ? "ลงทะเบียนเครื่องแรก" : "เพิ่ม/เปลี่ยนเครื่อง"}\nเหตุผล: ${requestReason}\n` +
-        `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\nผู้อนุมัติ: คุณแม็ก หรือ AMM เท่านั้น`);
-      return json({ allowed: false, state: "pending", reason: "ส่งคำขอแล้ว กรุณารอคุณแม็กหรือ AMM อนุมัติ", request_reason: requestReason });
+        `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\nผู้อนุมัติ: คุณแม็ก คุณพี หรือ AMM เท่านั้น`);
+      return json({ allowed: false, state: "pending", reason: "ส่งคำขอแล้ว กรุณารอคุณแม็ก คุณพี หรือ AMM อนุมัติ", request_reason: requestReason });
     } catch (error) {
       console.error(error);
       return json({ allowed: false, error: error instanceof Error ? error.message : "Access Gate ผิดพลาด" }, 400);
