@@ -159,8 +159,33 @@ async function listRegistry(admin: any, actor: any) {
       registered: registry.filter((row: any) => row.devices.some((device: any) => device.status === "approved")).length,
       pending: registry.filter((row: any) => row.devices.some((device: any) => device.status === "pending")).length,
       never_registered: registry.filter((row: any) => !row.devices.length).length,
+      inactive_history: registry.filter((row: any) => row.devices.length && !row.devices.some((device: any) => ["approved", "pending"].includes(device.status))).length,
     },
   };
+}
+
+async function deleteDeviceHistory(admin: any, actor: any, body: Record<string, unknown>, ip: string, userAgent: string) {
+  if (actor.role !== "admin") return { allowed: false, error: "เฉพาะผู้ดูแลระบบเท่านั้นที่ลบประวัติอุปกรณ์ได้" };
+  const targetId = String(body.device_record_id || "");
+  if (!/^[0-9a-f-]{36}$/i.test(targetId)) return { allowed: false, error: "ข้อมูลอุปกรณ์ไม่ถูกต้อง" };
+  const device = await admin.from("user_access_devices")
+    .select("id,profile_id,device_label,status,request_kind,requested_at").eq("id", targetId).maybeSingle();
+  if (device.error) throw device.error;
+  if (!device.data) return { allowed: false, error: "ไม่พบประวัติอุปกรณ์นี้ หรือถูกลบไปแล้ว" };
+  const target = await actorContext(admin, device.data.profile_id);
+  const removed = await admin.from("user_access_devices").delete().eq("id", targetId);
+  if (removed.error) throw removed.error;
+  await audit(admin, actor.id, null, ip, "allowed",
+    `ผู้ดูแลลบประวัติอุปกรณ์ของ ${cleanLine(target.display_name || target.email)} (${cleanLine(device.data.device_label)})`, userAgent);
+  const now = new Date().toISOString();
+  await queueTelegram(admin, "device_history_deleted", `device-history-deleted:${targetId}:${now}`,
+    `🗑️ ลบประวัติอุปกรณ์ Company Hub\n` +
+    `ผู้ใช้: ${cleanLine(target.display_name || target.email)}\n` +
+    `อุปกรณ์: ${cleanLine(device.data.device_label)}\n` +
+    `สถานะเดิม: ${cleanLine(device.data.status)}\n` +
+    `ดำเนินการโดย: ${cleanLine(actor.display_name || actor.email)}\n` +
+    `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`);
+  return { allowed: true, deleted: true, was_active: device.data.status === "approved" };
 }
 
 async function reviewDevice(admin: any, actor: any, body: Record<string, unknown>, ip: string, userAgent: string) {
@@ -262,6 +287,7 @@ export default {
       if (action === "list_pending") return json(await listPending(admin, actor));
       if (action === "list_registry") return json(await listRegistry(admin, actor));
       if (action === "review") return json(await reviewDevice(admin, actor, body, ip, userAgent));
+      if (action === "delete_history") return json(await deleteDeviceHistory(admin, actor, body, ip, userAgent));
 
       const rawDeviceKey = String(body.device_id || "").trim();
       if (!/^[0-9a-f-]{20,80}$/i.test(rawDeviceKey)) return json({ allowed: false, error: "ข้อมูลประจำอุปกรณ์ไม่ถูกต้อง" });
