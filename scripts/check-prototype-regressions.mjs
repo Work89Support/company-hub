@@ -14,6 +14,8 @@ const migration17 = fs.readFileSync(new URL('../supabase/migrations/202609010017
 const migration18 = fs.readFileSync(new URL('../supabase/migrations/202609010018_assignee_task_progress.sql', import.meta.url), 'utf8');
 const migration19 = fs.readFileSync(new URL('../supabase/migrations/202609030019_login_device_ip_access.sql', import.meta.url), 'utf8');
 const migration38 = fs.readFileSync(new URL('../supabase/migrations/202610150038_disable_device_ip_access_gate.sql', import.meta.url), 'utf8');
+const migration72 = fs.readFileSync(new URL('../supabase/migrations/202611240072_device_enrollment_approval.sql', import.meta.url), 'utf8');
+const migration73 = fs.readFileSync(new URL('../supabase/migrations/202611240073_activate_device_enrollment.sql', import.meta.url), 'utf8');
 const accessGate = fs.readFileSync(new URL('../supabase/functions/access-gate/index.ts', import.meta.url), 'utf8');
 const inviteFunction = fs.readFileSync(new URL('../supabase/functions/invite-company-user/index.ts', import.meta.url), 'utf8');
 const talkFunction = fs.readFileSync(new URL('../supabase/functions/talk-to-data/index.ts', import.meta.url), 'utf8');
@@ -35,7 +37,7 @@ const checks = [
   ['Employee access management page', /RENDER\.users\s*=\s*function/],
   ['Employee invitation through Edge Function', /invite-company-user/],
   ['Employee access update through audited RPC', /SB\.rpc\('set_user_access',args\)/],
-  ['Login loads the authenticated profile without a device or IP gate', /async function onLoggedIn\(session\)[\s\S]*loadAuthenticatedProfile/],
+  ['Login verifies the device before loading the authenticated profile', /async function onLoggedIn\(session\)[\s\S]*ensureDeviceAccess\(session\)[\s\S]*loadAuthenticatedProfile/],
   ['Inactive accounts fail closed', /if\(!ACCESS_PROFILE\.active\)throw new Error/],
   ['Graphic account profile', /async function loadAuthenticatedProfile\(/],
   ['Activity renderer', /RENDER\.activity\s*=\s*function/],
@@ -87,10 +89,12 @@ if (!/source_key/.test(migration17) || !/created_by=auth\.uid\(\)/.test(migratio
 if (!/update_my_task_progress/.test(migration18) || !/manager approval required/.test(migration18)) failed.push(['Assignee progress is constrained by a database RPC', /update_my_task_progress/]);
 if (!/pgrst\.db_pre_request/.test(migration19) || !/check_company_access/.test(migration19)) failed.push(['Every PostgREST request is protected by the device/IP grant', /pgrst.db_pre_request/]);
 if (!/enforce_device/.test(migration19) || !/allowed_network inet/.test(migration19) || !/login_access_audit/.test(migration19)) failed.push(['Device, CIDR and access audit tables exist', /user_access_devices|user_access_ip_rules/]);
-if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/company_credentials_ready/.test(accessGate) || !/allowed: true/.test(accessGate) || /evaluate_login_access/.test(accessGate)) failed.push(['Legacy Access Gate verifies the account only and never checks device or IP', /getUser|company_credentials_ready|allowed: true/]);
+if (!/auth\.getUser\(accessToken\)/.test(accessGate) || !/company_credentials_ready/.test(accessGate) || !/device_access_config/.test(accessGate) || !/confirm_initial/.test(accessGate) || !/request_change/.test(accessGate) || !/sha256/.test(accessGate) || /MAC address/i.test(accessGate)) failed.push(['Access Gate verifies account and opaque browser device ID without hardware address', /device_access_config|confirm_initial|request_change|sha256/]);
 if (/edge_access_allowed/.test(inviteFunction) || /edge_access_allowed/.test(talkFunction)) failed.push(['Protected Edge Functions no longer require device or IP approval', /edge_access_allowed/]);
 if (!/company-data-rules-v1/.test(talkFunction) || /api\.openai\.com/.test(talkFunction) || /OPENAI_API_KEY/.test(talkFunction)) failed.push(['Talk to Data uses the no-cost Company Data rules engine', /company-data-rules-v1/]);
 if (!/enforce_device = false/.test(migration38) || !/enforce_ip = false/.test(migration38) || !/user_access_ip_rules[\s\S]*active = false/.test(migration38)) failed.push(['Migration disables every existing device and IP policy', /enforce_device = false|enforce_ip = false/]);
+if (!/enabled boolean not null default false/.test(migration72) || !/enable row level security/.test(migration72)) failed.push(['Device rollout starts disabled for safe two-phase deployment', /device_access_config|default false/]);
+if (!/set enabled=true/.test(migration73) || !/p\.role not in \('exec','admin'\)/.test(migration73) || !/session_minutes=30/.test(migration73)) failed.push(['Device activation exempts CEO/admin and enforces staff/lead sessions', /enabled=true|exec|admin|session_minutes/]);
 if (!/can_view_announcement/.test(migration18) || !/announcement_recipients enable row level security/.test(migration18)) failed.push(['Announcements are normalized and RLS protected', /can_view_announcement/]);
 if (!/on conflict\(id\) do update/.test(issueImporter) || !/TEST_RE/.test(issueImporter)) failed.push(['Issue import must be idempotent and exclude test rows', /on conflict|TEST_RE/]);
 if (/id="roleSwitch"|function resetDemo|function sendAuto/.test(app)) failed.push(['No role-switch or demo action in production UI', /roleSwitch|resetDemo|sendAuto/]);
