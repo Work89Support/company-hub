@@ -86,14 +86,8 @@ async function actorContext(admin: any, actorId: string) {
 }
 
 async function listPending(admin: any, actor: any) {
-  if (!["admin", "lead"].includes(actor.role)) return { allowed: false, error: "ไม่มีสิทธิ์ดูคำขออุปกรณ์" };
-  let managed: string[] = [];
-  if (actor.role === "lead") {
-    const scopes = await admin.from("profile_departments").select("department_code")
-      .eq("profile_id", actor.id).eq("can_manage", true);
-    if (scopes.error) throw scopes.error;
-    managed = (scopes.data || []).map((row: any) => row.department_code);
-  }
+  if (actor.role === "lead") return { allowed: true, requests: [] };
+  if (actor.role !== "admin") return { allowed: false, error: "เฉพาะผู้ดูแลระบบเท่านั้นที่ดูคำขออุปกรณ์ได้" };
   const devices = await admin.from("user_access_devices")
     .select("id,profile_id,device_label,request_kind,requested_at,first_seen_ip,last_seen_ip,user_agent,status")
     .eq("status", "pending").order("requested_at", { ascending: true });
@@ -107,7 +101,6 @@ async function listPending(admin: any, actor: any) {
   const rows = (devices.data || []).flatMap((device: any) => {
     const profile: any = byId.get(device.profile_id);
     if (!profile || profile.id === actor.id) return [];
-    if (actor.role === "lead" && (profile.role !== "staff" || !managed.includes(profile.department_code))) return [];
     return [{ ...device, profile }];
   });
   return { allowed: true, requests: rows };
@@ -201,14 +194,7 @@ async function reviewDevice(admin: any, actor: any, body: Record<string, unknown
   const target = await actorContext(admin, device.data.profile_id);
   if (target.id === actor.id) return { allowed: false, error: "ไม่สามารถอนุมัติอุปกรณ์ของตนเอง" };
 
-  let canReview = actor.role === "admin";
-  if (!canReview && actor.role === "lead" && target.role === "staff") {
-    const scope = await admin.from("profile_departments").select("profile_id")
-      .eq("profile_id", actor.id).eq("department_code", target.department_code).eq("can_manage", true).maybeSingle();
-    if (scope.error) throw scope.error;
-    canReview = Boolean(scope.data);
-  }
-  if (!canReview) return { allowed: false, error: target.role === "lead" ? "เครื่องของหัวหน้าแผนกต้องให้ผู้ดูแลระบบอนุมัติ" : "ไม่มีสิทธิ์อนุมัติคำขอนี้" };
+  if (actor.role !== "admin") return { allowed: false, error: "เฉพาะผู้ดูแลระบบเท่านั้นที่อนุมัติอุปกรณ์ได้" };
 
   const now = new Date().toISOString();
   if (decision === "approve") {
@@ -350,41 +336,25 @@ export default {
         return json({
           allowed: false,
           state: hasApproved ? "needs_change_confirmation" : "needs_initial_confirmation",
-          reason: hasApproved ? "ตรวจพบอุปกรณ์ใหม่ ต้องส่งคำขออนุมัติ" : "กรุณายืนยันการลงทะเบียนอุปกรณ์เครื่องแรก",
+          reason: hasApproved ? "ตรวจพบอุปกรณ์ใหม่ ต้องส่งคำขออนุมัติ" : "อุปกรณ์เครื่องแรกต้องได้รับอนุมัติก่อนเข้าสู่ระบบ",
         });
       }
 
-      if (action === "confirm_initial" && !hasApproved) {
+      if (action === "request_change" || action === "request_initial") {
+        const isInitial = !hasApproved;
         const inserted = await admin.from("user_access_devices").insert({
           profile_id: actorId, device_key_hash: keyHash, device_label: label,
-          status: "approved", request_kind: "initial", requested_at: now,
-          approved_by: actorId, approved_at: now, reviewed_at: now,
-          review_note: "ผู้ใช้ยืนยันลงทะเบียนอุปกรณ์เครื่องแรก",
+          status: "pending", request_kind: isInitial ? "initial" : "replacement", requested_at: now,
           first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
         }).select("*").single();
         if (inserted.error) throw inserted.error;
-        const expiresAt = await createGrant(admin, actorId, inserted.data.id, ip);
-        await audit(admin, actorId, inserted.data.id, ip, "allowed", "ผู้ใช้ยืนยันลงทะเบียนอุปกรณ์เครื่องแรก", userAgent);
-        await queueTelegram(admin, "device_initial_registered", `device-initial:${inserted.data.id}`,
-          `🔐 ลงทะเบียนอุปกรณ์เครื่องแรก Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
-          `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์: ${label}\n` +
-          `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`);
-        return json({ allowed: true, state: "initial_registered", device_status: "approved", expires_at: expiresAt });
-      }
-
-      if (action === "request_change" || action === "confirm_initial") {
-        const inserted = await admin.from("user_access_devices").insert({
-          profile_id: actorId, device_key_hash: keyHash, device_label: label,
-          status: "pending", request_kind: "replacement", requested_at: now,
-          first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
-        }).select("*").single();
-        if (inserted.error) throw inserted.error;
-        await audit(admin, actorId, inserted.data.id, ip, "denied", "ส่งคำขอเปลี่ยนอุปกรณ์ รออนุมัติ", userAgent);
-        await queueTelegram(admin, "device_change_requested", `device-request:${inserted.data.id}`,
-          `📱 คำขอเปลี่ยนอุปกรณ์ Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
+        const requestLabel = isInitial ? "ลงทะเบียนอุปกรณ์เครื่องแรก" : "เปลี่ยนอุปกรณ์";
+        await audit(admin, actorId, inserted.data.id, ip, "denied", `ส่งคำขอ${requestLabel} รออนุมัติ`, userAgent);
+        await queueTelegram(admin, isInitial ? "device_initial_requested" : "device_change_requested", `device-request:${inserted.data.id}`,
+          `📱 คำขอ${requestLabel} Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
           `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์ใหม่: ${label}\n` +
           `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\n` +
-          `${actor.role === "lead" ? "ต้องให้ผู้ดูแลระบบอนุมัติ" : "หัวหน้าแผนกหรือผู้ดูแลระบบอนุมัติได้"}`);
+          `ผู้ดูแลระบบเท่านั้นที่อนุมัติได้`);
         return json({ allowed: false, state: "pending", reason: "ส่งคำขอแล้ว กำลังรอผู้มีสิทธิ์อนุมัติ", device_record_id: inserted.data.id });
       }
       return json({ allowed: false, error: "คำสั่งอุปกรณ์ไม่ถูกต้อง" });
