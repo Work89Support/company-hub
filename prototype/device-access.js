@@ -41,9 +41,9 @@ function ensureDeviceGateMarkup(){
   document.body.appendChild(root);return root;
 }
 function deviceGateCopy(state){
-  if(state==='needs_initial_confirmation')return {icon:'🔐',title:'อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน',body:'โปรดติดต่อหัวหน้าแผนก หรือผู้ดูแลระบบ',note:'ระบบไม่อนุญาตให้เข้าสู่ Company Hub และยังไม่เปิดข้อมูลงานจากอุปกรณ์นี้',action:'request_initial',button:'ส่งคำขอลงทะเบียนอุปกรณ์'};
-  if(state==='needs_change_confirmation')return {icon:'🔐',title:'อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน',body:'โปรดติดต่อหัวหน้าแผนก หรือผู้ดูแลระบบ',note:'ระบบไม่อนุญาตให้เข้าสู่ Company Hub และยังไม่เปิดข้อมูลงานจากอุปกรณ์นี้',action:'request_change',button:'ส่งคำขอลงทะเบียนอุปกรณ์'};
-  if(state==='pending')return {icon:'🔐',title:'อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน',body:'โปรดติดต่อหัวหน้าแผนก หรือผู้ดูแลระบบ',note:'ระบบยังไม่เปิดข้อมูลงานจากอุปกรณ์นี้',action:'logout',button:'กลับหน้าเข้าสู่ระบบ'};
+  if(state==='needs_initial_confirmation')return {icon:'🔐',title:'อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน',body:'โปรดติดต่อผู้ดูแลระบบ',note:'ระบบไม่อนุญาตให้เข้าสู่ Company Hub และยังไม่เปิดข้อมูลงานจากอุปกรณ์นี้',action:'request_initial',button:'ส่งคำขอลงทะเบียนอุปกรณ์'};
+  if(state==='needs_change_confirmation')return {icon:'🔐',title:'อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน',body:'โปรดติดต่อผู้ดูแลระบบ',note:'ระบบไม่อนุญาตให้เข้าสู่ Company Hub และยังไม่เปิดข้อมูลงานจากอุปกรณ์นี้',action:'request_change',button:'ส่งคำขอลงทะเบียนอุปกรณ์'};
+  if(state==='pending')return {icon:'🔐',title:'อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน',body:'โปรดติดต่อผู้ดูแลระบบ',note:'ระบบยังไม่เปิดข้อมูลงานจากอุปกรณ์นี้',action:'logout',button:'กลับหน้าเข้าสู่ระบบ'};
   return {icon:'⛔',title:'อุปกรณ์นี้ยังใช้งานไม่ได้',body:DEVICE_GATE_STATE?.reason||'อุปกรณ์นี้ถูกปฏิเสธหรือยกเลิกสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ',note:'หากเป็นการเปลี่ยนเครื่องโดยถูกต้อง กรุณาให้ผู้ดูแลตรวจสอบรายการอุปกรณ์',action:'logout',button:'ออกจากระบบ'};
 }
 function showDeviceGate(state,data={}){

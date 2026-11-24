@@ -13,7 +13,7 @@ const activate = read('../supabase/migrations/202611240073_activate_device_enrol
 
 const checks = [
   ['release loads device UI before cloud startup', /device-access\.js[\s\S]*core-app-cloud\.js/, html],
-  ['first login is blocked until device approval', /needs_initial_confirmation[\s\S]*อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน[\s\S]*โปรดติดต่อหัวหน้าแผนก หรือผู้ดูแลระบบ[\s\S]*request_initial/, ui],
+  ['first login is blocked until device approval', /needs_initial_confirmation[\s\S]*อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน[\s\S]*โปรดติดต่อผู้ดูแลระบบ[\s\S]*request_initial/, ui],
   ['replacement stays blocked and can request registration', /needs_change_confirmation[\s\S]*อุปกรณ์เครื่องนี้ไม่ได้ลงทะเบียน[\s\S]*ส่งคำขอลงทะเบียนอุปกรณ์/, ui],
   ['opaque ID is kept in a strict secure cookie', /Max-Age=.*Secure; SameSite=Strict/, ui],
   ['browser gate runs before protected profile load', /ensureDeviceAccess\(session\)[\s\S]*loadAuthenticatedProfile\(session\)/, cloud],
