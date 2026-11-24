@@ -32,6 +32,17 @@ function deviceLabel(body: Record<string, unknown>) {
   return cleanLine(body.device_label, "อุปกรณ์ที่ไม่ระบุชื่อ").slice(0, 120);
 }
 
+function deviceChangeReason(body: Record<string, unknown>) {
+  return String(body.request_reason || "").replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
+}
+
+async function isDeviceApprover(admin: any, profileId: string) {
+  const row = await admin.from("device_access_approvers").select("profile_id")
+    .eq("profile_id", profileId).maybeSingle();
+  if (row.error) throw row.error;
+  return Boolean(row.data);
+}
+
 async function queueTelegram(admin: any, type: string, dedupe: string, message: string) {
   try {
     const queued = await admin.rpc("queue_telegram_notification", {
@@ -86,10 +97,10 @@ async function actorContext(admin: any, actorId: string) {
 }
 
 async function listPending(admin: any, actor: any) {
-  if (actor.role === "lead") return { allowed: true, requests: [] };
-  if (actor.role !== "admin") return { allowed: false, error: "เฉพาะผู้ดูแลระบบเท่านั้นที่ดูคำขออุปกรณ์ได้" };
+  const canReview = await isDeviceApprover(admin, actor.id);
+  if (!canReview) return { allowed: true, can_review: false, requests: [] };
   const devices = await admin.from("user_access_devices")
-    .select("id,profile_id,device_label,request_kind,requested_at,first_seen_ip,last_seen_ip,user_agent,status")
+    .select("id,profile_id,device_label,request_kind,request_reason,requested_at,first_seen_ip,last_seen_ip,user_agent,status")
     .eq("status", "pending").order("requested_at", { ascending: true });
   if (devices.error) throw devices.error;
   const ids = [...new Set((devices.data || []).map((row: any) => row.profile_id))];
@@ -103,7 +114,7 @@ async function listPending(admin: any, actor: any) {
     if (!profile || profile.id === actor.id) return [];
     return [{ ...device, profile }];
   });
-  return { allowed: true, requests: rows };
+  return { allowed: true, can_review: true, requests: rows };
 }
 
 async function visibleProfiles(admin: any, actor: any) {
@@ -133,7 +144,7 @@ async function listRegistry(admin: any, actor: any) {
   const ids = profiles.map((profile: any) => profile.id);
   const devices = ids.length
     ? await admin.from("user_access_devices")
-      .select("id,profile_id,device_label,request_kind,status,requested_at,approved_at,reviewed_at,review_note,first_seen_at,last_seen_at")
+      .select("id,profile_id,device_label,request_kind,request_reason,status,requested_at,approved_at,reviewed_at,review_note,first_seen_at,last_seen_at")
       .in("profile_id", ids).order("requested_at", { ascending: false })
     : { data: [], error: null };
   if (devices.error) throw devices.error;
@@ -188,13 +199,13 @@ async function reviewDevice(admin: any, actor: any, body: Record<string, unknown
     return { allowed: false, error: "ข้อมูลการอนุมัติไม่ถูกต้อง" };
   }
   const device = await admin.from("user_access_devices")
-    .select("id,profile_id,device_label,status,requested_at").eq("id", targetId).maybeSingle();
+    .select("id,profile_id,device_label,status,requested_at,request_reason").eq("id", targetId).maybeSingle();
   if (device.error) throw device.error;
   if (!device.data || device.data.status !== "pending") return { allowed: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
   const target = await actorContext(admin, device.data.profile_id);
   if (target.id === actor.id) return { allowed: false, error: "ไม่สามารถอนุมัติอุปกรณ์ของตนเอง" };
 
-  if (actor.role !== "admin") return { allowed: false, error: "เฉพาะผู้ดูแลระบบเท่านั้นที่อนุมัติอุปกรณ์ได้" };
+  if (!await isDeviceApprover(admin, actor.id)) return { allowed: false, error: "เฉพาะคุณแม็กหรือ AMM ผู้ดูแลระบบเท่านั้นที่อนุมัติอุปกรณ์ได้" };
 
   const now = new Date().toISOString();
   if (decision === "approve") {
@@ -219,6 +230,7 @@ async function reviewDevice(admin: any, actor: any, body: Record<string, unknown
     `ตำแหน่ง: ${cleanLine(target.position_title)}\n` +
     `แผนก: ${cleanLine(target.department_code)}\n` +
     `อุปกรณ์: ${cleanLine(device.data.device_label)}\n` +
+    `เหตุผล: ${cleanLine(device.data.request_reason)}\n` +
     `ดำเนินการโดย: ${cleanLine(actor.display_name || actor.email)}\n` +
     `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`);
   return { allowed: true, reviewed: true, decision };
@@ -268,7 +280,8 @@ export default {
       if (!ip) return json({ allowed: false, error: "ไม่สามารถตรวจสอบเครือข่ายของอุปกรณ์ได้" });
       const keyHash = await sha256(rawDeviceKey);
       const label = deviceLabel(body);
-      const exempt = actor.role === "exec" || actor.role === "admin";
+      const deviceApprover = await isDeviceApprover(admin, actorId);
+      const exempt = actor.role === "exec" || deviceApprover;
       const existing = await admin.from("user_access_devices").select("*")
         .eq("profile_id", actorId).eq("device_key_hash", keyHash).maybeSingle();
       if (existing.error) throw existing.error;
@@ -286,7 +299,7 @@ export default {
             profile_id: actorId, device_key_hash: keyHash, device_label: label,
             status: "approved", request_kind: "exempt", requested_at: now,
             approved_by: actorId, approved_at: now, reviewed_at: now,
-            review_note: "ผู้บริหาร/ผู้ดูแลได้รับการยกเว้นการรออนุมัติ",
+            review_note: "CEO/ผู้อนุมัติอุปกรณ์ได้รับการยกเว้นการรออนุมัติ",
             first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
           }).select("*").single();
           if (inserted.error) throw inserted.error;
@@ -295,7 +308,7 @@ export default {
           const updated = await admin.from("user_access_devices").update({
             status: "approved", request_kind: "exempt", device_label: label,
             approved_by: actorId, approved_at: device.approved_at || now,
-            reviewed_at: now, review_note: "ผู้บริหาร/ผู้ดูแลได้รับการยกเว้นการรออนุมัติ",
+            reviewed_at: now, review_note: "CEO/ผู้อนุมัติอุปกรณ์ได้รับการยกเว้นการรออนุมัติ",
             last_seen_ip: ip, last_seen_at: now, user_agent: userAgent.slice(0, 500),
           }).eq("id", device.id).select("*").single();
           if (updated.error) throw updated.error;
@@ -303,10 +316,10 @@ export default {
         }
         const expiresAt = await createGrant(admin, actorId, device.id, ip);
         if (firstRegistration) {
-          await audit(admin, actorId, device.id, ip, "allowed", "ลงทะเบียนอุปกรณ์อัตโนมัติสำหรับผู้บริหาร/ผู้ดูแล", userAgent);
+          await audit(admin, actorId, device.id, ip, "allowed", "ลงทะเบียนอุปกรณ์อัตโนมัติสำหรับ CEO/ผู้อนุมัติอุปกรณ์", userAgent);
           await queueTelegram(admin, "device_exempt_registered", `device-exempt:${device.id}`,
             `🔐 ลงทะเบียนอุปกรณ์ใหม่อัตโนมัติ\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
-            `สิทธิ์: ${actor.role === "exec" ? "CEO/ผู้บริหาร" : "ผู้ดูแลระบบ"}\nอุปกรณ์: ${label}\n` +
+            `สิทธิ์: ${actor.role === "exec" ? "CEO/ผู้บริหาร" : "ผู้อนุมัติอุปกรณ์"}\nอุปกรณ์: ${label}\n` +
             `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\nไม่ต้องรออนุมัติ`);
         }
         return json({ allowed: true, exempt: true, device_status: "approved", expires_at: expiresAt });
@@ -319,6 +332,13 @@ export default {
       }
       if (existing.data?.status === "blocked") return json({ allowed: false, state: "blocked", reason: "อุปกรณ์นี้ถูกปฏิเสธหรือยกเลิกสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ" });
 
+      if (existing.data?.status === "pending") return json({
+        allowed: false,
+        state: "pending",
+        reason: "ส่งคำขออุปกรณ์แล้ว กรุณารอคุณแม็กหรือ AMM อนุมัติ",
+        request_reason: existing.data.request_reason || "",
+      });
+
       if (aal !== "aal2") return json({
         allowed: false,
         state: "needs_mfa",
@@ -326,34 +346,39 @@ export default {
       });
 
       const isInitial = !hasApproved;
-      let device = existing.data;
-      if (device?.status === "pending") {
-        const updated = await admin.from("user_access_devices").update({
-          status: "approved", request_kind: isInitial ? "initial" : "replacement",
-          approved_by: actorId, approved_at: now, reviewed_at: now,
-          review_note: "เจ้าของบัญชียืนยัน 2FA", device_label: label,
-          last_seen_ip: ip, last_seen_at: now, user_agent: userAgent.slice(0, 500),
-        }).eq("id", device.id).select("*").single();
-        if (updated.error) throw updated.error;
-        device = updated.data;
-      } else {
-        const inserted = await admin.from("user_access_devices").insert({
-          profile_id: actorId, device_key_hash: keyHash, device_label: label,
-          status: "approved", request_kind: isInitial ? "initial" : "replacement", requested_at: now,
-          approved_by: actorId, approved_at: now, reviewed_at: now,
-          review_note: "เจ้าของบัญชียืนยัน 2FA",
-          first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
-        }).select("*").single();
-        if (inserted.error) throw inserted.error;
-        device = inserted.data;
-      }
-      const expiresAt = await createGrant(admin, actorId, device.id, ip);
-      await audit(admin, actorId, device.id, ip, "allowed", "เจ้าของบัญชียืนยัน 2FA และเพิ่มอุปกรณ์", userAgent);
-      await queueTelegram(admin, "device_mfa_registered", `device-mfa:${device.id}:${now}`,
-        `🔐 ยืนยัน 2FA และเพิ่มอุปกรณ์ Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
+      if (isInitial && action !== "request_initial") return json({
+        allowed: false,
+        state: "needs_initial_request",
+        reason: "ยืนยัน 2FA แล้ว กรุณาส่งคำขอลงทะเบียนเครื่องแรกให้คุณแม็กหรือ AMM อนุมัติ",
+      });
+      if (!isInitial && action !== "request_change") return json({
+        allowed: false,
+        state: "needs_change_reason",
+        reason: "บัญชีนี้มีอุปกรณ์ใช้งานอยู่แล้ว กรุณาระบุเหตุผลที่ต้องเพิ่มหรือเปลี่ยนเครื่อง",
+      });
+
+      const requestReason = isInitial ? "ลงทะเบียนอุปกรณ์เครื่องแรก" : deviceChangeReason(body);
+      if (!isInitial && requestReason.length < 10) return json({
+        allowed: false,
+        state: "needs_change_reason",
+        reason: "กรุณาระบุเหตุผลที่เปลี่ยนเครื่องอย่างน้อย 10 ตัวอักษร",
+      });
+      const inserted = await admin.from("user_access_devices").insert({
+        profile_id: actorId, device_key_hash: keyHash, device_label: label,
+        status: "pending", request_kind: isInitial ? "initial" : "replacement",
+        request_reason: requestReason, requested_at: now,
+        review_note: "รอคุณแม็กหรือ AMM ตรวจสอบ",
+        first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
+      }).select("*").single();
+      if (inserted.error) throw inserted.error;
+      const device = inserted.data;
+      await audit(admin, actorId, device.id, ip, "denied", `ส่งคำขออุปกรณ์: ${requestReason}`, userAgent);
+      await queueTelegram(admin, "device_approval_requested", `device-approval-requested:${device.id}:${now}`,
+        `📱 คำขออนุมัติอุปกรณ์ Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
         `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์: ${label}\n` +
-        `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`);
-      return json({ allowed: true, mfa_verified: true, device_status: "approved", expires_at: expiresAt });
+        `ประเภท: ${isInitial ? "ลงทะเบียนเครื่องแรก" : "เพิ่ม/เปลี่ยนเครื่อง"}\nเหตุผล: ${requestReason}\n` +
+        `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\nผู้อนุมัติ: คุณแม็ก หรือ AMM เท่านั้น`);
+      return json({ allowed: false, state: "pending", reason: "ส่งคำขอแล้ว กรุณารอคุณแม็กหรือ AMM อนุมัติ", request_reason: requestReason });
     } catch (error) {
       console.error(error);
       return json({ allowed: false, error: error instanceof Error ? error.message : "Access Gate ผิดพลาด" }, 400);
