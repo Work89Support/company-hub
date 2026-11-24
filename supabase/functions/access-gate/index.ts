@@ -113,6 +113,56 @@ async function listPending(admin: any, actor: any) {
   return { allowed: true, requests: rows };
 }
 
+async function visibleProfiles(admin: any, actor: any) {
+  if (!["admin", "lead"].includes(actor.role)) throw new Error("ไม่มีสิทธิ์ดูทะเบียนอุปกรณ์");
+  if (actor.role === "admin") {
+    const profiles = await admin.from("profiles")
+      .select("id,display_name,email,position_title,role,department_code,active")
+      .eq("active", true).order("display_name", { ascending: true });
+    if (profiles.error) throw profiles.error;
+    return profiles.data || [];
+  }
+  const scopes = await admin.from("profile_departments").select("department_code")
+    .eq("profile_id", actor.id).eq("can_manage", true);
+  if (scopes.error) throw scopes.error;
+  const managed = [...new Set((scopes.data || []).map((row: any) => row.department_code))];
+  if (!managed.length) return [];
+  const profiles = await admin.from("profiles")
+    .select("id,display_name,email,position_title,role,department_code,active")
+    .eq("active", true).eq("role", "staff").in("department_code", managed)
+    .order("display_name", { ascending: true });
+  if (profiles.error) throw profiles.error;
+  return profiles.data || [];
+}
+
+async function listRegistry(admin: any, actor: any) {
+  const profiles = await visibleProfiles(admin, actor);
+  const ids = profiles.map((profile: any) => profile.id);
+  const devices = ids.length
+    ? await admin.from("user_access_devices")
+      .select("id,profile_id,device_label,request_kind,status,requested_at,approved_at,reviewed_at,review_note,created_at,updated_at")
+      .in("profile_id", ids).order("requested_at", { ascending: false })
+    : { data: [], error: null };
+  if (devices.error) throw devices.error;
+  const byProfile = new Map<string, any[]>();
+  for (const device of devices.data || []) {
+    const list = byProfile.get(device.profile_id) || [];
+    list.push(device);
+    byProfile.set(device.profile_id, list);
+  }
+  const registry = profiles.map((profile: any) => ({ profile, devices: byProfile.get(profile.id) || [] }));
+  return {
+    allowed: true,
+    registry,
+    summary: {
+      total: registry.length,
+      registered: registry.filter((row: any) => row.devices.some((device: any) => device.status === "approved")).length,
+      pending: registry.filter((row: any) => row.devices.some((device: any) => device.status === "pending")).length,
+      never_registered: registry.filter((row: any) => !row.devices.length).length,
+    },
+  };
+}
+
 async function reviewDevice(admin: any, actor: any, body: Record<string, unknown>, ip: string, userAgent: string) {
   const targetId = String(body.device_record_id || "");
   const decision = String(body.decision || "");
@@ -194,7 +244,8 @@ export default {
       if (authError || !actorId) return json({ error: "Session หมดอายุ กรุณาเข้าสู่ระบบใหม่" }, 401);
 
       const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
-      const claims = JSON.parse(atob(accessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const jwtBody = (accessToken.split(".")[1] || "").replace(/-/g, "+").replace(/_/g, "/");
+      const claims = JSON.parse(atob(jwtBody + "=".repeat((4 - jwtBody.length % 4) % 4)));
       const { data: ready, error: readyError } = await admin.rpc("company_credentials_ready", { p_profile: actorId, p_iat: Number(claims.iat || 0) });
       if (readyError || !ready) return json({ allowed: false, reason: "กรุณาตั้งรหัสผ่านใหม่และเข้าสู่ระบบอีกครั้ง" });
 
@@ -209,6 +260,7 @@ export default {
       if (!config.data?.enabled) return json({ allowed: true, enforcement_enabled: false });
 
       if (action === "list_pending") return json(await listPending(admin, actor));
+      if (action === "list_registry") return json(await listRegistry(admin, actor));
       if (action === "review") return json(await reviewDevice(admin, actor, body, ip, userAgent));
 
       const rawDeviceKey = String(body.device_id || "").trim();
