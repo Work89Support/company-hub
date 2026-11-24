@@ -16,8 +16,8 @@ const pApprover = read('../supabase/migrations/202611240076_add_p_device_approve
 
 const checks = [
   ['release loads device UI before cloud startup', /device-access\.js[\s\S]*core-app-cloud\.js/, html],
-  ['new devices require MFA identity verification', /needs_mfa[\s\S]*ยืนยันตัวตน 2FA[\s\S]*beginDeviceMfa/, ui],
-  ['TOTP enrollment and challenge are implemented', /auth\.mfa\.enroll[\s\S]*auth\.mfa\.challenge[\s\S]*auth\.mfa\.verify/, ui],
+  ['first and later devices request IT approval without TOTP', /request_initial[\s\S]*needs_initial_request[\s\S]*request_change[\s\S]*needs_change_reason/, edge],
+  ['Authenticator MFA is absent from the active device flow', /auth\.mfa|needs_mfa|ยืนยันตัวตน 2FA/, ui, true],
   ['opaque ID is kept in a strict secure cookie', /Max-Age=.*Secure; SameSite=Strict/, ui],
   ['browser gate runs before protected profile load', /ensureDeviceAccess\(session\)[\s\S]*loadAuthenticatedProfile\(session\)/, cloud],
   ['lead/admin approval view exists', /RENDER\.devices[\s\S]*reviewDeviceRequest/, ui],
@@ -27,7 +27,8 @@ const checks = [
   ['only Max, P and AMM can approve device requests', /isDeviceApprover[\s\S]*เฉพาะคุณแม็ก คุณพี หรือ AMM/, edge],
   ['self approval is blocked', /ไม่สามารถอนุมัติอุปกรณ์ของตนเอง/, edge],
   ['non-approvers cannot see pending approval actions', /canReview = await isDeviceApprover[\s\S]*!canReview[\s\S]*requests: \[\]/, edge],
-  ['AAL2 is required before the first device approval request', /aal !== "aal2"[\s\S]*request_initial[\s\S]*needs_initial_request/, edge],
+  ['named IT approval immediately approves the requested device', /decision === "approve"[\s\S]*status: "approved"[\s\S]*IT อนุมัติและเปิดใช้งานอุปกรณ์/, edge],
+  ['waiting clients poll and enter immediately after approval', /state==='pending'[\s\S]*DEVICE_PENDING_POLL=setTimeout\(\(\)=>deviceGateAction\('retry'\),5000\)/, ui],
   ['replacement requests require a written reason', /needs_change_reason[\s\S]*requestReason\.length < 10[\s\S]*request_reason: requestReason/, edge],
   ['device requests notify Telegram with their reason', /device_approval_requested[\s\S]*เหตุผล: \$\{requestReason\}/, edge],
   ['requests and outcomes use existing Telegram queue', /queue_telegram_notification[\s\S]*dispatch_telegram_notifications/, edge],
@@ -40,8 +41,9 @@ const checks = [
   ['P is the third and final named approver', /a0ce29ce-ab88-4fb1-b8f6-28a3cb9ec587[\s\S]*count\(\*\)[\s\S]*<> 3[\s\S]*AMM, Max and P/, pApprover],
   ['device screen is blocking and responsive', /position:fixed[\s\S]*z-index:[6-9][0-9]{3}[\s\S]*@media\(max-width:640px\)/, css],
 ];
-const failed=checks.filter(([,pattern,source])=>!pattern.test(source));
+const failed=checks.filter(([,pattern,source,negated])=>negated?pattern.test(source):!pattern.test(source));
 if(/แทนที่ด้วยอุปกรณ์ที่อนุมัติใหม่/.test(edge))failed.push(['approving another device must not revoke existing devices']);
+if(/auth\.mfa|needs_mfa|aal2|activation_code|redeem_code|รหัส 6 หลัก/.test(ui+edge))failed.push(['active device approval flow must not contain MFA or activation codes']);
 try { new vm.Script(ui,{filename:'device-access.js'}); } catch(error){ console.error('FAIL: device-access.js syntax'); console.error(error.message); process.exit(1); }
 if(failed.length){failed.forEach(([name])=>console.error('FAIL: '+name));process.exit(1);}
 console.log(`PASS: ${checks.length} device enrollment and approval checks`);

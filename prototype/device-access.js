@@ -1,6 +1,6 @@
 const DEVICE_COOKIE_NAME='companyhub_device_v2';
 const DEVICE_COOKIE_SECONDS=31536000;
-let DEVICE_GATE_WAITER=null,DEVICE_GATE_STATE=null,DEVICE_GATE_BUSY=false,DEVICE_HEARTBEAT=null,DEVICE_MFA_FACTOR_ID='';
+let DEVICE_GATE_WAITER=null,DEVICE_GATE_STATE=null,DEVICE_GATE_BUSY=false,DEVICE_HEARTBEAT=null,DEVICE_PENDING_POLL=null;
 let DEVICE_REQUESTS=[],DEVICE_REGISTRY=[],DEVICE_REGISTRY_SUMMARY={total:0,registered:0,pending:0,never_registered:0,inactive_history:0},DEVICE_REQUESTS_LOADING=false,DEVICE_CAN_REVIEW=false,DEVICE_VIEW_TAB='pending',DEVICE_FILTER_SEARCH='',DEVICE_FILTER_DEPT='',DEVICE_FILTER_STATUS='';
 
 NAV.devices={ic:'i-check',t:'อนุมัติอุปกรณ์'};
@@ -41,10 +41,9 @@ function ensureDeviceGateMarkup(){
   document.body.appendChild(root);return root;
 }
 function deviceGateCopy(state){
-  if(state==='needs_mfa')return {icon:'🔐',title:'ยืนยันตัวตน 2FA',body:'ยืนยันว่าเป็นเจ้าของบัญชีก่อนส่งคำขอใช้อุปกรณ์เครื่องนี้',note:'หลังยืนยัน 2FA ระบบยังไม่เปิดใช้งานทันที ต้องรอคุณแม็ก คุณพี หรือ AMM อนุมัติ',action:'mfa',button:'ตั้งค่า / ยืนยัน 2FA'};
-  if(state==='needs_initial_request')return {icon:'📱',title:'ส่งคำขอลงทะเบียนเครื่องแรก',body:'ยืนยัน 2FA สำเร็จแล้ว กรุณาส่งคำขอให้ผู้ดูแลอุปกรณ์อนุมัติ',note:'ผู้อนุมัติอุปกรณ์มีเฉพาะคุณแม็ก คุณพี และ AMM',action:'request_initial',button:'ส่งคำขอลงทะเบียน'};
+  if(state==='needs_initial_request')return {icon:'📱',title:'ลงทะเบียนอุปกรณ์เครื่องนี้',body:'อุปกรณ์เครื่องนี้ยังไม่ได้ลงทะเบียน กรุณาส่งคำขอให้ IT อนุมัติ',note:'ผู้อนุมัติมีเฉพาะคุณแม็ก คุณพี และ AMM เมื่ออนุมัติแล้วเข้าใช้งานได้ทันที',action:'request_initial',button:'ส่งคำขอลงทะเบียน'};
   if(state==='needs_change_reason')return {icon:'📱',title:'ระบุเหตุผลที่เปลี่ยนเครื่อง',body:'บัญชีนี้มีอุปกรณ์ใช้งานอยู่แล้ว กรุณาชี้แจงเหตุผลก่อนส่งคำขอ',note:'เหตุผลจะแสดงต่อผู้อนุมัติและส่งแจ้งใน Telegram',action:'request_change',button:'ส่งคำขอเปลี่ยนเครื่อง'};
-  if(state==='pending')return {icon:'⏳',title:'รออนุมัติอุปกรณ์',body:DEVICE_GATE_STATE?.reason||'ส่งคำขอแล้ว กรุณารอคุณแม็ก คุณพี หรือ AMM อนุมัติ',note:DEVICE_GATE_STATE?.request_reason?`เหตุผลที่ส่ง: ${DEVICE_GATE_STATE.request_reason}`:'ผู้อนุมัติมีเฉพาะคุณแม็ก คุณพี และ AMM',action:'logout',button:'ออกจากระบบ'};
+  if(state==='pending')return {icon:'⏳',title:'รอ IT อนุมัติ',body:DEVICE_GATE_STATE?.reason||'ส่งคำขอแล้ว กรุณารอคุณแม็ก คุณพี หรือ AMM อนุมัติ',note:DEVICE_GATE_STATE?.request_reason?`เหตุผลที่ส่ง: ${DEVICE_GATE_STATE.request_reason}`:'ระบบจะตรวจสอบสถานะให้อัตโนมัติ เมื่ออนุมัติแล้วเข้าใช้งานได้ทันที',action:'retry',button:'ตรวจสอบอีกครั้ง'};
   return {icon:'⛔',title:'อุปกรณ์นี้ยังใช้งานไม่ได้',body:DEVICE_GATE_STATE?.reason||'อุปกรณ์นี้ถูกปฏิเสธหรือยกเลิกสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ',note:'หากเป็นการเปลี่ยนเครื่องโดยถูกต้อง กรุณาให้ผู้ดูแลตรวจสอบรายการอุปกรณ์',action:'logout',button:'ออกจากระบบ'};
 }
 function showDeviceGate(state,data={}){
@@ -52,49 +51,15 @@ function showDeviceGate(state,data={}){
   const login=document.getElementById('loginBg');if(login)login.style.display='none';loginBackground(true);root.style.display='flex';
   const reason=state==='needs_change_reason'?`<label class="device-change-reason">เหตุผลที่ต้องเพิ่มหรือเปลี่ยนเครื่อง<textarea id="deviceChangeReason" maxlength="500" rows="4" placeholder="เช่น โทรศัพท์เครื่องเดิมเสียและส่งซ่อม จึงต้องใช้อุปกรณ์สำรอง"></textarea><small>อย่างน้อย 10 ตัวอักษร · ระบบบันทึกในประวัติและแจ้ง Telegram</small></label>`:'';
   card.innerHTML=`<div class="device-gate-icon">${copy.icon}</div><h2 id="deviceGateTitle">${copy.title}</h2><p>${copy.body}</p><div class="device-gate-note">${copy.note}<br><b>อุปกรณ์:</b> ${esc(deviceAccessLabel())}</div>${reason}<div id="deviceGateError" class="device-gate-error" role="alert"></div><div class="device-gate-actions"><button class="tbtn primary" id="deviceGatePrimary" onclick="deviceGateAction('${copy.action}')">${copy.button}</button>${copy.action!=='logout'?'<button class="tbtn" onclick="deviceGateLogout()">ออกจากระบบ</button>':''}</div>`;
+  clearTimeout(DEVICE_PENDING_POLL);if(state==='pending')DEVICE_PENDING_POLL=setTimeout(()=>deviceGateAction('retry'),5000);
   requestAnimationFrame(()=>card.focus({preventScroll:true}));
 }
-function deviceMfaError(message){const error=document.getElementById('deviceGateError');if(error)error.textContent=message||'';}
-function renderDeviceMfaForm({factorId,qrCode='',secret='',existing=false}){
-  DEVICE_MFA_FACTOR_ID=factorId||'';
-  const root=ensureDeviceGateMarkup(),card=root.querySelector('#deviceGateCard');
-  const safeQr=/^data:image\/svg\+xml/i.test(qrCode||'')?qrCode:'';
-  card.innerHTML=`<div class="device-gate-icon">🔐</div><h2 id="deviceGateTitle">${existing?'กรอกรหัส 2FA':'ตั้งค่า 2FA ครั้งแรก'}</h2><p>${existing?'เปิดแอป Authenticator แล้วกรอกรหัส 6 หลัก':'สแกน QR Code ด้วย Google/Microsoft Authenticator, Authy, 1Password หรือ Passwords แล้วกรอกรหัส 6 หลัก'}</p>${safeQr?`<div class="device-mfa-qr"><img src="${safeQr}" alt="QR Code สำหรับตั้งค่า 2FA"></div>`:''}${secret?`<div class="device-mfa-secret"><span>ตั้งค่าด้วยรหัสแทน QR</span><code>${esc(secret)}</code></div>`:''}<label class="device-mfa-code">รหัส 2FA 6 หลัก<input id="deviceMfaCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" onkeydown="if(event.key==='Enter')verifyDeviceMfa()"></label><div id="deviceGateError" class="device-gate-error" role="alert"></div><div class="device-gate-actions"><button class="tbtn primary" id="deviceGatePrimary" onclick="verifyDeviceMfa()">ยืนยันและเพิ่มอุปกรณ์</button><button class="tbtn" onclick="deviceGateLogout()">ออกจากระบบ</button></div>`;
-  requestAnimationFrame(()=>document.getElementById('deviceMfaCode')?.focus({preventScroll:true}));
-}
-async function beginDeviceMfa(){
-  if(DEVICE_GATE_BUSY)return;DEVICE_GATE_BUSY=true;deviceMfaError('');
-  const button=document.getElementById('deviceGatePrimary');if(button){button.disabled=true;button.textContent='กำลังเตรียม 2FA…';}
-  try{
-    const factors=await SB.auth.mfa.listFactors();if(factors.error)throw factors.error;
-    const verified=(factors.data?.totp||[]).find(factor=>factor.status==='verified')||(factors.data?.totp||[])[0];
-    if(verified){renderDeviceMfaForm({factorId:verified.id,existing:true});return;}
-    const enrolled=await SB.auth.mfa.enroll({factorType:'totp',friendlyName:'Company Hub'});if(enrolled.error)throw enrolled.error;
-    renderDeviceMfaForm({factorId:enrolled.data.id,qrCode:enrolled.data.totp?.qr_code||'',secret:enrolled.data.totp?.secret||'',existing:false});
-  }catch(error){deviceMfaError(error.message||'ไม่สามารถเริ่ม 2FA ได้ กรุณาติดต่อผู้ดูแลระบบ');if(button){button.disabled=false;button.textContent='ลองอีกครั้ง';}}
-  finally{DEVICE_GATE_BUSY=false;}
-}
-async function verifyDeviceMfa(){
-  if(DEVICE_GATE_BUSY)return;const code=String(document.getElementById('deviceMfaCode')?.value||'').replace(/\D/g,'');
-  if(!/^\d{6}$/.test(code)){deviceMfaError('กรอกรหัส 2FA ให้ครบ 6 หลัก');return;}
-  if(!DEVICE_MFA_FACTOR_ID){deviceMfaError('ไม่พบข้อมูล 2FA กรุณาเริ่มใหม่');return;}
-  DEVICE_GATE_BUSY=true;deviceMfaError('');const button=document.getElementById('deviceGatePrimary');if(button){button.disabled=true;button.textContent='กำลังยืนยัน…';}
-  try{
-    const challenge=await SB.auth.mfa.challenge({factorId:DEVICE_MFA_FACTOR_ID});if(challenge.error)throw challenge.error;
-    const verified=await SB.auth.mfa.verify({factorId:DEVICE_MFA_FACTOR_ID,challengeId:challenge.data.id,code});if(verified.error)throw verified.error;
-    const refreshed=await SB.auth.refreshSession();if(refreshed.error)throw refreshed.error;
-    const data=await deviceAccessCall('status');if(!data.allowed){showDeviceGate(data.state||'blocked',data);return;}
-    startDeviceHeartbeat();finishDeviceGate();
-  }catch(error){deviceMfaError(error.message||'รหัส 2FA ไม่ถูกต้อง');if(button){button.disabled=false;button.textContent='ยืนยันและเพิ่มอุปกรณ์';}}
-  finally{DEVICE_GATE_BUSY=false;}
-}
-function hideDeviceGate(){const root=document.getElementById('deviceGateBg');if(root)root.style.display='none';}
+function hideDeviceGate(){clearTimeout(DEVICE_PENDING_POLL);const root=document.getElementById('deviceGateBg');if(root)root.style.display='none';}
 function finishDeviceGate(){hideDeviceGate();const waiter=DEVICE_GATE_WAITER;DEVICE_GATE_WAITER=null;DEVICE_GATE_STATE=null;if(waiter)waiter(true);}
 async function deviceGateAction(action){
   if(action==='logout')return deviceGateLogout();if(DEVICE_GATE_BUSY)return;DEVICE_GATE_BUSY=true;
   const button=document.getElementById('deviceGatePrimary'),error=document.getElementById('deviceGateError');if(error)error.textContent='';if(button){button.disabled=true;button.textContent='กำลังตรวจสอบ…';}
-  if(action==='mfa'){DEVICE_GATE_BUSY=false;return beginDeviceMfa();}
-  try{const requestReason=action==='request_change'?String(document.getElementById('deviceChangeReason')?.value||'').trim():'';if(action==='request_change'&&requestReason.length<10)throw new Error('กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร');const data=await deviceAccessCall(action==='retry'?'status':action,{request_reason:requestReason});if(data.allowed){finishDeviceGate();return;}showDeviceGate(data.state||'blocked',data);}
+  try{const requestReason=action==='request_change'?String(document.getElementById('deviceChangeReason')?.value||'').trim():'';if(action==='request_change'&&requestReason.length<10)throw new Error('กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร');const data=await deviceAccessCall(action==='retry'?'status':action,{request_reason:requestReason});if(data.allowed){startDeviceHeartbeat();finishDeviceGate();return;}showDeviceGate(data.state||'blocked',data);}
   catch(e){if(error)error.textContent=e.message||String(e);if(button){button.disabled=false;button.textContent=action==='retry'?'ตรวจสอบอีกครั้ง':'ลองใหม่';}}
   finally{DEVICE_GATE_BUSY=false;}
 }
@@ -112,8 +77,8 @@ async function loadDeviceRequests(render=true){
   DEVICE_REQUESTS_LOADING=true;try{const [pending,registry]=await Promise.all([deviceAccessCall('list_pending'),deviceAccessCall('list_registry')]);DEVICE_CAN_REVIEW=Boolean(pending.can_review);DEVICE_REQUESTS=pending.requests||[];DEVICE_REGISTRY=registry.registry||[];DEVICE_REGISTRY_SUMMARY=registry.summary||{total:0,registered:0,pending:0,never_registered:0,inactive_history:0};}catch(error){toast('โหลดทะเบียนอุปกรณ์ไม่สำเร็จ · '+(error.message||error),'info');}finally{DEVICE_REQUESTS_LOADING=false;if(render&&VIEW==='devices')RENDER.devices();buildNav();}
 }
 async function reviewDeviceRequest(id,decision){
-  const row=DEVICE_REQUESTS.find(item=>item.id===id),label=decision==='approve'?'อนุมัติ':'ปฏิเสธ',reason=row?.request_reason||'ไม่ระบุ';if(!confirm(`${label}คำขออุปกรณ์นี้ใช่หรือไม่?\n\nเหตุผลของผู้ขอ: ${reason}`))return;
-  try{const data=await deviceAccessCall('review',{device_record_id:id,decision});if(!data.allowed)throw new Error(data.error||'ดำเนินการไม่สำเร็จ');toast(label+'คำขออุปกรณ์แล้ว');await loadDeviceRequests(true);}catch(error){toast(label+'ไม่สำเร็จ · '+(error.message||error),'info');}
+  const row=DEVICE_REQUESTS.find(item=>item.id===id),label=decision==='approve'?'อนุมัติและเปิดใช้งาน':'ปฏิเสธ',reason=row?.request_reason||'ไม่ระบุ';if(!confirm(`${label}คำขออุปกรณ์นี้ใช่หรือไม่?\n\nเหตุผลของผู้ขอ: ${reason}`))return;
+  try{const data=await deviceAccessCall('review',{device_record_id:id,decision});if(!data.allowed)throw new Error(data.error||'ดำเนินการไม่สำเร็จ');toast(label+'แล้ว');await loadDeviceRequests(true);}catch(error){toast(label+'ไม่สำเร็จ · '+(error.message||error),'info');}
 }
 function deviceRegistryState(row){
   if(row.devices.some(d=>d.status==='approved'))return 'registered';
@@ -132,7 +97,7 @@ RENDER.devices=function(){
   if(DEVICE_REQUESTS_LOADING){main.innerHTML=`${crumb('หน้าแรก','อนุมัติอุปกรณ์')}<div class="card pad">กำลังโหลดคำขอ…</div>`;return;}
   if(!DEVICE_CAN_REVIEW)DEVICE_VIEW_TAB='registry';
   const rows=DEVICE_REQUESTS,s=DEVICE_REGISTRY_SUMMARY;
-  const pendingHtml=rows.length?`<div class="device-request-list">${rows.map(row=>`<article class="device-request-card"><div><h3>${esc(row.profile.display_name||row.profile.email)}</h3><div class="device-request-meta">${esc(row.profile.position_title||'ไม่ระบุตำแหน่ง')} · ${esc(deptName(row.profile.department_code))}<br><b>อุปกรณ์ใหม่:</b> ${esc(row.device_label)}<br><b>ประเภท:</b> ${row.request_kind==='initial'?'ลงทะเบียนเครื่องแรก':'เพิ่ม/เปลี่ยนเครื่อง'}<br><b>ขอเมื่อ:</b> ${new Date(row.requested_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE})}</div><div class="device-request-reason"><b>เหตุผลของผู้ขอ</b><span>${esc(row.request_reason||'ไม่ระบุ')}</span></div></div><div class="device-request-actions"><button class="tbtn primary" onclick="reviewDeviceRequest('${row.id}','approve')">✓ อนุมัติ</button><button class="tbtn" onclick="reviewDeviceRequest('${row.id}','reject')">ปฏิเสธ</button></div></article>`).join('')}</div>`:'<div class="device-request-empty">✓ ไม่มีคำขออุปกรณ์ที่รออนุมัติ</div>';
+  const pendingHtml=rows.length?`<div class="device-request-list">${rows.map(row=>`<article class="device-request-card"><div><h3>${esc(row.profile.display_name||row.profile.email)}</h3><div class="device-request-meta">${esc(row.profile.position_title||'ไม่ระบุตำแหน่ง')} · ${esc(deptName(row.profile.department_code))}<br><b>อุปกรณ์ใหม่:</b> ${esc(row.device_label)}<br><b>ประเภท:</b> ${row.request_kind==='initial'?'ลงทะเบียนเครื่องแรก':'เพิ่ม/เปลี่ยนเครื่อง'}<br><b>ขอเมื่อ:</b> ${new Date(row.requested_at).toLocaleString('th-TH',{timeZone:ORG_TIMEZONE})}</div><div class="device-request-reason"><b>เหตุผลของผู้ขอ</b><span>${esc(row.request_reason||'ไม่ระบุ')}</span></div></div><div class="device-request-actions"><button class="tbtn primary" onclick="reviewDeviceRequest('${row.id}','approve')">✓ อนุมัติและเปิดใช้งาน</button><button class="tbtn" onclick="reviewDeviceRequest('${row.id}','reject')">ปฏิเสธ</button></div></article>`).join('')}</div>`:'<div class="device-request-empty">✓ ไม่มีคำขออุปกรณ์ที่รออนุมัติ</div>';
   const statusLabel={approved:'ใช้งานอยู่',pending:'รออนุมัติ',blocked:'ยกเลิก/ปฏิเสธ'};
   const departments=[...new Set(DEVICE_REGISTRY.map(row=>row.profile.department_code).filter(Boolean))].sort((a,b)=>deptName(a).localeCompare(deptName(b),'th'));
   const needle=DEVICE_FILTER_SEARCH.trim().toLocaleLowerCase('th');
