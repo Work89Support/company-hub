@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install repository test dependencies
+        run: npm ci --ignore-scripts
       - name: Verify critical modules and JavaScript
         run: node scripts/check-prototype-regressions.mjs
 
