@@ -74,7 +74,7 @@ function startDeviceHeartbeat(){
 
 async function loadDeviceRequests(render=true){
   if(!['lead','admin'].includes(AUTH_DB_ROLE)){DEVICE_REQUESTS=[];return;}
-  DEVICE_REQUESTS_LOADING=true;try{const [pending,registry]=await Promise.all([deviceAccessCall('list_pending'),deviceAccessCall('list_registry')]);DEVICE_CAN_REVIEW=Boolean(pending.can_review);DEVICE_REQUESTS=pending.requests||[];DEVICE_REGISTRY=registry.registry||[];DEVICE_REGISTRY_SUMMARY=registry.summary||{total:0,registered:0,pending:0,never_registered:0,inactive_history:0};}catch(error){toast('โหลดทะเบียนอุปกรณ์ไม่สำเร็จ · '+(error.message||error),'info');}finally{DEVICE_REQUESTS_LOADING=false;if(render&&VIEW==='devices')RENDER.devices();buildNav();}
+  DEVICE_REQUESTS_LOADING=true;try{const [pending,registry]=await Promise.all([deviceAccessCall('list_pending'),deviceAccessCall('list_registry')]);DEVICE_CAN_REVIEW=Boolean(pending.can_review);DEVICE_REQUESTS=pending.requests||[];DEVICE_REGISTRY=registry.registry||[];DEVICE_REGISTRY_SUMMARY=registry.summary||{total:0,registered:0,pending:0,never_registered:0,inactive_history:0};}catch(error){toast('โหลดทะเบียนอุปกรณ์ไม่สำเร็จ · '+(error.message||error),'info');}finally{DEVICE_REQUESTS_LOADING=false;if(VIEW==='devices')RENDER.devices();buildNav();}
 }
 async function reviewDeviceRequest(id,decision){
   const row=DEVICE_REQUESTS.find(item=>item.id===id),label=decision==='approve'?'อนุมัติและเปิดใช้งาน':'ปฏิเสธ',reason=row?.request_reason||'ไม่ระบุ';if(!confirm(`${label}คำขออุปกรณ์นี้ใช่หรือไม่?\n\nเหตุผลของผู้ขอ: ${reason}`))return;

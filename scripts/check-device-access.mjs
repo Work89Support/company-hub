@@ -29,6 +29,7 @@ const checks = [
   ['non-approvers cannot see pending approval actions', /canReview = await isDeviceApprover[\s\S]*!canReview[\s\S]*requests: \[\]/, edge],
   ['named IT approval immediately approves the requested device', /decision === "approve"[\s\S]*status: "approved"[\s\S]*IT อนุมัติและเปิดใช้งานอุปกรณ์/, edge],
   ['waiting clients poll and enter immediately after approval', /state==='pending'[\s\S]*DEVICE_PENDING_POLL=setTimeout\(\(\)=>deviceGateAction\('retry'\),5000\)/, ui],
+  ['background device load refreshes an open device page', /finally\{DEVICE_REQUESTS_LOADING=false;if\(VIEW==='devices'\)RENDER\.devices\(\);buildNav\(\);\}/, ui],
   ['replacement requests require a written reason', /needs_change_reason[\s\S]*requestReason\.length < 10[\s\S]*request_reason: requestReason/, edge],
   ['device requests notify Telegram with their reason', /device_approval_requested[\s\S]*เหตุผล: \$\{requestReason\}/, edge],
   ['requests and outcomes use existing Telegram queue', /queue_telegram_notification[\s\S]*dispatch_telegram_notifications/, edge],
