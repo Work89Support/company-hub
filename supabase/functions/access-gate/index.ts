@@ -198,22 +198,9 @@ async function reviewDevice(admin: any, actor: any, body: Record<string, unknown
 
   const now = new Date().toISOString();
   if (decision === "approve") {
-    const oldDevices = await admin.from("user_access_devices").select("id")
-      .eq("profile_id", target.id).eq("status", "approved").neq("id", targetId);
-    if (oldDevices.error) throw oldDevices.error;
-    const oldIds = (oldDevices.data || []).map((row: any) => row.id);
-    if (oldIds.length) {
-      const blocked = await admin.from("user_access_devices").update({
-        status: "blocked", reviewed_at: now, review_note: "แทนที่ด้วยอุปกรณ์ที่อนุมัติใหม่",
-      }).in("id", oldIds);
-      if (blocked.error) throw blocked.error;
-      const revoked = await admin.from("user_access_grants").update({ revoked_at: now })
-        .in("device_id", oldIds).is("revoked_at", null);
-      if (revoked.error) throw revoked.error;
-    }
     const approved = await admin.from("user_access_devices").update({
       status: "approved", approved_by: actor.id, approved_at: now,
-      reviewed_at: now, review_note: "อนุมัติเปลี่ยนอุปกรณ์",
+      reviewed_at: now, review_note: "ผู้ดูแลอนุมัติอุปกรณ์เพิ่มเติม",
     }).eq("id", targetId);
     if (approved.error) throw approved.error;
   } else {
@@ -257,6 +244,7 @@ export default {
       const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
       const jwtBody = (accessToken.split(".")[1] || "").replace(/-/g, "+").replace(/_/g, "/");
       const claims = JSON.parse(atob(jwtBody + "=".repeat((4 - jwtBody.length % 4) % 4)));
+      const aal = String(claims.aal || "aal1");
       const { data: ready, error: readyError } = await admin.rpc("company_credentials_ready", { p_profile: actorId, p_iat: Number(claims.iat || 0) });
       if (readyError || !ready) return json({ allowed: false, reason: "กรุณาตั้งรหัสผ่านใหม่และเข้าสู่ระบบอีกครั้ง" });
 
@@ -329,35 +317,43 @@ export default {
         const expiresAt = await createGrant(admin, actorId, existing.data.id, ip);
         return json({ allowed: true, device_status: "approved", expires_at: expiresAt });
       }
-      if (existing.data?.status === "pending") return json({ allowed: false, state: "pending", reason: "ส่งคำขอแล้ว กำลังรอผู้มีสิทธิ์อนุมัติ", device_record_id: existing.data.id });
       if (existing.data?.status === "blocked") return json({ allowed: false, state: "blocked", reason: "อุปกรณ์นี้ถูกปฏิเสธหรือยกเลิกสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ" });
 
-      if (action === "status") {
-        return json({
-          allowed: false,
-          state: hasApproved ? "needs_change_confirmation" : "needs_initial_confirmation",
-          reason: hasApproved ? "ตรวจพบอุปกรณ์ใหม่ ต้องส่งคำขออนุมัติ" : "อุปกรณ์เครื่องแรกต้องได้รับอนุมัติก่อนเข้าสู่ระบบ",
-        });
-      }
+      if (aal !== "aal2") return json({
+        allowed: false,
+        state: "needs_mfa",
+        reason: "ยืนยัน 2FA เพื่อเพิ่มอุปกรณ์นี้ในบัญชีของคุณ",
+      });
 
-      if (action === "request_change" || action === "request_initial") {
-        const isInitial = !hasApproved;
+      const isInitial = !hasApproved;
+      let device = existing.data;
+      if (device?.status === "pending") {
+        const updated = await admin.from("user_access_devices").update({
+          status: "approved", request_kind: isInitial ? "initial" : "replacement",
+          approved_by: actorId, approved_at: now, reviewed_at: now,
+          review_note: "เจ้าของบัญชียืนยัน 2FA", device_label: label,
+          last_seen_ip: ip, last_seen_at: now, user_agent: userAgent.slice(0, 500),
+        }).eq("id", device.id).select("*").single();
+        if (updated.error) throw updated.error;
+        device = updated.data;
+      } else {
         const inserted = await admin.from("user_access_devices").insert({
           profile_id: actorId, device_key_hash: keyHash, device_label: label,
-          status: "pending", request_kind: isInitial ? "initial" : "replacement", requested_at: now,
+          status: "approved", request_kind: isInitial ? "initial" : "replacement", requested_at: now,
+          approved_by: actorId, approved_at: now, reviewed_at: now,
+          review_note: "เจ้าของบัญชียืนยัน 2FA",
           first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
         }).select("*").single();
         if (inserted.error) throw inserted.error;
-        const requestLabel = isInitial ? "ลงทะเบียนอุปกรณ์เครื่องแรก" : "เปลี่ยนอุปกรณ์";
-        await audit(admin, actorId, inserted.data.id, ip, "denied", `ส่งคำขอ${requestLabel} รออนุมัติ`, userAgent);
-        await queueTelegram(admin, isInitial ? "device_initial_requested" : "device_change_requested", `device-request:${inserted.data.id}`,
-          `📱 คำขอ${requestLabel} Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
-          `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์ใหม่: ${label}\n` +
-          `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\n` +
-          `ผู้ดูแลระบบเท่านั้นที่อนุมัติได้`);
-        return json({ allowed: false, state: "pending", reason: "ส่งคำขอแล้ว กำลังรอผู้มีสิทธิ์อนุมัติ", device_record_id: inserted.data.id });
+        device = inserted.data;
       }
-      return json({ allowed: false, error: "คำสั่งอุปกรณ์ไม่ถูกต้อง" });
+      const expiresAt = await createGrant(admin, actorId, device.id, ip);
+      await audit(admin, actorId, device.id, ip, "allowed", "เจ้าของบัญชียืนยัน 2FA และเพิ่มอุปกรณ์", userAgent);
+      await queueTelegram(admin, "device_mfa_registered", `device-mfa:${device.id}:${now}`,
+        `🔐 ยืนยัน 2FA และเพิ่มอุปกรณ์ Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
+        `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์: ${label}\n` +
+        `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`);
+      return json({ allowed: true, mfa_verified: true, device_status: "approved", expires_at: expiresAt });
     } catch (error) {
       console.error(error);
       return json({ allowed: false, error: error instanceof Error ? error.message : "Access Gate ผิดพลาด" }, 400);
