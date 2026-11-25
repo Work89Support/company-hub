@@ -210,4 +210,4 @@ if(!document.querySelector('link[data-staff-mobility]')){const link=document.cre
 if(!document.querySelector('script[data-staff-mobility]')){const script=document.createElement('script');script.src='staff-mobility-chat.js?v=20261121-chat-files-1';script.dataset.staffMobility='1';document.head.append(script);}
 
 // KPI department navigation and centralised Graphic account administration.
-if(!document.querySelector('script[data-access-consolidation]')){const script=document.createElement('script');script.src='access-consolidation.js?v=20261027-telegram-settings-1';script.dataset.accessConsolidation='1';document.head.append(script);}
+if(!document.querySelector('script[data-access-consolidation]')){const script=document.createElement('script');script.src='access-consolidation.js?v=20261125-account-search-1';script.dataset.accessConsolidation='1';document.head.append(script);}

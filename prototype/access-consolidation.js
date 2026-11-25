@@ -57,10 +57,10 @@
     return state===ACCOUNT_DIRECTORY_STATUS;
   }
 
-  renderAccountDirectory=function(){
+  renderAccountDirectory=function(resultsOnly=false){
     const full=ACCOUNT_REGISTRY.length?ACCOUNT_REGISTRY:ACCOUNT_LIST;
     ACCOUNT_LIST=full.filter(accountRegistryMatches);
-    try{baseRenderAccountDirectory();}
+    try{baseRenderAccountDirectory(resultsOnly);}
     finally{ACCOUNT_LIST=full;}
     document.querySelectorAll('[data-account-reset]').forEach(button=>{const row=full.find(item=>item.profile_id===button.dataset.accountReset);if(row?.source_key==='profile'){button.disabled=true;button.textContent='บัญชีอีเมลเดิม';button.title='บัญชีนี้ไม่ได้ใช้รหัสผ่าน Company Hub';}});
     const filters=document.querySelector('.account-filters');

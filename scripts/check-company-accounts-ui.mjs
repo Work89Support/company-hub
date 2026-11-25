@@ -26,6 +26,31 @@ ctx.VIEW='teamAccounts';await ctx.RENDER.teamAccounts();vm.runInContext(`ACCOUNT
 ctx.DEPTS=[{code:'CRM',name:'CRM'},{code:'GRAPHIC',name:'Graphic'}];ctx.ACCESS_USERS=[{id:'p1',display_name:'คนหนึ่ง',department_code:'CRM',position_title:'CRM Staff · หัวหน้า 2',role:'staff',active:true},{id:'p2',display_name:'คนสอง',department_code:'GRAPHIC',position_title:'Designer · รอง 1',role:'lead',active:true}];ctx.ACCESS_USER_DEPTS=[{profile_id:'p1',department_code:'CRM'},{profile_id:'p2',department_code:'GRAPHIC'},{profile_id:'p2',department_code:'CRM'}];vm.runInContext(`ACCOUNT_LIST=[{profile_id:'p1',login_name:'คนหนึ่ง (CRM)',contact_email:'one@example.com',must_change_password:false},{profile_id:'p2',login_name:'คนสอง (Graphic)',contact_email:'shared@example.com',must_change_password:true}];renderAccountDirectory();`,ctx);
 assert.equal(document.querySelectorAll('.account-dept-section').length,2);assert.ok(document.getElementById('account-directory').textContent.includes('CRM Staff'));assert.ok(document.getElementById('account-directory').textContent.includes('หัวหน้า'));assert.ok(!document.getElementById('account-directory').textContent.includes('หัวหน้า 2'));assert.ok(document.getElementById('account-directory').textContent.includes('รอตั้งรหัส'));assert.ok(document.getElementById('account-table-level'),'team account directory has a user type filter');document.getElementById('account-table-dept').value='CRM';document.getElementById('account-table-dept').onchange({target:document.getElementById('account-table-dept')});assert.equal(document.querySelectorAll('.account-sheet tbody tr:not(.account-level-group)').length,2,'multi-department account remains visible in CRM filter');document.getElementById('account-table-level').value='lead';document.getElementById('account-table-level').onchange({target:document.getElementById('account-table-level')});assert.equal(document.querySelectorAll('.account-sheet tbody tr:not(.account-level-group)').length,1,'head/staff filter narrows the employee list');
 vm.runInContext(`ACCOUNT_DIRECTORY_DEPT='';ACCOUNT_DIRECTORY_LEVEL='';ACCOUNT_LIST=[{profile_id:'p1',login_name:'คนหนึ่ง (CRM)',contact_email:'e6d2d9b5-941f-43bb-9a34-3d6e51ad0622@company-hub.invalid',must_change_password:false}];renderAccountDirectory();`,ctx);assert.ok(document.getElementById('account-directory').textContent.includes('ยังไม่มีอีเมลจริง'));assert.ok(document.getElementById('account-directory').textContent.includes('รอกรอกอีเมลจริง'));assert.ok(!document.getElementById('account-directory').textContent.includes('@company-hub.invalid'),'internal auth address is never displayed as employee email');
+const baseDirectory=ctx.renderAccountDirectory,baseTeamAccounts=ctx.RENDER.teamAccounts;
+Object.assign(ctx,{window,buildNav:()=>{},currentDept:()=>'',gpMemberAccounts:()=>''});
+vm.runInContext(fs.readFileSync(new URL('../prototype/access-consolidation.js',import.meta.url),'utf8'),ctx);
+ctx.ACCESS_USERS=[{id:'p1',display_name:'คนหนึ่ง',department_code:'CRM'},{id:'p2',display_name:'คนสอง',department_code:'GRAPHIC'}];
+vm.runInContext(`ACCOUNT_LIST=[
+ {profile_id:'p1',login_name:'คนหนึ่ง',contact_email:'one@example.com',must_change_password:false},
+ {profile_id:'p2',login_name:'คนสอง',contact_email:'two@example.com',must_change_password:true}
+];renderAccountDirectory();`,ctx);
+const search=document.getElementById('account-table-search'),accountStatus=document.getElementById('account-table-status');
+search.focus();
+for(const query of ['ค','คน','คนส','คนสอง','','o','on','one','ONE@example.com','nothing@example.com','']){
+ search.value=query;
+ search.setSelectionRange(query.length,query.length);
+ search.dispatchEvent(new window.Event('input',{bubbles:true}));
+ assert.equal(document.getElementById('account-table-search'),search,'search input survives each keystroke');
+ assert.equal(document.activeElement,search,'search keeps keyboard focus');
+ assert.equal(search.selectionStart,query.length,'cursor position is preserved');
+ assert.equal(search.value,query,'display preserves typed text and casing');
+ assert.equal(document.getElementById('account-table-status'),accountStatus,'status filter is retained');
+ const count=!query||query==='ค'||query==='คน'||query==='o'?2:query==='nothing@example.com'?0:1;
+ assert.equal(document.getElementById('account-directory-count').textContent,count+' บัญชี');
+}
+assert.equal(document.querySelectorAll('[data-account-reset]').length,3,'clearing search restores department rows');
+ctx.renderAccountDirectory=baseDirectory;
+ctx.RENDER.teamAccounts=baseTeamAccounts;
 ctx.showModal=html=>{ctx.modal.innerHTML=html;document.body.append(ctx.modal);};
 ctx.openAccountDuties(1);const duties=document.getElementById('account-duties');assert.ok(duties);assert.equal(duties.querySelector('[value=CRM]').disabled,true);duties.elements.position.value='CRM / Graphic';duties.querySelector('[value=GRAPHIC]').checked=true;document.getElementById('account-save-duties').click();assert.deepEqual(Array.from(vm.runInContext('ACCOUNT_CANDIDATES[1].department_codes',ctx)),['CRM','GRAPHIC']);assert.equal(vm.runInContext('ACCOUNT_CANDIDATES[1].duties_reviewed',ctx),true);
 const live=ctx.liveAccountCandidates([{employee_name:'ลีโอ',department_code:'CRM'},{employee_name:'ลีโอ🐯',department_code:'CRM'},{employee_name:'ผูกแล้ว',department_code:'CRM',employee_id:'u2'},{employee_name:'ใหม่',department_code:'CRM'}],[]);assert.equal(live.length,3);assert.equal(live.filter(r=>r.review_status==='review_identity').length,2,'variants require review; linked users are skipped');
