@@ -192,45 +192,66 @@ async function deleteDeviceHistory(admin: any, actor: any, body: Record<string, 
   return { allowed: true, deleted: true, was_active: device.data.status === "approved" };
 }
 
+function canReopenDevice(device: any) {
+  return device.status === "rejected" ||
+    (device.status === "blocked" && device.reviewed_at && device.review_note === "ปฏิเสธคำขออุปกรณ์");
+}
+
 async function reviewDevice(admin: any, actor: any, body: Record<string, unknown>, ip: string, userAgent: string) {
+  if (!await isDeviceApprover(admin, actor.id)) return { allowed: false, error: "เฉพาะคุณแม็ก คุณพี หรือ AMM เท่านั้นที่อนุมัติอุปกรณ์ได้" };
   const targetId = String(body.device_record_id || "");
   const decision = String(body.decision || "");
-  if (!/^[0-9a-f-]{36}$/i.test(targetId) || !["approve", "reject"].includes(decision)) {
+  const outcomes: Record<string, string> = {
+    approve: "อนุมัติและเปิดใช้งานแล้ว",
+    reject: "ปฏิเสธคำขอแล้ว",
+    return: "ส่งกลับให้แก้เหตุผลแล้ว",
+    reopen: "เปิดให้ส่งคำขอใหม่แล้ว",
+  };
+  if (!/^[0-9a-f-]{36}$/i.test(targetId) || !Object.hasOwn(outcomes, decision)) {
     return { allowed: false, error: "ข้อมูลการอนุมัติไม่ถูกต้อง" };
   }
-  const device = await admin.from("user_access_devices")
-    .select("id,profile_id,device_label,status,requested_at,request_reason").eq("id", targetId).maybeSingle();
-  if (device.error) throw device.error;
-  if (!device.data || device.data.status !== "pending") return { allowed: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
-  const target = await actorContext(admin, device.data.profile_id);
-  if (target.id === actor.id) return { allowed: false, error: "ไม่สามารถอนุมัติอุปกรณ์ของตนเอง" };
+  const note = cleanLine(body.review_note, "");
+  if (note.length > 500 || (!note && ["reject", "return"].includes(decision))) {
+    return { allowed: false, error: "กรุณาระบุหมายเหตุไม่เกิน 500 ตัวอักษร" };
+  }
 
-  if (!await isDeviceApprover(admin, actor.id)) return { allowed: false, error: "เฉพาะคุณแม็ก คุณพี หรือ AMM เท่านั้นที่อนุมัติอุปกรณ์ได้" };
+  const device = await admin.from("user_access_devices")
+    .select("id,profile_id,device_label,status,requested_at,request_reason,reviewed_at,review_note").eq("id", targetId).maybeSingle();
+  if (device.error) throw device.error;
+  const row = device.data;
+  if (!row || (decision === "reopen" ? !canReopenDevice(row) : row.status !== "pending") ||
+      (body.requested_at && body.requested_at !== row.requested_at)) {
+    return { allowed: false, error: "สถานะคำขอเปลี่ยนแล้ว กรุณาโหลดรายการใหม่" };
+  }
+  const target = await actorContext(admin, row.profile_id);
+  if (target.id === actor.id) return { allowed: false, error: "ไม่สามารถดำเนินการกับคำขออุปกรณ์ของตนเอง" };
 
   const now = new Date().toISOString();
-  if (decision === "approve") {
-    const approved = await admin.from("user_access_devices").update({
-      status: "approved", approved_by: actor.id, approved_at: now,
-      reviewed_at: now, review_note: "IT อนุมัติและเปิดใช้งานอุปกรณ์แล้ว",
-    }).eq("id", targetId);
-    if (approved.error) throw approved.error;
-  } else {
-    const rejected = await admin.from("user_access_devices").update({
-      status: "blocked", approved_by: null, approved_at: null,
-      reviewed_at: now, review_note: "ปฏิเสธคำขออุปกรณ์",
-    }).eq("id", targetId);
-    if (rejected.error) throw rejected.error;
-  }
-  await audit(admin, target.id, targetId, ip, decision === "approve" ? "allowed" : "denied",
-    decision === "approve" ? "IT อนุมัติและเปิดใช้งานอุปกรณ์" : "ผู้มีสิทธิ์ปฏิเสธอุปกรณ์ใหม่", userAgent);
-  const outcome = decision === "approve" ? "✅ อนุมัติและเปิดใช้งานแล้ว" : "❌ ปฏิเสธแล้ว";
+  const approved = decision === "approve";
+  const reviewNote = note || (decision === "reopen" ? "IT เปิดให้แก้เหตุผลและส่งคำขอใหม่" : "");
+  const updated = await admin.from("user_access_devices").update({
+    status: approved ? "approved" : decision === "reject" ? "rejected" : "revision_requested",
+    approved_by: approved ? actor.id : null,
+    approved_at: approved ? now : null,
+    reviewed_at: now,
+    review_note: reviewNote,
+  }).eq("id", targetId).eq("status", row.status).eq("requested_at", row.requested_at).select("id").maybeSingle();
+  if (updated.error) throw updated.error;
+  if (!updated.data) return { allowed: false, error: "สถานะคำขอเปลี่ยนแล้ว กรุณาโหลดรายการใหม่" };
+
+  const outcome = outcomes[decision];
+  await audit(admin, target.id, targetId, ip, approved ? "allowed" : "denied",
+    outcome + " · ผู้ดำเนินการ " + actor.id + " · เหตุผลเดิม: " + cleanLine(row.request_reason) +
+    (row.reviewed_at && row.review_note ? " · หมายเหตุก่อนหน้า: " + row.review_note : "") +
+    (reviewNote ? " · หมายเหตุ: " + reviewNote : ""), userAgent);
   await queueTelegram(admin, `device_${decision}`, `device-${decision}:${targetId}:${now}`,
     `${outcome} · คำขอเปลี่ยนอุปกรณ์ Company Hub\n` +
     `ผู้ใช้: ${cleanLine(target.display_name || target.email)}\n` +
     `ตำแหน่ง: ${cleanLine(target.position_title)}\n` +
     `แผนก: ${cleanLine(target.department_code)}\n` +
-    `อุปกรณ์: ${cleanLine(device.data.device_label)}\n` +
-    `เหตุผล: ${cleanLine(device.data.request_reason)}\n` +
+    `อุปกรณ์: ${cleanLine(row.device_label)}\n` +
+    `เหตุผล: ${cleanLine(row.request_reason)}\n` +
+    (reviewNote ? `หมายเหตุ IT: ${reviewNote}\n` : "") +
     `ดำเนินการโดย: ${cleanLine(actor.display_name || actor.email)}\n` +
     `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}`);
   return { allowed: true, reviewed: true, decision };
@@ -327,9 +348,14 @@ export default {
       if (existing.data?.status === "approved") {
         await admin.from("user_access_devices").update({ device_label: label, last_seen_ip: ip, last_seen_at: now, user_agent: userAgent.slice(0, 500) }).eq("id", existing.data.id);
         const expiresAt = await createGrant(admin, actorId, existing.data.id, ip);
-        return json({ allowed: true, device_status: "approved", expires_at: expiresAt });
+        return json({ allowed: true, device_status: "approved", expires_at: expiresAt, review_note: existing.data.review_note, reviewed_at: existing.data.reviewed_at });
       }
-      if (existing.data?.status === "blocked") return json({ allowed: false, state: "blocked", reason: "อุปกรณ์นี้ถูกปฏิเสธหรือยกเลิกสิทธิ์ กรุณาติดต่อผู้ดูแลระบบ" });
+      if (["blocked", "rejected"].includes(existing.data?.status)) return json({
+        allowed: false,
+        state: "blocked",
+        reason: "อุปกรณ์นี้ยังไม่ได้รับอนุญาต กรุณาติดต่อผู้ดูแลระบบ",
+        review_note: canReopenDevice(existing.data) ? existing.data.review_note : "",
+      });
 
       if (existing.data?.status === "pending") return json({
         allowed: false,
@@ -338,8 +364,16 @@ export default {
         request_reason: existing.data.request_reason || "",
       });
 
-      const isInitial = !hasApproved;
-      if (isInitial && action !== "request_initial") return json({
+      const revision = existing.data?.status === "revision_requested" ? existing.data : null;
+      const revisionState = {
+        allowed: false, state: "revision_requested",
+        request_reason: revision?.request_reason || "",
+        review_note: revision?.review_note || "",
+      };
+      if (revision && action !== "request_change") return json(revisionState);
+
+      const isInitial = revision ? revision.request_kind === "initial" : !hasApproved;
+      if (!revision && isInitial && action !== "request_initial") return json({
         allowed: false,
         state: "needs_initial_request",
         reason: "อุปกรณ์เครื่องนี้ยังไม่ได้ลงทะเบียน กรุณาส่งคำขอให้ IT อนุมัติ",
@@ -350,24 +384,31 @@ export default {
         reason: "บัญชีนี้มีอุปกรณ์ใช้งานอยู่แล้ว กรุณาระบุเหตุผลที่ต้องเพิ่มหรือเปลี่ยนเครื่อง",
       });
 
-      const requestReason = isInitial ? "ลงทะเบียนอุปกรณ์เครื่องแรก" : deviceChangeReason(body);
-      if (!isInitial && requestReason.length < 10) return json({
+      const requestReason = isInitial && !revision ? "ลงทะเบียนอุปกรณ์เครื่องแรก" : deviceChangeReason(body);
+      if ((revision || !isInitial) && requestReason.length < 10) return json(revision ? { ...revisionState, error: "กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร" } : {
         allowed: false,
         state: "needs_change_reason",
         reason: "กรุณาระบุเหตุผลที่เปลี่ยนเครื่องอย่างน้อย 10 ตัวอักษร",
       });
-      const inserted = await admin.from("user_access_devices").insert({
-        profile_id: actorId, device_key_hash: keyHash, device_label: label,
+      const pendingFields = {
         status: "pending", request_kind: isInitial ? "initial" : "replacement",
         request_reason: requestReason, requested_at: now,
-        review_note: "รอคุณแม็ก คุณพี หรือ AMM อนุมัติอุปกรณ์",
-        first_seen_ip: ip, last_seen_ip: ip, user_agent: userAgent.slice(0, 500),
-      }).select("*").single();
-      if (inserted.error) throw inserted.error;
-      const device = inserted.data;
-      await audit(admin, actorId, device.id, ip, "denied", `ส่งคำขออุปกรณ์: ${requestReason}`, userAgent);
+        reviewed_at: null, review_note: "",
+        device_label: label, last_seen_ip: ip, last_seen_at: now, user_agent: userAgent.slice(0, 500),
+      };
+      const saved = revision
+        ? await admin.from("user_access_devices").update(pendingFields)
+          .eq("id", revision.id).eq("status", "revision_requested")
+          .eq("requested_at", revision.requested_at).eq("reviewed_at", revision.reviewed_at).select("id").maybeSingle()
+        : await admin.from("user_access_devices").insert({
+          ...pendingFields, profile_id: actorId, device_key_hash: keyHash, first_seen_ip: ip,
+        }).select("id").single();
+      if (saved.error) throw saved.error;
+      if (!saved.data) return json({ allowed: false, error: "สถานะคำขอเปลี่ยนแล้ว กรุณาโหลดหน้าใหม่" });
+      const device = saved.data;
+      await audit(admin, actorId, device.id, ip, "denied", `${revision ? "ส่งคำขออุปกรณ์ใหม่" : "ส่งคำขออุปกรณ์"}: ${requestReason}`, userAgent);
       await queueTelegram(admin, "device_approval_requested", `device-approval-requested:${device.id}:${now}`,
-        `📱 คำขออนุมัติอุปกรณ์ Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
+        `📱 ${revision ? "ส่งคำขอใหม่" : "คำขออนุมัติอุปกรณ์"} Company Hub\nผู้ใช้: ${cleanLine(actor.display_name || actor.email)}\n` +
         `ตำแหน่ง: ${cleanLine(actor.position_title)}\nแผนก: ${cleanLine(actor.department_code)}\nอุปกรณ์: ${label}\n` +
         `ประเภท: ${isInitial ? "ลงทะเบียนเครื่องแรก" : "เพิ่ม/เปลี่ยนเครื่อง"}\nเหตุผล: ${requestReason}\n` +
         `เวลา: ${new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}\nผู้อนุมัติ: คุณแม็ก คุณพี หรือ AMM เท่านั้น`);

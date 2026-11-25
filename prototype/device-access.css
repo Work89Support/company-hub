@@ -16,3 +16,6 @@
 @media(max-width:640px){.device-gate-card{padding:22px;border-radius:18px}.device-gate-card h2{font-size:20px}.device-request-card{grid-template-columns:1fr}.device-request-actions{width:100%}.device-request-actions button{flex:1}}
 @media(max-width:980px){.device-registry-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.device-registry-filters{grid-template-columns:1fr 1fr}.device-registry-filters input{grid-column:1/-1}}
 @media(max-width:760px){.device-registry-person summary,.device-record{align-items:flex-start}.device-record{flex-direction:column}.device-person-state{font-size:12px}.device-record-actions{width:100%;justify-content:space-between}}
+.device-request-review{width:min(100%,430px)}
+.device-request-review .device-change-reason{margin-top:0}
+.device-request-review .device-request-actions{margin-top:10px;flex-wrap:wrap}
