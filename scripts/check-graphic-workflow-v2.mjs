@@ -41,7 +41,7 @@ assert.match(source,/brief=gpNormalizeBriefInput\(val\('gbBrief'\)\)/,'graphic b
 assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\?\/g,'\\n'\)/,'brief line endings are normalized without collapsing newlines');
 assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic detail preserves line breaks while rendering safe links');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
-assert.match(html,/graphic-production-v2\.js\?v=20261122-document-preview-1/,'graphic document preview release is cache-busted');
+assert.match(html,/graphic-production-v2\.js\?v=20261127-graphic-link-author-1/,'graphic link author release is cache-busted');
 assert.match(html,/core-app-views\.js\?v=20261122-move-without-final-1/,'legacy-card completion fix is cache-busted');
 assert.match(html,/department-workflows\.css\?v=20261122-graphic-font-desktop-1/,'desktop graphic typography release is cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
@@ -90,3 +90,5 @@ assert.match(deleteMigration,/using \(public\.can_edit_graphic_job\(id\)\)/,'dat
 assert.match(migration,/not exists\(select 1 from public\.profiles p where p\.id=m\.linked_profile_id and p\.active\)/,'inactive profile links are cleared');
 
 console.log('PASS Graphic Production personal scope, account ownership, checklist permissions, private brief images and editable delivery links');
+
+assert.match(source,/gpProfileName\(file\.created_by\)/,'final link attribution uses the recorded author');
