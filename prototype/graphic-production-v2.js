@@ -218,6 +218,34 @@
   async function hydratePrivatePreviews(){
     for(const img of document.querySelectorAll('[data-graphic-storage]')){const file=GRAPHIC_FILES.find(f=>f.id===img.dataset.graphicStorage);if(!file)continue;try{img.src=await signedFileUrl(file);if(!img.src)graphicPreviewFallback(img);}catch{graphicPreviewFallback(img);}}
   }
+  function groupGraphicFinalFiles(rows,files){
+    const groups=new Map();
+    rows.forEach((row,index)=>{
+      const file=files[index];
+      if(file?.file_type!=='final')return;
+      const account=file.created_by||null;
+      if(!groups.has(account))groups.set(account,[]);
+      groups.get(account).push(row);
+    });
+    if(!groups.size)return;
+
+    const section=document.createElement('section');
+    section.className='gp-final-groups';
+    const title=document.createElement('h4');
+    title.textContent='ไฟล์ส่งงานตามผู้ส่ง';
+    section.append(title);
+    rows.at(-1).after(section);
+
+    for(const [account,links] of groups){
+      const group=document.createElement('section');
+      group.className='gp-final-group';
+      const heading=document.createElement('h5');
+      const author=account&&(gpProfileName(account)||USERS[account]?.n);
+      heading.textContent=author?'ส่งโดย '+author:account?'ไม่พบชื่อบัญชีผู้ส่ง':'ไม่ระบุผู้ส่ง';
+      group.append(heading,...links);
+      section.append(group);
+    }
+  }
   function enhanceJobModal(id){
     const job=GRAPHIC_JOBS.find(j=>j.id===id),files=gpJobFiles(id),checks=gpJobChecks(id),editable=canEditJob(job),pad=document.querySelector('#modal .pad');if(!pad)return;
     const header=document.querySelector('#modal .modal-h'),closeButton=header?.querySelector('.x');
@@ -229,14 +257,7 @@
     const fileField=[...pad.querySelectorAll('.field')].find(x=>x.querySelector('label')?.textContent.startsWith('ไฟล์งาน'));
     if(fileField){
       const rows=[...fileField.querySelectorAll('.gp-file-row')];rows.forEach((row,i)=>{const f=files[i];if(!f)return;const tag=row.querySelector('.tag');if(tag)tag.textContent=FILE_LABEL[f.file_type]||f.file_type;const link=row.querySelector('a'),previewable=gpPreviewable(f),isImage=gpImageLike(f);if(previewable&&link){const b=document.createElement('button');b.className='gp-file-link';b.textContent=isImage?(f.name||'เปิดภาพ'):`พรีวิว ${f.name||'เอกสาร'}`;b.onclick=()=>openGraphicFile(f.id);link.replaceWith(b);}if(f.storage_path&&isImage){const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.dataset.graphicStorage=f.id;img.dataset.previewLink=f.url||'';img.alt=`พรีวิว ${f.name||'ภาพอ้างอิง'}`;img.tabIndex=0;img.setAttribute('role','button');img.setAttribute('aria-label',`พรีวิวภาพ ${f.name||'ภาพอ้างอิง'}`);img.onclick=()=>openGraphicPreview(f.id);img.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openGraphicPreview(f.id);}};img.onerror=()=>graphicPreviewFallback(img);row.prepend(img);}else if(isImage&&!row.querySelector('img')){const img=document.createElement('img');img.className='gp-file-preview gp-file-preview-large';img.src=f.preview_url||f.url;img.alt=`ภาพตัวอย่าง ${f.name||'ไฟล์งาน'}`;img.referrerPolicy='no-referrer';img.dataset.previewLink=f.url||img.src;img.tabIndex=0;img.setAttribute('role','button');img.setAttribute('aria-label',`พรีวิวภาพ ${f.name||'ภาพอ้างอิง'}`);img.onclick=()=>openGraphicPreview(f.id);img.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openGraphicPreview(f.id);}};img.onerror=()=>graphicPreviewFallback(img);row.prepend(img);}else if(previewable){const doc=document.createElement('button');doc.type='button';doc.className=`gp-document-preview is-${gpFileKind(f)}`;doc.innerHTML=`<span>${gpFileKind(f)==='pdf'?'PDF':gpFileKind(f)==='word'?'DOC':gpFileKind(f)==='excel'?'XLS':gpFileKind(f)==='powerpoint'?'PPT':'FILE'}</span><small>กดเพื่อพรีวิว</small>`;doc.onclick=()=>openGraphicPreview(f.id);row.prepend(doc);}if(editable){const actions=document.createElement('div');actions.className='gp-file-actions';actions.innerHTML=`<button class="tbtn sm" onclick="editGraphicFile('${f.id}')">แก้ไข</button><button class="tbtn sm danger" onclick="deleteGraphicFile('${f.id}')">ลบ</button>`;row.append(actions);}});
-      rows.forEach((row,index)=>{
-        const file=files[index],meta=row.querySelector('.gp-meta');
-        if(file?.file_type!=='final'||!meta)return;
-        const author=gpProfileName(file.created_by);
-        const byline=document.createElement('div');
-        byline.textContent=author?'บันทึกลิงก์โดย '+author:file.created_by?'ไม่พบชื่อผู้บันทึกลิงก์':'ไม่ระบุผู้บันทึกลิงก์';
-        meta.append(byline);
-      });
+      groupGraphicFinalFiles(rows,files);
       const fileType=fileField.querySelector('#gjFileType');if(fileType){fileType.value='final';fileType.hidden=true;fileType.setAttribute('aria-hidden','true');fileType.insertAdjacentHTML('afterend','<span class="tag">ลิงก์ที่เพิ่มจะบันทึกเป็นไฟล์ Final</span>');}
       if(editable){fileField.insertAdjacentHTML('beforeend',`<div class="gp-upload-box"><label>แนบภาพอ้างอิงเพิ่ม</label><input class="fin" id="gjImages" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple><button class="tbtn sm" onclick="uploadGraphicJobImages('${id}')">อัปโหลดภาพ</button></div>`);}
     }

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {Window} from 'happy-dom';
 
 const source=fs.readFileSync(new URL('../prototype/graphic-production-v2.js',import.meta.url),'utf8');
 const html=fs.readFileSync(new URL('../prototype/index.html',import.meta.url),'utf8');
@@ -41,7 +42,7 @@ assert.match(source,/brief=gpNormalizeBriefInput\(val\('gbBrief'\)\)/,'graphic b
 assert.match(source,/function gpNormalizeBriefInput\(value\).*replace\(\/\\r\\n\?\/g,'\\n'\)/,'brief line endings are normalized without collapsing newlines');
 assert.match(source,/briefValue\.innerHTML=gpBriefHtml\(job\.brief\)/,'graphic detail preserves line breaks while rendering safe links');
 assert.match(source,/text\.replace\(\/\\s\+\(\?=\(\?:\\d\+\[\.\)\]\|\[-•\]\)/,'legacy numbered lists are restored conservatively for display');
-assert.match(html,/graphic-production-v2\.js\?v=20261127-graphic-link-author-1/,'graphic link author release is cache-busted');
+assert.match(html,/graphic-production-v2\.js\?v=20261127-graphic-sender-groups-1/,'graphic sender groups release is cache-busted');
 assert.match(html,/core-app-views\.js\?v=20261122-move-without-final-1/,'legacy-card completion fix is cache-busted');
 assert.match(html,/department-workflows\.css\?v=20261122-graphic-font-desktop-1/,'desktop graphic typography release is cache-busted');
 const shell=fs.readFileSync(new URL('../prototype/core-app-shell.js',import.meta.url),'utf8');
@@ -91,4 +92,23 @@ assert.match(migration,/not exists\(select 1 from public\.profiles p where p\.id
 
 console.log('PASS Graphic Production personal scope, account ownership, checklist permissions, private brief images and editable delivery links');
 
-assert.match(source,/gpProfileName\(file\.created_by\)/,'final link attribution uses the recorded author');
+const document=new Window().document;
+document.body.innerHTML='<div id="files"><p>ไฟล์งาน</p>'+['Reference','A1','B1','A2','Old','Other department','Missing profile','C1'].map(name=>`<div class="gp-file-row"><a href="https://example.com/${name}">${name}</a></div>`).join('')+'<input id="add-link"></div>';
+const rows=[...document.querySelectorAll('.gp-file-row')];
+const files=[
+  {file_type:'reference',created_by:'a'}, {file_type:'final',created_by:'a'},
+  {file_type:'final',created_by:'b'}, {file_type:'final',created_by:'a'},
+  {file_type:'final',created_by:null}, {file_type:'final',created_by:'other'},
+  {file_type:'final',created_by:'missing'},
+  {file_type:'final',created_by:'c'},
+];
+const groupHelper=source.slice(source.indexOf('  function groupGraphicFinalFiles('),source.indexOf('  function enhanceJobModal('));
+const context=vm.createContext({document,rows,files,USERS:{other:{n:'Other User'}},gpProfileName:id=>({a:'Alex',b:'Bee',c:'Alex'})[id]||''});
+vm.runInContext(groupHelper+';groupGraphicFinalFiles(rows,files);',context);
+assert.deepEqual([...document.querySelectorAll('.gp-final-group')].map(group=>[
+  group.querySelector('h5').textContent,[...group.querySelectorAll('a')].map(link=>link.textContent),
+]),[['ส่งโดย Alex',['A1','A2']],['ส่งโดย Bee',['B1']],['ไม่ระบุผู้ส่ง',['Old']],['ส่งโดย Other User',['Other department']],['ไม่พบชื่อบัญชีผู้ส่ง',['Missing profile']],['ส่งโดย Alex',['C1']]]);
+assert.equal(rows[0].parentElement.id,'files','references remain outside submission groups');
+assert.equal(rows[3].querySelector('a').href,'https://example.com/A2','moving a row preserves its link');
+assert.equal(document.querySelector('.gp-final-groups').nextElementSibling.id,'add-link','the form stays after the grouped rows');
+assert.match(source,/groupGraphicFinalFiles\(rows,files\);/,'the card detail renders grouped final links');
