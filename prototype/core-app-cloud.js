@@ -315,7 +315,7 @@ async function sbInit(){
     return;                                    /* Production fail-closed: ห้ามเปิดข้อมูล local/demo */
   }
   try{
-    SB=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+    SB=window.supabase.createClient(SUPA_URL,SUPA_KEY,{global:{fetch:deviceGrantFetch}});
     showLogin();  /* แสดงหน้าล็อกอินทันที กันไม่ให้เข้าถึงระบบก่อนยืนยันตัวตน */
     SB.auth.onAuthStateChange(function(_e,sess){ if(sess&&sess.user) onLoggedIn(sess); });
     var r=await SB.auth.getSession();

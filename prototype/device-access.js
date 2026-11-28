@@ -35,6 +35,38 @@ async function deviceAccessCall(action,extra={}){
   if(result.data?.error)throw new Error(result.data.error);
   return result.data||{};
 }
+let DEVICE_GRANT_REFRESH=null,DEVICE_GRANT_VERSION=0;
+function refreshDeviceGrant(){
+  if(!DEVICE_GRANT_REFRESH){
+    DEVICE_GRANT_REFRESH=deviceAccessCall('status').then(result=>{
+      if(result.allowed===true)DEVICE_GRANT_VERSION++;
+      return result;
+    }).finally(()=>{DEVICE_GRANT_REFRESH=null;});
+  }
+  return DEVICE_GRANT_REFRESH;
+}
+async function deviceGrantFetch(input,init){
+  const url=new URL(input instanceof Request?input.url:input,location.href);
+  if(url.origin!==new URL(SUPA_URL).origin||!url.pathname.startsWith('/rest/v1/')||init?.body?.getReader){
+    return fetch(input,init);
+  }
+  const version=DEVICE_GRANT_VERSION;
+  const replay=input instanceof Request?input.clone():input;
+  const response=await fetch(input,init);
+  if(response.status!==403)return response;
+
+  // The database pre-request guard rejects before executing the query or mutation.
+  const error=await response.clone().json().catch(()=>null);
+  if(error?.code!=='42501'||error.message!=='DEVICE_OR_IP_ACCESS_REQUIRED')return response;
+  if(init?.signal?.aborted||(input instanceof Request&&input.signal.aborted)||!deviceCookieValue())return response;
+  if(version===DEVICE_GRANT_VERSION){
+    const result=await refreshDeviceGrant().catch(()=>null);
+    if(result?.allowed!==true)return response;
+  }
+  if(init?.signal?.aborted||(input instanceof Request&&input.signal.aborted))return response;
+  return fetch(replay,init);
+}
+
 function ensureDeviceGateMarkup(){
   let root=document.getElementById('deviceGateBg');if(root)return root;
   root=document.createElement('div');root.id='deviceGateBg';root.className='device-gate-bg';root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.setAttribute('aria-labelledby','deviceGateTitle');root.innerHTML='<div class="device-gate-card" id="deviceGateCard" tabindex="-1"></div>';
@@ -81,7 +113,7 @@ async function ensureDeviceAccess(){
   else showDeviceGate(data.state||'blocked',data);return new Promise(resolve=>{DEVICE_GATE_WAITER=resolve;});
 }
 function startDeviceHeartbeat(){
-  clearInterval(DEVICE_HEARTBEAT);DEVICE_HEARTBEAT=setInterval(async()=>{try{const data=await deviceAccessCall('status');if(!data.allowed){clearInterval(DEVICE_HEARTBEAT);await SB.auth.signOut();location.reload();}}catch(error){console.warn('device heartbeat',error.message||error);}},5*60*1000);
+  clearInterval(DEVICE_HEARTBEAT);DEVICE_HEARTBEAT=setInterval(async()=>{try{const data=await refreshDeviceGrant();if(!data.allowed){clearInterval(DEVICE_HEARTBEAT);await SB.auth.signOut();location.reload();}}catch(error){console.warn('device heartbeat',error.message||error);}},5*60*1000);
 }
 
 async function loadDeviceRequests(render=true){
